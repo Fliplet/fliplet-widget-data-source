@@ -41,6 +41,15 @@ $('#app')
       return source.find();
     }).then(function (rows) {
       var tableTpl = '';
+
+      if (!rows.length) {
+        return;
+      }
+
+      var tableHead = '<thead>' + Object.keys(rows[0]).map(function (column) {
+        return '<th>' + column + '</th>';
+      }) + '</thead>';
+
       rows.forEach(function (row) {
         var tpl = '';
         Object.keys(row).forEach(function (key) {
@@ -49,7 +58,7 @@ $('#app')
         tableTpl += '<tr>' + tpl + '</tr>';
       });
 
-      tableTpl = '<table><tbody>' + tableTpl + '</tbody></table>';
+      tableTpl = '<table class="table">' + tableHead + '<tbody>' + tableTpl + '</tbody></table>';
 
       $contents.append(tableTpl);
     });
