@@ -1,6 +1,6 @@
-# Fliplet Data Source Provider
+# Fliplet Data Sources Manager (Provider)
 
-Use as a provider:
+Use as a provider to manage your data sources:
 
 ```
 Fliplet.Widget.open('com.fliplet.data-sources');

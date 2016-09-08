@@ -1,4 +1,4 @@
-var $dataSourcesList = $('#datasources-list');
+var $contents = $('#contents');
 var templates = {
   dataSource: template('dataSource')
 };
@@ -11,13 +11,13 @@ function template(name) {
 // Fetch all data sources
 function getDataSources(folderId) {
   Fliplet.DataSources.get().then(function (response) {
-    response.dataSources.forEach(addDataSource);
+    response.dataSources.forEach(renderDataSource);
   });
 }
 
 // Append a data source to the DOM
-function addDataSource(data) {
-  $dataSourcesList.append(templates.dataSource(data));
+function renderDataSource(data) {
+  $contents.append(templates.dataSource(data));
 }
 
 // events
@@ -44,7 +44,7 @@ $('#app')
 
     Fliplet.DataSources.create({
       name: sourceName
-    }).then(addDataSource);
+    }).then(renderDataSource);
   });
 
 // Fetch data sources when the provider starts
