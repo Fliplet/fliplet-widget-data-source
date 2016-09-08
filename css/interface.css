@@ -3,11 +3,11 @@
   padding: 20px;
 }
 
-.mce-content-body table {
+.mce-item-table {
   width: 100%;
 }
 
-.mce-content-body table tr:first-child td {
+.mce-item-table tr:first-child td {
   background-color: #EEE;
   font-weight: bold;
   min-width: 50px;

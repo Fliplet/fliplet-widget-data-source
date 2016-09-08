@@ -7,6 +7,7 @@ var templates = {
 
 var currentDataSource;
 var currentDataSourceId;
+var currentEditor;
 
 var tinyMCEConfiguration = {
   menubar: false,
@@ -31,6 +32,10 @@ function template(name) {
 
 // Fetch all data sources
 function getDataSources(folderId) {
+  if (tinymce.editors.length) {
+    tinymce.editors[0].remove();
+  }
+
   $contents.html('<button data-create-source class="btn btn-primary">Create new </button><hr />');
   Fliplet.DataSources.get().then(function (response) {
     response.dataSources.forEach(renderDataSource);
@@ -61,8 +66,28 @@ function fetchCurrentDataSourceEntries() {
     var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
 
     $tableContents.html(tableTpl);
-    $tableContents.tinymce(tinyMCEConfiguration);
+    currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
   });
+}
+
+Fliplet.Widget.onSaveRequest(function () {
+  saveCurrentData().then(Fliplet.Widget.complete);
+});
+
+function saveCurrentData() {
+  if (!tinymce.editors.length) {
+    return Promise.resolve();
+  }
+
+  var $table = $('<div>' + tinymce.editors[0].getContent() + '</div>');
+
+  // Append the table to the dom so "tableToJSON" works fine
+  $table.css('visibility', 'hidden');
+  $('body').append($table)
+
+  var tableRows = $table.find('table').tableToJSON();
+
+  return currentDataSource.replaceWith(tableRows);
 }
 
 // Append a data source to the DOM
@@ -74,7 +99,9 @@ function renderDataSource(data) {
 $('#app')
   .on('click', '[data-back]', function (event) {
     event.preventDefault();
-    getDataSources();
+    saveCurrentData().then(function () {
+      getDataSources();
+    })
   })
   .on('click', '[data-browse-source]', function (event) {
     event.preventDefault();
