@@ -10,6 +10,7 @@ function template(name) {
 
 // Fetch all data sources
 function getDataSources(folderId) {
+  $contents.html('');
   Fliplet.DataSources.get().then(function (response) {
     response.dataSources.forEach(renderDataSource);
   });
@@ -22,9 +23,18 @@ function renderDataSource(data) {
 
 // events
 $('#app')
+  .on('click', '[data-back]', function (event) {
+    event.preventDefault();
+    getDataSources();
+  })
   .on('click', '[data-browse-source]', function (event) {
     event.preventDefault();
-    browseDataSource($(this).closest('li').data('id'));
+    var id = $(this).closest('li').data('id');
+    var name = $(this).html();
+
+    $contents.html('');
+    $contents.append('<a href="#" data-back>Back to data sources</a>');
+    $contents.append('<h1>' + name + '</h1>');
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
