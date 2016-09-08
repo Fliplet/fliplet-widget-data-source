@@ -2,26 +2,22 @@ var $dataSourcesList = $('#datasources-list');
 var templates = {
   dataSource: template('dataSource')
 };
-var currentFolderId;
-var currentFiles;
 
+// Function to compile a Handlebars template
+function template(name) {
+  return Handlebars.compile($('#template-' + name).html());
+}
+
+// Fetch all data sources
 function getDataSources(folderId) {
   Fliplet.DataSources.get().then(function (response) {
     response.dataSources.forEach(addDataSource);
   });
 }
 
-function addDataSource(dataSource) {
-  $dataSourcesList.append(templates.dataSource(dataSource));
-}
-
-function addFile(file) {
-  currentFiles.push(file);
-  $dataSourcesList.append(templates.file(file));
-}
-
-function template(name) {
-  return Handlebars.compile($('#template-' + name).html());
+// Append a data source to the DOM
+function addDataSource(data) {
+  $dataSourcesList.append(templates.dataSource(data));
 }
 
 // events
@@ -51,5 +47,5 @@ $('#app')
     }).then(addDataSource);
   });
 
-// init
+// Fetch data sources when the provider starts
 getDataSources();
