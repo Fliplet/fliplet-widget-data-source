@@ -7,6 +7,8 @@
   "provider_only": true,
   "interface": {
     "dependencies": [
+      "jquery",
+      "tinymce",
       "fliplet-datasources",
       "fliplet-studio-ui"
     ],

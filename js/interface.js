@@ -1,10 +1,28 @@
 var $contents = $('#contents');
+var $tableContents;
+
 var templates = {
   dataSource: template('dataSource')
 };
 
 var currentDataSource;
 var currentDataSourceId;
+
+var tinyMCEConfiguration = {
+  menubar: false,
+  statusbar: false,
+  inline: true,
+  valid_elements : "tr,th,td[colspan|rowspan],thead,tbody,table,tfoot",
+  valid_styles: {},
+  plugins: "paste, table",
+  gecko_spellcheck: true,
+  toolbar: "table",
+  height: "317px",
+  resize: false,
+  paste_auto_cleanup_on_paste : false,
+  paste_remove_styles: true,
+  paste_remove_styles_if_webkit: true
+};
 
 // Function to compile a Handlebars template
 function template(name) {
@@ -28,19 +46,22 @@ function fetchCurrentDataSourceEntries() {
       return;
     }
 
-    var tableHead = '<thead>' + Object.keys(rows[0]).map(function (column) {
-      return '<th>' + column + '</th>';
-    }).join('') + '</thead>';
+    var $entries = $contents.find('#entries');
 
-    var tableBody = '<tbody>' + rows.map(function (row) {
+    var tableHead = '<tr>' + Object.keys(rows[0]).map(function (column) {
+      return '<td>' + column + '</td>';
+    }).join('') + '</tr>';
+
+    var tableBody = rows.map(function (row) {
       return '<tr>' + Object.keys(row).map(function (key) {
         return '<td>' + row[key] + '</td>';
       }).join('') + '</tr>';
-    }).join('') + '</tbody>';
+    }).join('');
 
-    tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
+    var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
 
-    $contents.find('#entries').html(tableTpl);
+    $tableContents.html(tableTpl);
+    $tableContents.tinymce(tinyMCEConfiguration);
   });
 }
 
@@ -60,10 +81,15 @@ $('#app')
     currentDataSourceId = $(this).closest('li').data('id');
     var name = $(this).html();
 
+    // Prepare the html
     $contents.html('');
     $contents.append('<a href="#" data-back>Back to data sources</a>');
     $contents.append('<h1>' + name + '</h1>');
-    $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
+    $contents.append('<div class="table-contents"></div>');
+    $tableContents = $contents.find('.table-contents');
+
+    // Input file temporarily disabled
+    // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
     fetchCurrentDataSourceEntries();
   })
