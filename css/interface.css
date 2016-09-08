@@ -12,3 +12,7 @@
   font-weight: bold;
   min-width: 50px;
 }
+
+.mce-item-table tr td {
+  padding: 10px 8px;
+}
