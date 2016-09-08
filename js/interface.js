@@ -10,7 +10,7 @@ function template(name) {
 
 // Fetch all data sources
 function getDataSources(folderId) {
-  $contents.html('');
+  $contents.html('<button data-create-source class="btn btn-primary">Create new </button><hr />');
   Fliplet.DataSources.get().then(function (response) {
     response.dataSources.forEach(renderDataSource);
   });
