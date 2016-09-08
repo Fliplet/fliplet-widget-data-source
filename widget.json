@@ -1,0 +1,23 @@
+{
+  "name": "File Manager",
+  "package": "com.fliplet.data-sources",
+  "version": "1.0.0",
+  "icon": "img/icon.png",
+  "tags": ["category:general"],
+  "provider_only": true,
+  "interface": {
+    "dependencies": [
+      "fliplet-datasources",
+      "fliplet-studio-ui"
+    ],
+    "assets": [
+      "vendor/handlebars.js",
+      "js/interface.js",
+      "css/interface.css"
+    ]
+  },
+  "build": {
+    "dependencies": [],
+    "assets": []
+  }
+}

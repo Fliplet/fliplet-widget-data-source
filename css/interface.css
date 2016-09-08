@@ -1,0 +1,16 @@
+#folder-contents {
+  display: flex;
+  list-style: none;
+}
+
+#folder-contents li {
+  width: 150px;
+  background-color: #EEE;
+  margin: 0 20px 20px 0;
+  padding: 20px;
+}
+
+.folder h3, .file h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
