@@ -31,12 +31,13 @@ function template(name) {
 }
 
 // Fetch all data sources
-function getDataSources(folderId) {
+function getDataSources() {
   if (tinymce.editors.length) {
     tinymce.editors[0].remove();
   }
 
   $contents.html('<button data-create-source class="btn btn-primary">Create new </button><hr />');
+
   Fliplet.DataSources.get().then(function (dataSources) {
     dataSources.forEach(renderDataSource);
   });
