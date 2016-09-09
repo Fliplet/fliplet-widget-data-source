@@ -37,8 +37,8 @@ function getDataSources(folderId) {
   }
 
   $contents.html('<button data-create-source class="btn btn-primary">Create new </button><hr />');
-  Fliplet.DataSources.get().then(function (response) {
-    response.dataSources.forEach(renderDataSource);
+  Fliplet.DataSources.get().then(function (dataSources) {
+    dataSources.forEach(renderDataSource);
   });
 }
 
