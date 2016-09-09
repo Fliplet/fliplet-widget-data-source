@@ -36,7 +36,7 @@ function getDataSources() {
     tinymce.editors[0].remove();
   }
 
-  $contents.html('<button data-create-source class="btn btn-primary">Create new </button><hr />');
+  $contents.html('<button data-create-source class="btn btn-primary">Create new table</button><hr />');
 
   Fliplet.DataSources.get().then(function (dataSources) {
     dataSources.forEach(renderDataSource);
@@ -131,7 +131,7 @@ $('#app')
   })
   .on('click', '[data-create-source]', function (event) {
     event.preventDefault();
-    var sourceName = prompt('Type data source name');
+    var sourceName = prompt('Please type the new table name:');
 
     if (!sourceName) {
       return;
