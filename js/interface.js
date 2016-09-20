@@ -1,7 +1,9 @@
 var $contents = $('#contents');
+var $dataSources;
 var $tableContents;
 
 var templates = {
+  dataSources: template('dataSources'),
   dataSource: template('dataSource')
 };
 
@@ -17,9 +19,10 @@ var tinyMCEConfiguration = {
   valid_styles: {},
   plugins: "paste, table",
   gecko_spellcheck: true,
-  toolbar: "table",
-  height: "317px",
-  resize: false,
+  toolbar: false,
+  // contextmenu: "tableprops | cell row column",
+  // table_toolbar: "",
+  object_resizing: false,
   paste_auto_cleanup_on_paste : false,
   paste_remove_styles: true,
   paste_remove_styles_if_webkit: true
@@ -36,7 +39,8 @@ function getDataSources() {
     tinymce.editors[0].remove();
   }
 
-  $contents.html('<button data-create-source class="btn btn-primary">Create new table</button><hr />');
+  $contents.html(templates.dataSources());
+  $dataSources = $('#data-sources > tbody');
 
   Fliplet.DataSources.get().then(function (dataSources) {
     dataSources.forEach(renderDataSource);
@@ -93,7 +97,7 @@ function saveCurrentData() {
 
 // Append a data source to the DOM
 function renderDataSource(data) {
-  $contents.append(templates.dataSource(data));
+  $dataSources.append(templates.dataSource(data));
 }
 
 // events
@@ -106,12 +110,12 @@ $('#app')
   })
   .on('click', '[data-browse-source]', function (event) {
     event.preventDefault();
-    currentDataSourceId = $(this).closest('li').data('id');
-    var name = $(this).html();
+    currentDataSourceId = $(this).closest('.data-source').data('id');
+    var name = $(this).closest('.data-source').find('.data-source-name').text();
 
     // Prepare the html
     $contents.html('');
-    $contents.append('<a href="#" data-back>Back to data sources</a>');
+    $contents.append('<a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a>');
     $contents.append('<h1>' + name + '</h1>');
     $contents.append('<div class="table-contents"></div>');
     $tableContents = $contents.find('.table-contents');
@@ -123,7 +127,7 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
-    var $item = $(this).closest('li');
+    var $item = $(this).closest('.data-source');
 
     Fliplet.DataSources.delete($item.data('id')).then(function () {
       $item.remove();
