@@ -46,7 +46,7 @@ function getDataSources() {
 function fetchCurrentDataSourceEntries() {
   Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     currentDataSource = source;
-    return source.find();
+    return source.find({});
   }).then(function (rows) {
     if (!rows || !rows.length) {
       rows = [{id: 1, name: 'Sample row 1'}, {id: 2, name: 'Sample row 2'}];
