@@ -1,6 +1,13 @@
-.table-contents {
-  min-height: 350px;
-  padding: 20px 0;
+html, body {
+  height: 100%;
+}
+
+#app, #contents {
+  height: 100%;
+}
+
+.mce-edit-focus {
+  outline: none !important;
 }
 
 .mce-item-table {

@@ -1,11 +1,33 @@
 <div id="app">
-  <div id="contents"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-xs-12">
+        <h3>Data Sources</h3>
+        <p>Add data to your app to build dynamic screens such as Contact Directory, Glossary etc.</p>
+        <hr />
+        <div id="contents"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<template id="template-dataSources">
+  <button data-create-source class="btn btn-primary">Create new table</button>
+  <hr />
+  <table class="table table-hover" id="data-sources">
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th>&nbsp;</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</template>
 
 <template id="template-dataSource">
-  <li class="data-source" data-id="\{{id}}">
-    <a href="#" data-browse-source>\{{name}}</a>
-    <button class="btn btn-danger btn-xs" data-delete-source>Delete</button>
-  </li>
+  <tr class="data-source" data-id="\{{id}}">
+    <td class="data-source-name"><a href="#" data-browse-source>\{{name}}</a></td>
+    <td class="text-right"><button class="btn btn-default" data-browse-source>Edit</button> <button class="btn btn-danger" data-delete-source>Delete</button></td>
+  </tr>
 </template>
