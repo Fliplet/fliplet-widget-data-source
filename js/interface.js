@@ -54,18 +54,18 @@ function fetchCurrentDataSourceEntries() {
     return source.find({});
   }).then(function (rows) {
     if (!rows || !rows.length) {
-      rows = [{id: 1, name: 'Sample row 1'}, {id: 2, name: 'Sample row 2'}];
+      rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
     }
 
     var $entries = $contents.find('#entries');
 
-    var tableHead = '<tr>' + Object.keys(rows[0]).map(function (column) {
+    var tableHead = '<tr>' + Object.keys(rows[0].data).map(function (column) {
       return '<td>' + column + '</td>';
     }).join('') + '</tr>';
 
     var tableBody = rows.map(function (row) {
-      return '<tr>' + Object.keys(row).map(function (key) {
-        return '<td>' + row[key] + '</td>';
+      return '<tr>' + Object.keys(row.data).map(function (key) {
+        return '<td>' + row.data[key] + '</td>';
       }).join('') + '</tr>';
     }).join('');
 
