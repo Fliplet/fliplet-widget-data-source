@@ -7,6 +7,7 @@ var templates = {
   dataSource: template('dataSource')
 };
 
+var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
@@ -42,7 +43,7 @@ function getDataSources() {
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get().then(function (dataSources) {
+  Fliplet.DataSources.get({ organizationId: organizationId }).then(function (dataSources) {
     dataSources.forEach(renderDataSource);
   });
 }
@@ -142,6 +143,7 @@ $('#app')
     }
 
     Fliplet.DataSources.create({
+      organizationId: organizationId,
       name: sourceName
     }).then(renderDataSource);
   })
