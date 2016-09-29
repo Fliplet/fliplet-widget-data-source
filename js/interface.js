@@ -7,6 +7,7 @@ var templates = {
   dataSource: template('dataSource')
 };
 
+var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
@@ -42,7 +43,7 @@ function getDataSources() {
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get().then(function (dataSources) {
+  Fliplet.DataSources.get({ organizationId: organizationId }).then(function (dataSources) {
     dataSources.forEach(renderDataSource);
   });
 }
@@ -53,18 +54,18 @@ function fetchCurrentDataSourceEntries() {
     return source.find({});
   }).then(function (rows) {
     if (!rows || !rows.length) {
-      rows = [{id: 1, name: 'Sample row 1'}, {id: 2, name: 'Sample row 2'}];
+      rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
     }
 
     var $entries = $contents.find('#entries');
 
-    var tableHead = '<tr>' + Object.keys(rows[0]).map(function (column) {
+    var tableHead = '<tr>' + Object.keys(rows[0].data).map(function (column) {
       return '<td>' + column + '</td>';
     }).join('') + '</tr>';
 
     var tableBody = rows.map(function (row) {
-      return '<tr>' + Object.keys(row).map(function (key) {
-        return '<td>' + row[key] + '</td>';
+      return '<tr>' + Object.keys(row.data).map(function (key) {
+        return '<td>' + (typeof row.data[key] === 'object' ? JSON.stringify(row.data[key]) : row.data[key]) + '</td>';
       }).join('') + '</tr>';
     }).join('');
 
@@ -142,6 +143,7 @@ $('#app')
     }
 
     Fliplet.DataSources.create({
+      organizationId: organizationId,
       name: sourceName
     }).then(renderDataSource);
   })
