@@ -93,6 +93,30 @@ function saveCurrentData() {
 
   var tableRows = $table.find('table').tableToJSON();
 
+  tableRows.forEach(function (row) {
+    Object.keys(row).forEach(function (column) {
+      var value = row[column];
+
+      try {
+        // Convert value to JSON data when necessary (arrays and objects)
+        row[column] = JSON.parse(value);
+      }
+      catch (e) {
+        // Convert value to number when necessary
+        if (!isNaN(value)) {
+          row[column] = parseFloat(value, 10)
+        } else {
+          // Convert value to boolean
+          if (value === 'true') {
+            value = true;
+          } else if (value === 'false') {
+            value = false;
+          }
+        }
+      }
+    });
+  });
+
   return currentDataSource.replaceWith(tableRows);
 }
 
