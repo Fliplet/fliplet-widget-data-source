@@ -95,14 +95,23 @@ function saveCurrentData() {
 
   tableRows.forEach(function (row) {
     Object.keys(row).forEach(function (column) {
+      var value = row[column];
+
       try {
         // Convert value to JSON data when necessary (arrays and objects)
-        row[column] = JSON.parse(row[column]);
+        row[column] = JSON.parse(value);
       }
       catch (e) {
         // Convert value to number when necessary
-        if (!isNaN(row[column])) {
-          row[column] = parseFloat(row[column], 10)
+        if (!isNaN(value)) {
+          row[column] = parseFloat(value, 10)
+        } else {
+          // Convert value to boolean
+          if (value === 'true') {
+            value = true;
+          } else if (value === 'false') {
+            value = false;
+          }
         }
       }
     });
