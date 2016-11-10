@@ -65,7 +65,15 @@ function fetchCurrentDataSourceEntries() {
 
     var tableBody = rows.map(function (row) {
       return '<tr>' + Object.keys(row.data).map(function (key) {
-        return '<td>' + (typeof row.data[key] === 'object' ? JSON.stringify(row.data[key]) : row.data[key]) + '</td>';
+        var value = row.data[key];
+
+        if (typeof value === 'object') {
+          value = JSON.stringify(value);
+        } else if (typeof value === 'string' && value.indexOf('<') !== -1) {
+          value = $('<div>').text(value).html();
+        }
+
+        return '<td>' + value + '</td>';
       }).join('') + '</tr>';
     }).join('');
 
