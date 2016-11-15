@@ -55,13 +55,17 @@ function fetchCurrentDataSourceEntries() {
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
-      columns = dataSource.columns || ['id', 'name'];
+      columns = dataSource.columns;
 
       return source.find({});
     });
   }).then(function (rows) {
     if (!rows || !rows.length) {
       rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
+    }
+
+    if (!columns) {
+      columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
     }
 
     var $entries = $contents.find('#entries');
