@@ -49,9 +49,16 @@ function getDataSources() {
 }
 
 function fetchCurrentDataSourceEntries() {
+  var columns;
+
   Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     currentDataSource = source;
-    return source.find({});
+
+    return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+      columns = dataSource.columns || ['id', 'name'];
+
+      return source.find({});
+    });
   }).then(function (rows) {
     if (!rows || !rows.length) {
       rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
@@ -59,13 +66,13 @@ function fetchCurrentDataSourceEntries() {
 
     var $entries = $contents.find('#entries');
 
-    var tableHead = '<tr>' + Object.keys(rows[0].data).map(function (column) {
+    var tableHead = '<tr>' + columns.map(function (column) {
       return '<td>' + column + '</td>';
     }).join('') + '</tr>';
 
     var tableBody = rows.map(function (row) {
-      return '<tr>' + Object.keys(row.data).map(function (key) {
-        var value = row.data[key];
+      return '<tr>' + columns.map(function (column) {
+        var value = row.data[column] || '';
 
         if (typeof value === 'object') {
           value = JSON.stringify(value);
