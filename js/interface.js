@@ -214,6 +214,23 @@ $('#app')
       $input.val('');
       fetchCurrentDataSourceEntries();
     });
+  })
+  .on('click', '[data-create-role]', function (event) {
+    event.preventDefault();
+    var userId = prompt('User ID');
+    var permissions = prompt('Permissions', 'crud');
+
+    if (!userId || !permissions) {
+      return;
+    }
+
+    Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+      console.log('adding role')
+      return source.addUserRole({
+        userId: userId,
+        permissions: permissions
+      });
+    }).then(fetchCurrentDataSourceUsers);
   });
 
 // Fetch data sources when the provider starts
