@@ -229,7 +229,9 @@ $('#app')
         userId: userId,
         permissions: permissions
       });
-    }).then(fetchCurrentDataSourceUsers);
+    }).then(fetchCurrentDataSourceUsers, function (err) {
+      alert(err.responseJSON.message);
+    });
   });
 
 // Fetch data sources when the provider starts
