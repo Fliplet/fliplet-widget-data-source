@@ -4,7 +4,8 @@ var $tableContents;
 
 var templates = {
   dataSources: template('dataSources'),
-  dataSource: template('dataSource')
+  dataSource: template('dataSource'),
+  users: template('users')
 };
 
 var organizationId = Fliplet.Env.get('organizationId');
@@ -45,6 +46,16 @@ function getDataSources() {
 
   Fliplet.DataSources.get({ organizationId: organizationId }).then(function (dataSources) {
     dataSources.forEach(renderDataSource);
+  });
+}
+
+function fetchCurrentDataSourceUsers() {
+  var $usersContents = $('.users-contents');
+
+  Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+    source.getUsers().then(function (users) {
+      $usersContents.html(templates.users({ users: users }));
+    });
   });
 }
 
@@ -162,12 +173,14 @@ $('#app')
     $contents.append('<a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a>');
     $contents.append('<h1>' + name + '</h1>');
     $contents.append('<div class="table-contents"></div>');
+    $contents.append('<div class="users-contents"></div>');
     $tableContents = $contents.find('.table-contents');
 
     // Input file temporarily disabled
     // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
     fetchCurrentDataSourceEntries();
+    fetchCurrentDataSourceUsers();
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
