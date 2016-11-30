@@ -225,7 +225,6 @@ $('#app')
     }
 
     Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
-      console.log('adding role')
       return source.addUserRole({
         userId: userId,
         permissions: permissions
