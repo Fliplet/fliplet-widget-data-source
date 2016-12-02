@@ -1,4 +1,5 @@
 var $contents = $('#contents');
+var $sourceContents = $('#source-contents');
 var $dataSources;
 var $tableContents;
 
@@ -12,6 +13,8 @@ var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
+
+var dataSourceEntriesHasChanged = false;
 
 var tinyMCEConfiguration = {
   menubar: false,
@@ -27,7 +30,12 @@ var tinyMCEConfiguration = {
   object_resizing: false,
   paste_auto_cleanup_on_paste : false,
   paste_remove_styles: true,
-  paste_remove_styles_if_webkit: true
+  paste_remove_styles_if_webkit: true,
+  setup: function (editor) {
+    editor.on('change', function(e) {
+      dataSourceEntriesHasChanged = true;
+    });
+  }
 };
 
 // Function to compile a Handlebars template
@@ -41,6 +49,8 @@ function getDataSources() {
     tinymce.editors[0].remove();
   }
 
+  $contents.removeClass('hidden');
+  $sourceContents.addClass('hidden');
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
@@ -50,7 +60,7 @@ function getDataSources() {
 }
 
 function fetchCurrentDataSourceUsers() {
-  var $usersContents = $('.users-contents');
+  var $usersContents = $('#roles');
 
   Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     source.getUsers().then(function (users) {
@@ -64,7 +74,6 @@ function fetchCurrentDataSourceEntries() {
 
   Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     currentDataSource = source;
-
     return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
       columns = dataSource.columns;
 
@@ -78,8 +87,6 @@ function fetchCurrentDataSourceEntries() {
     if (!columns) {
       columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
     }
-
-    var $entries = $contents.find('#entries');
 
     var tableHead = '<tr>' + columns.map(function (column) {
       return '<td>' + column + '</td>';
@@ -101,6 +108,9 @@ function fetchCurrentDataSourceEntries() {
 
     var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
 
+    $sourceContents.removeClass('hidden');
+
+    $tableContents = $('#entries > .table-entries');
     $tableContents.html(tableTpl);
     currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
   });
@@ -147,6 +157,8 @@ function saveCurrentData() {
     });
   });
 
+  $('.table-entries').html('Saving...');
+
   return currentDataSource.replaceWith(tableRows);
 }
 
@@ -159,7 +171,11 @@ function renderDataSource(data) {
 $('#app')
   .on('click', '[data-back]', function (event) {
     event.preventDefault();
-    saveCurrentData().then(function () {
+
+    var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
+    dataSourceEntriesHasChanged = false;
+
+    saveData.then(function () {
       getDataSources();
     })
   })
@@ -168,13 +184,10 @@ $('#app')
     currentDataSourceId = $(this).closest('.data-source').data('id');
     var name = $(this).closest('.data-source').find('.data-source-name').text();
 
-    // Prepare the html
-    $contents.html('');
-    $contents.append('<a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a>');
-    $contents.append('<h1>' + name + '</h1>');
-    $contents.append('<div class="table-contents"></div>');
-    $contents.append('<div class="users-contents"></div>');
-    $tableContents = $contents.find('.table-contents');
+    $contents.addClass('hidden');
+    $('.table-entries').html('Loading data...');
+    $sourceContents.removeClass('hidden');
+    $sourceContents.find('h1').html(name);
 
     // Input file temporarily disabled
     // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
