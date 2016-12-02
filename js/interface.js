@@ -197,6 +197,10 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
+    if (!confirm('Are you sure you want to delete this data source? All entries will be deleted.')) {
+      return;
+    }
+
     var $item = $(this).closest('.data-source');
 
     Fliplet.DataSources.delete($item.data('id')).then(function () {
@@ -244,6 +248,17 @@ $('#app')
       });
     }).then(fetchCurrentDataSourceUsers, function (err) {
       alert(err.responseJSON.message);
+    });
+  })
+  .on('click', '[data-revoke-role]', function (event) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to revoke this role?')) {
+      return;
+    }
+
+    Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+      return source.removeUserRole($(this).data('revoke-role'));
     });
   });
 
