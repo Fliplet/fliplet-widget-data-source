@@ -252,13 +252,16 @@ $('#app')
   })
   .on('click', '[data-revoke-role]', function (event) {
     event.preventDefault();
+    var userId = $(this).data('revoke-role');
 
     if (!confirm('Are you sure you want to revoke this role?')) {
       return;
     }
 
     Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
-      return source.removeUserRole($(this).data('revoke-role'));
+      return source.removeUserRole(userId);
+    }).then(function () {
+      fetchCurrentDataSourceUsers();
     });
   });
 
