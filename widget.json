@@ -9,6 +9,7 @@
     "dependencies": [
       "lodash",
       "jquery",
+      "bootstrap",
       "tinymce",
       "fliplet-datasources",
       "fliplet-studio-ui"
