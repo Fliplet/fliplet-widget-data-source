@@ -2,6 +2,7 @@ var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources;
 var $tableContents;
+var $settings = $('form[data-settings]');
 
 var templates = {
   dataSources: template('dataSources'),
@@ -56,6 +57,12 @@ function getDataSources() {
 
   Fliplet.DataSources.get({ organizationId: organizationId }).then(function (dataSources) {
     dataSources.forEach(renderDataSource);
+  });
+}
+
+function fetchCurrentDataSourceDetails() {
+  Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+    $settings.find('[name="name"]').val(dataSource.name);
   });
 }
 
@@ -194,6 +201,7 @@ $('#app')
 
     fetchCurrentDataSourceEntries();
     fetchCurrentDataSourceUsers();
+    fetchCurrentDataSourceDetails();
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
@@ -262,6 +270,24 @@ $('#app')
       return source.removeUserRole(userId);
     }).then(function () {
       fetchCurrentDataSourceUsers();
+    });
+  })
+  .on('submit', 'form[data-settings]', function (event) {
+    event.preventDefault();
+    var name = $settings.find('[name="name"]').val();
+
+    if (!name) {
+      return;
+    }
+
+    Fliplet.API.request({
+      url: 'v1/data-sources/' + currentDataSourceId,
+      method: 'PUT',
+      data: {
+        name: name
+      }
+    }).then(function () {
+      $('[data-back]').click();
     });
   });
 
