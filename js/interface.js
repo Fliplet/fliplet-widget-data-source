@@ -55,7 +55,7 @@ function getDataSources() {
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get({ organizationId: organizationId }).then(function (dataSources) {
+  Fliplet.DataSources.get().then(function (dataSources) {
     dataSources.forEach(renderDataSource);
   });
 }
@@ -223,9 +223,11 @@ $('#app')
       return;
     }
 
-    Fliplet.DataSources.create({
-      organizationId: organizationId,
-      name: sourceName
+    Fliplet.Organizations.get().then(function (organizations) {
+      return Fliplet.DataSources.create({
+        organizationId: organizations[0].id,
+        name: sourceName
+      });
     }).then(renderDataSource);
   })
   .on('change', 'input[type="file"]', function (event) {
