@@ -245,7 +245,7 @@ $('#app')
   .on('click', '[data-create-role]', function (event) {
     event.preventDefault();
     var userId = prompt('User ID');
-    var permissions = prompt('Permissions', 'crud');
+    var permissions = prompt('Permissions', 'crudq');
 
     if (!userId || !permissions) {
       return;
