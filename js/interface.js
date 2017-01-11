@@ -89,9 +89,7 @@ function fetchCurrentDataSourceEntries() {
   }).then(function (rows) {
     if (!rows || !rows.length) {
       rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
-    }
-
-    if (!columns) {
+    } else {
       columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
     }
 
