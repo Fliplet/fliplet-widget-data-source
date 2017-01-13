@@ -92,6 +92,8 @@ function fetchCurrentDataSourceEntries() {
     } else {
       columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
     }
+    
+    columns = columns || [];
 
     var tableHead = '<tr>' + columns.map(function (column) {
       return '<td>' + column + '</td>';
