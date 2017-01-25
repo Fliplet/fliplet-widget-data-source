@@ -179,7 +179,7 @@ function renderDataSource(data) {
 
 function windowResized() {
   $('.tab-content').height($('body').height() - $('.tab-content').offset().top);
-  $('.table-entries').height($('.tab-content').height() - $('.table-entries-save').height() - 15);
+  $('.table-entries').height($('.tab-content').height());
 }
 
 // events

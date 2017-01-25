@@ -28,7 +28,7 @@ html, body {
 .mce-floatpanel {
   left: auto !important;
   right: 15px;
-  transform: translate(0, -20px);
+  transform: translate(0, -5px);
 }
 
 .tab-content {
@@ -37,14 +37,15 @@ html, body {
 
 .table-entries {
   overflow: auto;
-  margin-top: 15px;
+  margin-top: 0;
 }
 
 [data-save] {
-  margin: 10px 0;
   transition: all 0.2s linear;
+  margin-left: 10px;
 }
 
 [data-save].disabled {
   opacity: 0;
+  pointer-events: none;
 }
