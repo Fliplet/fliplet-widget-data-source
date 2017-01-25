@@ -33,7 +33,7 @@ var tinyMCEConfiguration = {
   paste_remove_styles: true,
   paste_remove_styles_if_webkit: true,
   setup: function (editor) {
-    editor.on('change', function(e) {
+    editor.on('change paste cut', function(e) {
       dataSourceEntriesHasChanged = true;
       $('[data-save]').removeClass('disabled');
     });
