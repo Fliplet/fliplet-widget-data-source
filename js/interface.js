@@ -25,9 +25,9 @@ var tinyMCEConfiguration = {
   valid_styles: {},
   plugins: "paste, table",
   gecko_spellcheck: true,
-  toolbar: false,
-  // contextmenu: "tableprops | cell row column",
-  // table_toolbar: "",
+  toolbar: 'undo redo | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol',
+  contextmenu: "tableprops | cell row column",
+  table_toolbar: "",
   object_resizing: false,
   paste_auto_cleanup_on_paste : false,
   paste_remove_styles: true,
@@ -35,6 +35,7 @@ var tinyMCEConfiguration = {
   setup: function (editor) {
     editor.on('change', function(e) {
       dataSourceEntriesHasChanged = true;
+      $('[data-save]').removeClass('disabled');
     });
   }
 };
@@ -52,6 +53,7 @@ function getDataSources() {
 
   $contents.removeClass('hidden');
   $sourceContents.addClass('hidden');
+  $('[data-save]').addClass('disabled');
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
@@ -61,7 +63,7 @@ function getDataSources() {
 }
 
 function fetchCurrentDataSourceDetails() {
-  Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+  return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
     $settings.find('[name="name"]').val(dataSource.name);
   });
 }
@@ -69,7 +71,7 @@ function fetchCurrentDataSourceDetails() {
 function fetchCurrentDataSourceUsers() {
   var $usersContents = $('#roles');
 
-  Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+  return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     source.getUsers().then(function (users) {
       $usersContents.html(templates.users({ users: users }));
     });
@@ -79,7 +81,7 @@ function fetchCurrentDataSourceUsers() {
 function fetchCurrentDataSourceEntries() {
   var columns;
 
-  Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+  return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     currentDataSource = source;
     return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
       columns = dataSource.columns;
@@ -93,7 +95,7 @@ function fetchCurrentDataSourceEntries() {
     } else {
       columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
     }
-    
+
     columns = columns || [];
 
     var tableHead = '<tr>' + columns.map(function (column) {
@@ -116,7 +118,7 @@ function fetchCurrentDataSourceEntries() {
 
     var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
 
-    $sourceContents.removeClass('hidden');
+    $('.table-entries').css('visibility','visible');
 
     $tableContents = $('#entries > .table-entries');
     $tableContents.html(tableTpl);
@@ -175,9 +177,23 @@ function renderDataSource(data) {
   $dataSources.append(templates.dataSource(data));
 }
 
+function windowResized() {
+  $('.tab-content').height($('body').height() - $('.tab-content').offset().top);
+  $('.table-entries').height($('.tab-content').height() - $('.table-entries-save').height() - 15);
+}
+
 // events
+$(window).on('resize', windowResized);
 $('#app')
   .on('click', '[data-back]', function (event) {
+    event.preventDefault();
+
+    if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
+      dataSourceEntriesHasChanged = false;
+      getDataSources();
+    }
+  })
+  .on('click', '[data-save]', function (event) {
     event.preventDefault();
 
     var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
@@ -196,13 +212,16 @@ $('#app')
     $('.table-entries').html('Loading data...');
     $sourceContents.removeClass('hidden');
     $sourceContents.find('h1').html(name);
+    windowResized();
 
     // Input file temporarily disabled
     // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
-    fetchCurrentDataSourceEntries();
-    fetchCurrentDataSourceUsers();
-    fetchCurrentDataSourceDetails();
+    Promise.all([
+      fetchCurrentDataSourceEntries(),
+      fetchCurrentDataSourceUsers(),
+      fetchCurrentDataSourceDetails()
+    ]);
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
