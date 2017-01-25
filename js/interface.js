@@ -153,7 +153,7 @@ function saveCurrentData() {
       }
       catch (e) {
         // Convert value to number when necessary
-        if (!isNaN(value)) {
+        if (!isNaN(value) && !value.match(/^(\+|0)/)) {
           row[column] = parseFloat(value, 10)
         } else {
           // Convert value to boolean
