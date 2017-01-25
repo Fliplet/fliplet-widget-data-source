@@ -1,5 +1,6 @@
 html, body {
   height: 100%;
+  overflow: hidden;
 }
 
 #app, #contents {
@@ -22,4 +23,28 @@ html, body {
 
 .mce-item-table tr td {
   padding: 10px 8px;
+}
+
+.mce-floatpanel {
+  left: auto !important;
+  right: 15px;
+  transform: translate(0, -20px);
+}
+
+.tab-content {
+  overflow: auto;
+}
+
+.table-entries {
+  overflow: auto;
+  margin-top: 15px;
+}
+
+[data-save] {
+  margin: 10px 0;
+  transition: all 0.2s linear;
+}
+
+[data-save].disabled {
+  opacity: 0;
 }
