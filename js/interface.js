@@ -123,7 +123,10 @@ function fetchCurrentDataSourceEntries() {
     $tableContents = $('#entries > .table-entries');
     $tableContents.html(tableTpl);
     currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
-  });
+  })
+    .catch(function onFetchError(error) {
+      $('.table-entries').html('Access denied. Please review your security settings if you want to access this data source.');
+    });
 }
 
 Fliplet.Widget.onSaveRequest(function () {
