@@ -7,6 +7,10 @@ html, body {
   height: 100%;
 }
 
+#contents {
+  overflow: auto;
+}
+
 .mce-edit-focus {
   outline: none !important;
 }

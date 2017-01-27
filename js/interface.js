@@ -183,10 +183,11 @@ function renderDataSource(data) {
 function windowResized() {
   $('.tab-content').height($('body').height() - $('.tab-content').offset().top);
   $('.table-entries').height($('.tab-content').height());
+  $('#contents:visible').height($('body').height() - $('#contents').offset().top);
 }
 
 // events
-$(window).on('resize', windowResized);
+$(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-back]', function (event) {
     event.preventDefault();
