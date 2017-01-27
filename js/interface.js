@@ -125,7 +125,7 @@ function fetchCurrentDataSourceEntries() {
     currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
   })
     .catch(function onFetchError(error) {
-      $('.table-entries').html('Access denied. Please review your security settings if you want to access this data source.');
+      $('.table-entries').html('<br>Access denied. Please review your security settings if you want to access this data source.');
     });
 }
 
@@ -212,7 +212,7 @@ $('#app')
     var name = $(this).closest('.data-source').find('.data-source-name').text();
 
     $contents.addClass('hidden');
-    $('.table-entries').html('Loading data...');
+    $('.table-entries').html('<br>Loading data...');
     $sourceContents.removeClass('hidden');
     $sourceContents.find('h1').html(name);
     windowResized();
