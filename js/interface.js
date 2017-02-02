@@ -65,7 +65,9 @@ function getDataSources() {
 function fetchCurrentDataSourceDetails() {
   return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
     $settings.find('[name="name"]').val(dataSource.name);
-    $settings.find('#bundle').val(dataSource.bundle);
+    if (!dataSource.bundle) {
+      $('#bundle').prop('checked', true);
+    }
   });
 }
 
