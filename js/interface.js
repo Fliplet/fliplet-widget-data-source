@@ -65,7 +65,7 @@ function getDataSources() {
 function fetchCurrentDataSourceDetails() {
   return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
     $settings.find('[name="name"]').val(dataSource.name);
-    $settings.find('[name="name"]').val(dataSource.bundle);
+    $settings.find('#bundle').val(dataSource.bundle);
   });
 }
 
