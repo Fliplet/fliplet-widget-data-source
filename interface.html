@@ -29,17 +29,34 @@
             <div role="tabpanel" class="tab-pane" id="roles"></div>
             <div role="tabpanel" class="tab-pane" id="settings">
               <br />
-              <form class="form" data-settings>
-                <div class="form-group">
-                  <label for="f-name">DataSource name</label>
-                  <input id="f-name" class="form-control" name="name" maxlength="48" />
-                  <hr />
-                  <input type="submit" class="btn btn-primary" value="Update settings" />
-                </div>
-              </form>
+              <div class="container-fluid">
+                <form class="form form-horizontal" data-settings>
+                  <div class="form-group">
+                    <label for="f-name" class="col-sm-4 control-label">DataSource name</label>
+                    <div class="col-sm-8">
+                      <input id="f-name" class="form-control" name="name" maxlength="48" />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="bundle" class="col-sm-4 control-label">Exclude this data when downloading apps</label>
+                    <div class="col-sm-8">
+                      <div class="checkbox">
+                        <input type="checkbox" id="bundle" name="bundle" >
+                        <label for="bundle">
+                          <span class="check"><i class="fa fa-check"></i></span> Exclude my data
+                        </label>
+                      </div>
+                      <p class="help-block">Check this if you don't want a copy of this data included in apps. Data will be loaded from the server separately on loading the app and requires Internet connection.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <hr />
+                    <input type="submit" class="btn btn-primary" value="Update settings" />
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

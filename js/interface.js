@@ -65,6 +65,7 @@ function getDataSources() {
 function fetchCurrentDataSourceDetails() {
   return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
     $settings.find('[name="name"]').val(dataSource.name);
+    $settings.find('#bundle').val(dataSource.bundle);
   });
 }
 
@@ -301,20 +302,19 @@ $('#app')
   .on('submit', 'form[data-settings]', function (event) {
     event.preventDefault();
     var name = $settings.find('[name="name"]').val();
-
+    var bundle = !$('#bundle').is(':checked');
     if (!name) {
       return;
     }
 
-    Fliplet.API.request({
-      url: 'v1/data-sources/' + currentDataSourceId,
-      method: 'PUT',
-      data: {
-        name: name
-      }
-    }).then(function () {
-      $('[data-back]').click();
-    });
+    Fliplet.DataSources.update({
+      id: currentDataSourceId,
+      name: name,
+      bundle: bundle
+    })
+      .then(function () {
+        $('[data-back]').click();
+      });
   });
 
 // Fetch data sources when the provider starts
