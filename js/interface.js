@@ -68,6 +68,9 @@ function fetchCurrentDataSourceDetails() {
     if (!dataSource.bundle) {
       $('#bundle').prop('checked', true);
     }
+    if (dataSource.definition) {
+      $('#definition').val(JSON.stringify(dataSource.definition, null, 2));
+    }
   });
 }
 
@@ -303,16 +306,28 @@ $('#app')
   })
   .on('submit', 'form[data-settings]', function (event) {
     event.preventDefault();
-    var name = $settings.find('[name="name"]').val();
+    var name = $settings.find('#name').val();
     var bundle = !$('#bundle').is(':checked');
+    var definition = $settings.find('#definition').val();
     if (!name) {
+      return;
+    }
+
+    try {
+      definition = JSON.parse(definition);
+    } catch (e) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid settings',
+        popupMessage: 'Definition MUST be a valid JSON'
+      });
       return;
     }
 
     Fliplet.DataSources.update({
       id: currentDataSourceId,
       name: name,
-      bundle: bundle
+      bundle: bundle,
+      definition: definition
     })
       .then(function () {
         $('[data-back]').click();
