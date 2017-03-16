@@ -1,14 +1,9 @@
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
-var $dataSources;
+var $dataSources = $('#data-sources > tbody');
+var $usersContents = $('#users');
 var $tableContents;
 var $settings = $('form[data-settings]');
-
-var templates = {
-  dataSources: template('dataSources'),
-  dataSource: template('dataSource'),
-  users: template('users')
-};
 
 var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
@@ -40,11 +35,6 @@ var tinyMCEConfiguration = {
   }
 };
 
-// Function to compile a Handlebars template
-function template(name) {
-  return Handlebars.compile($('#template-' + name).html());
-}
-
 // Fetch all data sources
 function getDataSources() {
   if (tinymce.editors.length) {
@@ -54,8 +44,6 @@ function getDataSources() {
   $contents.removeClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
-  $contents.html(templates.dataSources());
-  $dataSources = $('#data-sources > tbody');
 
   Fliplet.DataSources.get().then(function (dataSources) {
     dataSources.forEach(renderDataSource);
@@ -75,11 +63,11 @@ function fetchCurrentDataSourceDetails() {
 }
 
 function fetchCurrentDataSourceUsers() {
-  var $usersContents = $('#roles');
-
   return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     source.getUsers().then(function (users) {
-      $usersContents.html(templates.users({ users: users }));
+      var tpl = Fliplet.Widget.Templates['templates.users'];
+      var html = tpl({ users: users });
+      $usersContents.html(html);
     });
   });
 }
@@ -183,7 +171,9 @@ function saveCurrentData() {
 
 // Append a data source to the DOM
 function renderDataSource(data) {
-  $dataSources.append(templates.dataSource(data));
+  var tpl = Fliplet.Widget.Templates['templates.dataSource'];
+  var html = tpl(data);
+  $dataSources.append(html);
 }
 
 function windowResized() {

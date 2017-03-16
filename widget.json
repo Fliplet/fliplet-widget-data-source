@@ -18,7 +18,8 @@
       "vendor/handlebars.js",
       "vendor/jquery.tabletojson.js",
       "js/interface.js",
-      "css/interface.css"
+      "css/interface.css",
+      "js/interface.templates.js"
     ]
   },
   "build": {
