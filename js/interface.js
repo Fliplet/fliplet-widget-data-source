@@ -9,6 +9,7 @@ var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
+var dataSources;
 
 var dataSourceEntriesHasChanged = false;
 
@@ -45,9 +46,12 @@ function getDataSources() {
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
 
-  Fliplet.DataSources.get().then(function (dataSources) {
-    dataSources.forEach(renderDataSource);
-  });
+  Fliplet.DataSources.get()
+    .then(function onGetDataSources(userDataSources) {
+      dataSources = userDataSources;
+      $dataSources.empty();
+      dataSources.forEach(renderDataSource);
+    });
 }
 
 function fetchCurrentDataSourceDetails() {
@@ -326,6 +330,20 @@ $('#app')
   })
   .on('click', '#cancel', function () {
     $('[data-back]').click();
+  })
+  .on('keyup change paste', '.search', function () {
+    var term = new RegExp(this.value, "i");
+    $dataSources.removeClass('no-results');
+
+    var search = dataSources.filter(function (dataSource) {
+      return dataSource.name.match(term);
+    });
+
+    $dataSources.empty();
+    if (search.length === 0 && dataSources.length) {
+      $dataSources.addClass('no-results');
+    }
+    search.forEach(renderDataSource);
   });
 
 // Fetch data sources when the provider starts
