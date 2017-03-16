@@ -225,7 +225,13 @@ $('#app')
       fetchCurrentDataSourceEntries(),
       fetchCurrentDataSourceUsers(),
       fetchCurrentDataSourceDetails()
-    ]);
+    ])
+      .catch(function () {
+        // Something went wrong
+        // EG: User try to edit an already deleted data source
+        // TODO: Show some error message
+        getDataSources();
+      });
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
