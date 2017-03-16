@@ -243,6 +243,7 @@ $('#app')
 
     Fliplet.DataSources.delete($item.data('id')).then(function () {
       $item.remove();
+      $('[data-back]').click();
     });
   })
   .on('click', '[data-create-source]', function (event) {
@@ -332,6 +333,9 @@ $('#app')
       .then(function () {
         $('[data-back]').click();
       });
+  })
+  .on('click', '#cancel', function () {
+    $('[data-back]').click();
   });
 
 // Fetch data sources when the provider starts

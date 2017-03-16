@@ -8,7 +8,6 @@
         <div id="contents"></div>
         <div id="source-contents" class="hidden">
           <a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a> <button data-save class="btn btn-primary">Save changes</button>
-          <h1>Asd</h1>
           <!-- Nav tabs -->
           <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" class="active">
@@ -61,7 +60,9 @@
                   </div>
                   <div class="form-group">
                     <hr />
-                    <input type="submit" class="btn btn-primary" value="Update settings" />
+                    <input type="submit" class="btn btn-primary" value="Save Changes" />
+                    <button id="cancel" class="btn btn-primary">Cancel</button>
+                    <button class="btn btn-danger" data-delete-source>Delete</button>
                   </div>
                 </form>
               </div>
@@ -74,12 +75,12 @@
 </div>
 
 <template id="template-dataSources">
-  <button data-create-source class="btn btn-primary">Create new table</button>
-  <hr />
+  <button data-create-source class="btn btn-primary">Create new data source</button>
   <table class="table table-hover" id="data-sources">
     <thead>
       <tr>
-        <th>Source</th>
+        <th>Data Source</th>
+        <th>Used by apps</th>
         <th>&nbsp;</th>
       </tr>
     </thead>
@@ -90,7 +91,8 @@
 <template id="template-dataSource">
   <tr class="data-source" data-id="\{{id}}">
     <td class="data-source-name"><a href="#" data-browse-source>\{{name}}</a></td>
-    <td class="text-right"><button class="btn btn-default" data-browse-source>Edit</button> <button class="btn btn-danger" data-delete-source>Delete</button></td>
+    <td class="data-source-apps"></td>
+    <td class="text-right"><button class="btn btn-default" data-browse-source>Edit</button></td>
   </tr>
 </template>
 
