@@ -3,6 +3,7 @@ var $sourceContents = $('#source-contents');
 var $dataSources;
 var $tableContents;
 var $settings = $('form[data-settings]');
+var ignoreDataSourceTypes = ['menu'];
 
 var templates = {
   dataSources: template('dataSources'),
@@ -58,7 +59,16 @@ function getDataSources() {
   $dataSources = $('#data-sources > tbody');
 
   Fliplet.DataSources.get().then(function (dataSources) {
-    dataSources.forEach(renderDataSource);
+    var filteredDataSources = dataSources.filter(function (dataSource) {
+      for (var i = 0; i < ignoreDataSourceTypes.length; i++) {
+        if (ignoreDataSourceTypes[i] === dataSource.type) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    filteredDataSources.forEach(renderDataSource);
   });
 }
 
