@@ -9,7 +9,9 @@ this["Fliplet"]["Widget"]["Templates"]["templates.dataSource"] = Handlebars.temp
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
     + "\">\n    <td class=\"data-source-name\"><a href=\"#\" data-browse-source>"
     + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
-    + "</a></td>\n    <td class=\"text-right\"><button class=\"btn btn-default\" data-browse-source>Edit</button></td>\n</tr>";
+    + "</a></td>\n    <td class=\"data-source-apps\">"
+    + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td class=\"text-right\"><button class=\"btn btn-default\" data-browse-source>Edit</button></td>\n</tr>";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.users"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
