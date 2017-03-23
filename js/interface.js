@@ -46,7 +46,7 @@ function getDataSources() {
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
 
-  Fliplet.DataSources.get()
+  Fliplet.DataSources.get({ type: null })
     .then(function onGetDataSources(userDataSources) {
       dataSources = userDataSources;
       $dataSources.empty();
