@@ -4,6 +4,7 @@ var $dataSources = $('#data-sources > tbody');
 var $usersContents = $('#users');
 var $tableContents;
 var $settings = $('form[data-settings]');
+var $noResults = $('.no-results-found');
 
 var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
@@ -339,7 +340,7 @@ $('#app')
   })
   .on('keyup change paste', '.search', function () {
     var term = new RegExp(this.value, "i");
-    $dataSources.removeClass('no-results');
+    $noResults.removeClass('show');
 
     var search = dataSources.filter(function (dataSource) {
       return dataSource.name.match(term);
@@ -347,7 +348,7 @@ $('#app')
 
     $dataSources.empty();
     if (search.length === 0 && dataSources.length) {
-      $dataSources.addClass('no-results');
+      $noResults.addClass('show');
     }
     search.forEach(renderDataSource);
   });

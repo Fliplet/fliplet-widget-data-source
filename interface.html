@@ -6,8 +6,14 @@
         <p>Add data to your app to build dynamic screens such as Contact Directory, Glossary etc.</p>
         <hr />
         <div id="contents">
-          <button data-create-source class="btn btn-primary">Create new data source</button>
-          <input class="search pull-right" type="search" placeholder="Search data sources" />
+          <div class="row">
+            <div class="col-sm-8">
+              <button data-create-source class="btn btn-primary">Create new data source</button>
+            </div>
+            <div class="col-sm-4">
+              <input class="search pull-right form-control" type="search" placeholder="Search data sources" />
+            </div>
+          </div>
           <table class="table table-hover" id="data-sources">
             <thead>
             <tr>
@@ -16,8 +22,13 @@
               <th>&nbsp;</th>
             </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+            </tbody>
           </table>
+          <div class="no-results-found">
+            <h3>No results found</h3>
+            <p>Search again</p>
+          </div>
         </div>
         <div id="source-contents" class="hidden">
           <a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a> <button data-save class="btn btn-primary">Save changes</button>
@@ -67,8 +78,8 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <div class="col-sm-4">
-                      <p><label for="definition" class="control-label">Data source definition</label></p>
+                    <div class="col-sm-4 control-label">
+                      <label for="definition">Data source definition</label>
                       <p class="help-block">Definitions can be used to apply additional developer features such as security, 2-factor authentication etc. See <a href="http://developers.fliplet.com/API/fliplet-datasources.html">documentation</a> for how to use this feature.</p></div>
                     <div class="col-sm-8">
                       <div class="checkbox">
