@@ -14,6 +14,7 @@ var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
+var dataSources;
 
 var dataSourceEntriesHasChanged = false;
 
@@ -54,10 +55,17 @@ function getDataSources() {
   $contents.removeClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
+
+  // If we already have data sources no need to go further.
+  if (dataSources) {
+    return;
+  }
+
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get({ type: null }).then(function (dataSources) {
+  Fliplet.DataSources.get({ type: null }).then(function onGetDataSources(sources) {
+    dataSources = sources;
     dataSources.forEach(renderDataSource);
   });
 }
