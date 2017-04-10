@@ -5,10 +5,33 @@
         <h3>Data Sources</h3>
         <p>Add data to your app to build dynamic screens such as Contact Directory, Glossary etc.</p>
         <hr />
-        <div id="contents"></div>
+        <div id="contents">
+          <div class="row">
+            <div class="col-sm-8">
+              <button data-create-source class="btn btn-primary">Create new data source</button>
+            </div>
+            <div class="col-sm-4">
+              <input class="search pull-right form-control" type="search" placeholder="Search data sources" />
+            </div>
+          </div>
+          <table class="table table-hover" id="data-sources">
+            <thead>
+            <tr>
+              <th>Data Source</th>
+              <th>Used by apps</th>
+              <th>&nbsp;</th>
+            </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+          <div class="no-results-found">
+            <h3>No results found</h3>
+            <p>Search again</p>
+          </div>
+        </div>
         <div id="source-contents" class="hidden">
           <a href="#" data-back><i class="fa fa-chevron-left"></i> Back to data sources</a> <button data-save class="btn btn-primary">Save changes</button>
-          <h1>Asd</h1>
           <!-- Nav tabs -->
           <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" class="active">
@@ -26,15 +49,20 @@
             <div role="tabpanel" class="tab-pane active" id="entries">
               <div class="table-entries"></div>
             </div>
-            <div role="tabpanel" class="tab-pane" id="roles"></div>
+            <div role="tabpanel" class="tab-pane" id="roles">
+              <br />
+              <button class="btn btn-primary" data-create-role>Add new role</button>
+              <hr />
+              <div id="users"></div>
+            </div>
             <div role="tabpanel" class="tab-pane" id="settings">
               <br />
               <div class="container-fluid">
                 <form class="form form-horizontal" data-settings>
                   <div class="form-group">
-                    <label for="f-name" class="col-sm-4 control-label">DataSource name</label>
+                    <label for="name" class="col-sm-4 control-label">DataSource name</label>
                     <div class="col-sm-8">
-                      <input id="f-name" class="form-control" name="name" maxlength="48" />
+                      <input id="name" class="form-control" name="name" maxlength="48" />
                     </div>
                   </div>
                   <div class="form-group">
@@ -50,8 +78,20 @@
                     </div>
                   </div>
                   <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="definition">Data source definition</label>
+                      <p class="help-block">Definitions can be used to apply additional developer features such as security, 2-factor authentication etc. See <a href="http://developers.fliplet.com/API/fliplet-datasources.html">documentation</a> for how to use this feature.</p></div>
+                    <div class="col-sm-8">
+                      <div class="checkbox">
+                        <textarea class="form-control" id="definition" rows=15></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
                     <hr />
-                    <input type="submit" class="btn btn-primary" value="Update settings" />
+                    <input type="submit" class="btn btn-primary" value="Save Changes" />
+                    <button id="cancel" class="btn btn-primary">Cancel</button>
+                    <button class="btn btn-danger" data-delete-source>Delete</button>
                   </div>
                 </form>
               </div>
@@ -62,50 +102,3 @@
     </div>
   </div>
 </div>
-
-<template id="template-dataSources">
-  <button data-create-source class="btn btn-primary">Create new table</button>
-  <hr />
-  <table class="table table-hover" id="data-sources">
-    <thead>
-      <tr>
-        <th>Source</th>
-        <th>&nbsp;</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</template>
-
-<template id="template-dataSource">
-  <tr class="data-source" data-id="\{{id}}">
-    <td class="data-source-name"><a href="#" data-browse-source>\{{name}}</a></td>
-    <td class="text-right"><button class="btn btn-default" data-browse-source>Edit</button> <button class="btn btn-danger" data-delete-source>Delete</button></td>
-  </tr>
-</template>
-
-<script id="template-users" type="text/template">
-  <br />
-  <button class="btn btn-primary" data-create-role>Add new role</button>
-  <hr />
-  <table class="table">
-    <thead>
-      <th>Full name</th>
-      <th>Email</th>
-      <th>Permissions</th>
-      <th>Actions</th>
-    </thead>
-    <tbody>
-      \{{#each users}}
-        <tr>
-          <td>\{{fullName}}</td>
-          <td>\{{email}}</td>
-          <td><code>\{{dataSourceRole.permissions}}</code></td>
-          <td>
-            <button class="btn btn-danger" data-revoke-role="\{{dataSourceRole.userId}}">Revoke role</button>
-          </td>
-        </tr>
-      \{{/each}}
-    </tbody>
-  </table>
-</script>

@@ -1,19 +1,16 @@
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
-var $dataSources;
+var $dataSources = $('#data-sources > tbody');
+var $usersContents = $('#users');
 var $tableContents;
 var $settings = $('form[data-settings]');
-
-var templates = {
-  dataSources: template('dataSources'),
-  dataSource: template('dataSource'),
-  users: template('users')
-};
+var $noResults = $('.no-results-found');
 
 var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
+var dataSources;
 
 var dataSourceEntriesHasChanged = false;
 
@@ -40,11 +37,6 @@ var tinyMCEConfiguration = {
   }
 };
 
-// Function to compile a Handlebars template
-function template(name) {
-  return Handlebars.compile($('#template-' + name).html());
-}
-
 // Fetch all data sources
 function getDataSources() {
   if (tinymce.editors.length) {
@@ -54,12 +46,13 @@ function getDataSources() {
   $contents.removeClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
-  $contents.html(templates.dataSources());
-  $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get({ type: null }).then(function (dataSources) {
-    dataSources.forEach(renderDataSource);
-  });
+  Fliplet.DataSources.get({ roles: 'publisher,editor', type: null })
+    .then(function onGetDataSources(userDataSources) {
+      dataSources = userDataSources;
+      $dataSources.empty();
+      dataSources.forEach(renderDataSource);
+    });
 }
 
 function fetchCurrentDataSourceDetails() {
@@ -68,15 +61,18 @@ function fetchCurrentDataSourceDetails() {
     if (!dataSource.bundle) {
       $('#bundle').prop('checked', true);
     }
+    if (dataSource.definition) {
+      $('#definition').val(JSON.stringify(dataSource.definition, null, 2));
+    }
   });
 }
 
 function fetchCurrentDataSourceUsers() {
-  var $usersContents = $('#roles');
-
   return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     source.getUsers().then(function (users) {
-      $usersContents.html(templates.users({ users: users }));
+      var tpl = Fliplet.Widget.Templates['templates.users'];
+      var html = tpl({ users: users });
+      $usersContents.html(html);
     });
   });
 }
@@ -180,7 +176,9 @@ function saveCurrentData() {
 
 // Append a data source to the DOM
 function renderDataSource(data) {
-  $dataSources.append(templates.dataSource(data));
+  var tpl = Fliplet.Widget.Templates['templates.dataSource'];
+  var html = tpl(data);
+  $dataSources.append(html);
 }
 
 function windowResized() {
@@ -228,7 +226,13 @@ $('#app')
       fetchCurrentDataSourceEntries(),
       fetchCurrentDataSourceUsers(),
       fetchCurrentDataSourceDetails()
-    ]);
+    ])
+      .catch(function () {
+        // Something went wrong
+        // EG: User try to edit an already deleted data source
+        // TODO: Show some error message
+        getDataSources();
+      });
   })
   .on('click', '[data-delete-source]', function (event) {
     event.preventDefault();
@@ -240,6 +244,7 @@ $('#app')
 
     Fliplet.DataSources.delete($item.data('id')).then(function () {
       $item.remove();
+      $('[data-back]').click();
     });
   })
   .on('click', '[data-create-source]', function (event) {
@@ -303,20 +308,49 @@ $('#app')
   })
   .on('submit', 'form[data-settings]', function (event) {
     event.preventDefault();
-    var name = $settings.find('[name="name"]').val();
+    var name = $settings.find('#name').val();
     var bundle = !$('#bundle').is(':checked');
+    var definition = $settings.find('#definition').val();
     if (!name) {
+      return;
+    }
+
+    try {
+      definition = JSON.parse(definition);
+    } catch (e) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid settings',
+        popupMessage: 'Definition MUST be a valid JSON'
+      });
       return;
     }
 
     Fliplet.DataSources.update({
       id: currentDataSourceId,
       name: name,
-      bundle: bundle
+      bundle: bundle,
+      definition: definition
     })
       .then(function () {
         $('[data-back]').click();
       });
+  })
+  .on('click', '#cancel', function () {
+    $('[data-back]').click();
+  })
+  .on('keyup change paste', '.search', function () {
+    var term = new RegExp(this.value, "i");
+    $noResults.removeClass('show');
+
+    var search = dataSources.filter(function (dataSource) {
+      return dataSource.name.match(term);
+    });
+
+    $dataSources.empty();
+    if (search.length === 0 && dataSources.length) {
+      $noResults.addClass('show');
+    }
+    search.forEach(renderDataSource);
   });
 
 // Fetch data sources when the provider starts
