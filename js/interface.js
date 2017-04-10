@@ -57,7 +57,7 @@ function getDataSources() {
   $contents.html(templates.dataSources());
   $dataSources = $('#data-sources > tbody');
 
-  Fliplet.DataSources.get({ type: null }).then(function (dataSources) {
+  Fliplet.DataSources.get({ type: null }, { cache: false }).then(function (dataSources) {
     dataSources.forEach(renderDataSource);
   });
 }
