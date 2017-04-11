@@ -47,6 +47,11 @@ function getDataSources() {
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
 
+  // If we already have data sources no need to go further.
+  if (dataSources) {
+    return;
+  }
+
   Fliplet.DataSources.get({ roles: 'publisher,editor', type: null })
     .then(function onGetDataSources(userDataSources) {
       dataSources = userDataSources;
@@ -240,10 +245,16 @@ $('#app')
       return;
     }
 
-    var $item = $(this).closest('.data-source');
+    Fliplet.DataSources.delete(currentDataSourceId).then(function () {
+      // Remove from UI
+      $('[data-id=' + currentDataSourceId + ']').remove();
 
-    Fliplet.DataSources.delete($item.data('id')).then(function () {
-      $item.remove();
+      // Remove from dataSources
+      dataSources = dataSources.filter(function(ds) {
+        return ds.id !== currentDataSourceId;
+      });
+
+      // Go back
       $('[data-back]').click();
     });
   })
@@ -260,7 +271,10 @@ $('#app')
         organizationId: organizations[0].id,
         name: sourceName
       });
-    }).then(renderDataSource);
+    }).then(function(createdDataSource){
+      dataSources.push(createdDataSource);
+      renderDataSource(createdDataSource);
+    });
   })
   .on('change', 'input[type="file"]', function (event) {
     var $input = $(this);
