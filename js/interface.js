@@ -355,9 +355,9 @@ $('#app')
   })
   .on('keyup change paste', '.search', function () {
     // Escape search
-    var search = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-    var term = new RegExp(search, "i");
+    var term = new RegExp(s, "i");
     $noResults.removeClass('show');
 
     var search = dataSources.filter(function (dataSource) {
