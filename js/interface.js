@@ -354,7 +354,10 @@ $('#app')
     $('[data-back]').click();
   })
   .on('keyup change paste', '.search', function () {
-    var term = new RegExp(this.value, "i");
+    // Escape search
+    var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+    var term = new RegExp(s, "i");
     $noResults.removeClass('show');
 
     var search = dataSources.filter(function (dataSource) {
