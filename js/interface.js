@@ -369,6 +369,15 @@ $('#app')
       $noResults.addClass('show');
     }
     search.forEach(renderDataSource);
+  })
+  .on('click', '#get-backdoor', function (event) {
+    event.preventDefault();
+    Fliplet.API.request('v1/data-sources/'+ currentDataSourceId +'/validation-code')
+      .then(function(result) {
+        if (result.code) {
+          $settings.find('#backdoor').html(result.code);
+        }
+      });
   });
 
 // Fetch data sources when the provider starts
