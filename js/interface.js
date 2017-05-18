@@ -18,7 +18,7 @@ var tinyMCEConfiguration = {
   menubar: false,
   statusbar: false,
   inline: true,
-  valid_elements : "tr,th,td[colspan|rowspan],thead,tbody,table,tfoot",
+  valid_elements: "tr,th,td[colspan|rowspan],thead,tbody,table,tfoot",
   valid_styles: {},
   plugins: "paste, table",
   gecko_spellcheck: true,
@@ -26,10 +26,10 @@ var tinyMCEConfiguration = {
   contextmenu: "tableprops | cell row column",
   table_toolbar: "",
   object_resizing: false,
-  paste_auto_cleanup_on_paste : false,
+  paste_auto_cleanup_on_paste: false,
   paste_remove_styles: true,
   paste_remove_styles_if_webkit: true,
-  setup: function (editor) {
+  setup: function(editor) {
     editor.on('change paste cut', function(e) {
       dataSourceEntriesHasChanged = true;
       $('[data-save]').removeClass('disabled');
@@ -52,7 +52,10 @@ function getDataSources() {
     return;
   }
 
-  Fliplet.DataSources.get({ roles: 'publisher,editor', type: null })
+  Fliplet.DataSources.get({
+      roles: 'publisher,editor',
+      type: null
+    })
     .then(function onGetDataSources(userDataSources) {
       dataSources = userDataSources;
       $dataSources.empty();
@@ -61,7 +64,7 @@ function getDataSources() {
 }
 
 function fetchCurrentDataSourceDetails() {
-  return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+  return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
     if (!dataSource.bundle) {
@@ -74,10 +77,12 @@ function fetchCurrentDataSourceDetails() {
 }
 
 function fetchCurrentDataSourceUsers() {
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
-    source.getUsers().then(function (users) {
+  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+    source.getUsers().then(function(users) {
       var tpl = Fliplet.Widget.Templates['templates.users'];
-      var html = tpl({ users: users });
+      var html = tpl({
+        users: users
+      });
       $usersContents.html(html);
     });
   });
@@ -86,55 +91,67 @@ function fetchCurrentDataSourceUsers() {
 function fetchCurrentDataSourceEntries() {
   var columns;
 
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
-    currentDataSource = source;
-    return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
-      columns = dataSource.columns;
+  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+      currentDataSource = source;
+      return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
+        columns = dataSource.columns;
 
-      return source.find({});
-    });
-  }).then(function (rows) {
-    if (!rows || !rows.length) {
-      rows = [{data: { id: 1, name: 'Sample row 1'}}, {data: {id: 2, name: 'Sample row 2'}}];
-      columns = ['id', 'name'];
-    } else {
-      columns = _.union.apply(this, rows.map(function (row) { return Object.keys(row.data); }));
-    }
+        return source.find({});
+      });
+    }).then(function(rows) {
+      if (!rows || !rows.length) {
+        rows = [{
+          data: {
+            id: 1,
+            name: 'Sample row 1'
+          }
+        }, {
+          data: {
+            id: 2,
+            name: 'Sample row 2'
+          }
+        }];
+        columns = ['id', 'name'];
+      } else {
+        columns = _.union.apply(this, rows.map(function(row) {
+          return Object.keys(row.data);
+        }));
+      }
 
-    columns = columns || [];
+      columns = columns || [];
 
-    var tableHead = '<tr>' + columns.map(function (column) {
-      return '<td>' + column + '</td>';
-    }).join('') + '</tr>';
-
-    var tableBody = rows.map(function (row) {
-      return '<tr>' + columns.map(function (column) {
-        var value = row.data[column] || '';
-
-        if (typeof value === 'object') {
-          value = JSON.stringify(value);
-        } else if (typeof value === 'string' && value.indexOf('<') !== -1) {
-          value = $('<div>').text(value).html();
-        }
-
-        return '<td>' + value + '</td>';
+      var tableHead = '<tr>' + columns.map(function(column) {
+        return '<td>' + column + '</td>';
       }).join('') + '</tr>';
-    }).join('');
 
-    var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
+      var tableBody = rows.map(function(row) {
+        return '<tr>' + columns.map(function(column) {
+          var value = row.data[column] || '';
 
-    $('.table-entries').css('visibility','visible');
+          if (typeof value === 'object') {
+            value = JSON.stringify(value);
+          } else if (typeof value === 'string' && value.indexOf('<') !== -1) {
+            value = $('<div>').text(value).html();
+          }
 
-    $tableContents = $('#entries > .table-entries');
-    $tableContents.html(tableTpl);
-    currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
-  })
+          return '<td>' + value + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+
+      var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
+
+      $('.table-entries').css('visibility', 'visible');
+
+      $tableContents = $('#entries > .table-entries');
+      $tableContents.html(tableTpl);
+      currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
+    })
     .catch(function onFetchError(error) {
       $('.table-entries').html('<br>Access denied. Please review your security settings if you want to access this data source.');
     });
 }
 
-Fliplet.Widget.onSaveRequest(function () {
+Fliplet.Widget.onSaveRequest(function() {
   saveCurrentData().then(Fliplet.Widget.complete);
 });
 
@@ -151,15 +168,14 @@ function saveCurrentData() {
 
   var tableRows = $table.find('table').tableToJSON();
 
-  tableRows.forEach(function (row) {
-    Object.keys(row).forEach(function (column) {
+  tableRows.forEach(function(row) {
+    Object.keys(row).forEach(function(column) {
       var value = row[column];
 
       try {
         // Convert value to JSON data when necessary (arrays and objects)
         row[column] = JSON.parse(value);
-      }
-      catch (e) {
+      } catch (e) {
         // Convert value to number when necessary
         if (!isNaN(value) && !value.match(/^(\+|0)/)) {
           row[column] = parseFloat(value, 10)
@@ -196,7 +212,7 @@ function windowResized() {
 // events
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
-  .on('click', '[data-back]', function (event) {
+  .on('click', '[data-back]', function(event) {
     event.preventDefault();
 
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
@@ -204,17 +220,17 @@ $('#app')
       getDataSources();
     }
   })
-  .on('click', '[data-save]', function (event) {
+  .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
     var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
     dataSourceEntriesHasChanged = false;
 
-    saveData.then(function () {
+    saveData.then(function() {
       getDataSources();
     })
   })
-  .on('click', '[data-browse-source]', function (event) {
+  .on('click', '[data-browse-source]', function(event) {
     event.preventDefault();
     currentDataSourceId = $(this).closest('.data-source').data('id');
     var name = $(this).closest('.data-source').find('.data-source-name').text();
@@ -229,24 +245,24 @@ $('#app')
     // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
     Promise.all([
-      fetchCurrentDataSourceEntries(),
-      fetchCurrentDataSourceUsers(),
-      fetchCurrentDataSourceDetails()
-    ])
-      .catch(function () {
+        fetchCurrentDataSourceEntries(),
+        fetchCurrentDataSourceUsers(),
+        fetchCurrentDataSourceDetails()
+      ])
+      .catch(function() {
         // Something went wrong
         // EG: User try to edit an already deleted data source
         // TODO: Show some error message
         getDataSources();
       });
   })
-  .on('click', '[data-delete-source]', function (event) {
+  .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
     if (!confirm('Are you sure you want to delete this data source? All entries will be deleted.')) {
       return;
     }
 
-    Fliplet.DataSources.delete(currentDataSourceId).then(function () {
+    Fliplet.DataSources.delete(currentDataSourceId).then(function() {
       // Remove from UI
       $('[data-id=' + currentDataSourceId + ']').remove();
 
@@ -259,7 +275,7 @@ $('#app')
       $('[data-back]').click();
     });
   })
-  .on('click', '[data-create-source]', function (event) {
+  .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
     var sourceName = prompt('Please type the new table name:');
 
@@ -267,29 +283,29 @@ $('#app')
       return;
     }
 
-    Fliplet.Organizations.get().then(function (organizations) {
+    Fliplet.Organizations.get().then(function(organizations) {
       return Fliplet.DataSources.create({
         organizationId: organizations[0].id,
         name: sourceName
       });
-    }).then(function(createdDataSource){
+    }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
       renderDataSource(createdDataSource);
     });
   })
-  .on('change', 'input[type="file"]', function (event) {
+  .on('change', 'input[type="file"]', function(event) {
     var $input = $(this);
     var file = $input[0].files[0];
     var formData = new FormData();
 
     formData.append('file', file);
 
-    currentDataSource.import(formData).then(function (files) {
+    currentDataSource.import(formData).then(function(files) {
       $input.val('');
       fetchCurrentDataSourceEntries();
     });
   })
-  .on('click', '[data-create-role]', function (event) {
+  .on('click', '[data-create-role]', function(event) {
     event.preventDefault();
     var userId = prompt('User ID');
     var permissions = prompt('Permissions', 'crudq');
@@ -298,16 +314,16 @@ $('#app')
       return;
     }
 
-    Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+    Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       return source.addUserRole({
         userId: userId,
         permissions: permissions
       });
-    }).then(fetchCurrentDataSourceUsers, function (err) {
+    }).then(fetchCurrentDataSourceUsers, function(err) {
       alert(err.responseJSON.message);
     });
   })
-  .on('click', '[data-revoke-role]', function (event) {
+  .on('click', '[data-revoke-role]', function(event) {
     event.preventDefault();
     var userId = $(this).data('revoke-role');
 
@@ -315,13 +331,13 @@ $('#app')
       return;
     }
 
-    Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
+    Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       return source.removeUserRole(userId);
-    }).then(function () {
+    }).then(function() {
       fetchCurrentDataSourceUsers();
     });
   })
-  .on('submit', 'form[data-settings]', function (event) {
+  .on('submit', 'form[data-settings]', function(event) {
     event.preventDefault();
     var name = $settings.find('#name').val();
     var bundle = !$('#bundle').is(':checked');
@@ -341,26 +357,26 @@ $('#app')
     }
 
     Fliplet.DataSources.update({
-      id: currentDataSourceId,
-      name: name,
-      bundle: bundle,
-      definition: definition
-    })
-      .then(function () {
+        id: currentDataSourceId,
+        name: name,
+        bundle: bundle,
+        definition: definition
+      })
+      .then(function() {
         $('[data-back]').click();
       });
   })
-  .on('click', '#cancel', function () {
+  .on('click', '#cancel', function() {
     $('[data-back]').click();
   })
-  .on('keyup change paste', '.search', function () {
+  .on('keyup change paste', '.search', function() {
     // Escape search
     var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
     var term = new RegExp(s, "i");
     $noResults.removeClass('show');
 
-    var search = dataSources.filter(function (dataSource) {
+    var search = dataSources.filter(function(dataSource) {
       return dataSource.name.match(term);
     });
 
@@ -369,6 +385,15 @@ $('#app')
       $noResults.addClass('show');
     }
     search.forEach(renderDataSource);
+  })
+  .on('click', '#get-backdoor', function(event) {
+    event.preventDefault();
+    Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/validation-code')
+      .then(function(result) {
+        if (result.code) {
+          $settings.find('#backdoor').val(result.code);
+        }
+      });
   });
 
 // Fetch data sources when the provider starts
