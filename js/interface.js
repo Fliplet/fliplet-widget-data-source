@@ -113,9 +113,17 @@ function fetchCurrentDataSourceEntries() {
         }];
         columns = ['id', 'name'];
       } else {
-        columns = _.union.apply(this, rows.map(function(row) {
-          return Object.keys(row.data);
-        }));
+        // Let's make sure we get all the columns checking all rows
+        // and add any missing column to the datasource columns
+        rows.forEach(function addMissingColumns(row) {
+          Object.keys(row.data).forEach(function addColumn(column) {
+            if (columns.indexOf(column) > -1) {
+              return;
+            }
+      
+            columns.push(column);
+          });
+        });
       }
 
       columns = columns || [];
