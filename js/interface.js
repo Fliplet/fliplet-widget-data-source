@@ -96,7 +96,9 @@ function fetchCurrentDataSourceEntries() {
       return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
         columns = dataSource.columns;
 
-        return source.find({});
+        return source.find({}).catch(function() {
+          return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
+        });
       });
     }).then(function(rows) {
       if (!rows || !rows.length) {
@@ -155,7 +157,18 @@ function fetchCurrentDataSourceEntries() {
       currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
     })
     .catch(function onFetchError(error) {
-      $('.table-entries').html('<br>Access denied. Please review your security settings if you want to access this data source.');
+      var message = error;
+      if (error instanceof Error) {
+        var message = 'Error loading data source.';
+        if (Raven) {
+          Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+        }
+      } else {
+        if (Raven) {
+          Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+        }
+      }
+      $('.table-entries').html('<br>' + message);
     });
 }
 
