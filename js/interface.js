@@ -93,8 +93,8 @@ function fetchCurrentDataSourceEntries() {
 
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       currentDataSource = source;
-      return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
-        columns = dataSource.columns;
+      return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+        columns = dataSource.columns || [];
 
         return source.find({}).catch(function() {
           return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
