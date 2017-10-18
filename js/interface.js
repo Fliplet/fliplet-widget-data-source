@@ -246,7 +246,6 @@ $('#app')
 
     var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
     dataSourceEntriesHasChanged = false;
-    dataSources = undefined; // refresh list
 
     saveData.then(function() {
       getDataSources();
@@ -385,6 +384,10 @@ $('#app')
         definition: definition
       })
       .then(function() {
+        // update name on ui
+        $('.data-source[data-id="' + currentDataSourceId + '"] [data-browse-source]').text(name);
+
+        // go back
         $('[data-back]').click();
       });
   })
