@@ -122,7 +122,7 @@ function fetchCurrentDataSourceEntries() {
             if (columns.indexOf(column) > -1) {
               return;
             }
-      
+
             columns.push(column);
           });
         });
@@ -384,6 +384,10 @@ $('#app')
         definition: definition
       })
       .then(function() {
+        // update name on ui
+        $('.data-source[data-id="' + currentDataSourceId + '"] [data-browse-source]').text(name);
+
+        // go back
         $('[data-back]').click();
       });
   })
