@@ -122,7 +122,7 @@ function fetchCurrentDataSourceEntries() {
             if (columns.indexOf(column) > -1) {
               return;
             }
-      
+
             columns.push(column);
           });
         });
@@ -246,6 +246,7 @@ $('#app')
 
     var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
     dataSourceEntriesHasChanged = false;
+    dataSources = undefined; // refresh list
 
     saveData.then(function() {
       getDataSources();
