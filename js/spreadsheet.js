@@ -55,7 +55,7 @@ var spreadsheet = function(options) {
     cells: function (row, col, prop) {
       return col === 0 ? { readOnly: true } : {} 
     },
-    contextMenu: ['row_above', 'row_below', 'remove_row', 'hsep1', 'col_left','col_right', 'remove_col'],
+    contextMenu: ['row_above', 'row_below', 'remove_row', 'col_left','col_right', 'remove_col'],
     data: data,
     // Always have one empty row at the end
     minSpareRows: 2,
