@@ -134,7 +134,7 @@ function saveCurrentData() {
 
   return currentDataSource.commit(entries)
     .then(function() {
-      table.destroy();
+      document.getElementById('hot').innerHTML='';
     });
 }
 
@@ -158,7 +158,7 @@ $('#app')
     event.preventDefault();
 
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
-      table.destroy();
+      document.getElementById('hot').innerHTML=''
       dataSourceEntriesHasChanged = false;
       getDataSources();
     }
