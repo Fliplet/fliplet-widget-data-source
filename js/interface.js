@@ -11,38 +11,11 @@ var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
 var dataSources;
-
+var table;
 var dataSourceEntriesHasChanged = false;
-
-var tinyMCEConfiguration = {
-  menubar: false,
-  statusbar: false,
-  inline: true,
-  valid_elements: "tr,th,td[colspan|rowspan],thead,tbody,table,tfoot",
-  valid_styles: {},
-  plugins: "paste, table",
-  gecko_spellcheck: true,
-  toolbar: 'undo redo | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol',
-  contextmenu: "tableprops | cell row column",
-  table_toolbar: "",
-  object_resizing: false,
-  paste_auto_cleanup_on_paste: false,
-  paste_remove_styles: true,
-  paste_remove_styles_if_webkit: true,
-  setup: function(editor) {
-    editor.on('change paste cut', function(e) {
-      dataSourceEntriesHasChanged = true;
-      $('[data-save]').removeClass('disabled');
-    });
-  }
-};
 
 // Fetch all data sources
 function getDataSources() {
-  if (tinymce.editors.length) {
-    tinymce.editors[0].remove();
-  }
-
   $contents.removeClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
@@ -88,13 +61,17 @@ function fetchCurrentDataSourceUsers() {
   });
 }
 
-function fetchCurrentDataSourceEntries() {
+function fetchCurrentDataSourceEntries(entries) {
   var columns;
 
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       currentDataSource = source;
       return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
         columns = dataSource.columns || [];
+
+        if (entries) {
+          return Promise.resolve(entries);
+        }
 
         return source.find({}).catch(function() {
           return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
@@ -128,33 +105,8 @@ function fetchCurrentDataSourceEntries() {
         });
       }
 
-      columns = columns || [];
-
-      var tableHead = '<tr>' + columns.map(function(column) {
-        return '<td>' + column + '</td>';
-      }).join('') + '</tr>';
-
-      var tableBody = rows.map(function(row) {
-        return '<tr>' + columns.map(function(column) {
-          var value = row.data[column] || '';
-
-          if (typeof value === 'object') {
-            value = JSON.stringify(value);
-          } else if (typeof value === 'string' && value.indexOf('<') !== -1) {
-            value = $('<div>').text(value).html();
-          }
-
-          return '<td>' + value + '</td>';
-        }).join('') + '</tr>';
-      }).join('');
-
-      var tableTpl = '<table class="table">' + tableHead + tableBody + '</table>';
-
+      table = spreadsheet({ columns: columns, rows: rows });
       $('.table-entries').css('visibility', 'visible');
-
-      $tableContents = $('#entries > .table-entries');
-      $tableContents.html(tableTpl);
-      currentEditor = $tableContents.tinymce(tinyMCEConfiguration);
     })
     .catch(function onFetchError(error) {
       var message = error;
@@ -168,7 +120,7 @@ function fetchCurrentDataSourceEntries() {
           Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
         }
       }
-      $('.table-entries').html('<br>' + message);
+      $('.entries-message').html('<br>' + message);
     });
 }
 
@@ -177,44 +129,13 @@ Fliplet.Widget.onSaveRequest(function() {
 });
 
 function saveCurrentData() {
-  if (!tinymce.editors.length) {
-    return Promise.resolve();
-  }
+  $('.entries-message').html('Saving...');
+  var entries = table.getData();
 
-  var $table = $('<div>' + tinymce.editors[0].getContent() + '</div>');
-
-  // Append the table to the dom so "tableToJSON" works fine
-  $table.css('visibility', 'hidden');
-  $('body').append($table)
-
-  var tableRows = $table.find('table').tableToJSON();
-
-  tableRows.forEach(function(row) {
-    Object.keys(row).forEach(function(column) {
-      var value = row[column];
-
-      try {
-        // Convert value to JSON data when necessary (arrays and objects)
-        row[column] = JSON.parse(value);
-      } catch (e) {
-        // Convert value to number when necessary
-        if (!isNaN(value) && !value.match(/^(\+|0)/)) {
-          row[column] = parseFloat(value, 10)
-        } else {
-          // Convert value to boolean
-          if (value === 'true') {
-            value = true;
-          } else if (value === 'false') {
-            value = false;
-          }
-        }
-      }
+  return currentDataSource.replaceWith(entries)
+    .then(function() {
+      table.destroy();
     });
-  });
-
-  $('.table-entries').html('Saving...');
-
-  return currentDataSource.replaceWith(tableRows);
 }
 
 // Append a data source to the DOM
@@ -237,6 +158,7 @@ $('#app')
     event.preventDefault();
 
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
+      table.destroy();
       dataSourceEntriesHasChanged = false;
       getDataSources();
     }
@@ -257,7 +179,7 @@ $('#app')
     var name = $(this).closest('.data-source').find('.data-source-name').text();
 
     $contents.addClass('hidden');
-    $('.table-entries').html('<br>Loading data...');
+    $('.entries-message').html('<br>Loading data...');
     $sourceContents.removeClass('hidden');
     $sourceContents.find('h1').html(name);
     windowResized();
