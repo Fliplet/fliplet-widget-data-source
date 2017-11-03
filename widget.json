@@ -7,16 +7,17 @@
   "provider_only": true,
   "interface": {
     "dependencies": [
+      "handlebars",
       "lodash",
       "jquery",
       "bootstrap",
       "tinymce",
+      "handsontable",
       "fliplet-datasources",
       "fliplet-studio-ui"
     ],
     "assets": [
-      "vendor/handlebars.js",
-      "vendor/jquery.tabletojson.js",
+      "js/spreadsheet.js",
       "js/interface.js",
       "css/interface.css",
       "js/interface.templates.js"
