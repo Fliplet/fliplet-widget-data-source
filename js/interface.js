@@ -132,7 +132,7 @@ function saveCurrentData() {
   $('.entries-message').html('Saving...');
   var entries = table.getData();
 
-  return currentDataSource.replaceWith(entries, { update: true })
+  return currentDataSource.commit(entries)
     .then(function() {
       table.destroy();
     });
