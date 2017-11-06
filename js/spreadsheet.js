@@ -17,25 +17,8 @@ var spreadsheet = function(options) {
     });
   });
 
-  var colHeaders = function (index) {
-    return columns[index] === ENTRY_ID_LABEL
-      ? columns[index]
-      : '<input data-index="' + index + '" class="input-header" type="text" value="' + columns[index] + '" />';
-  }
-  
-  function getColHeaders() {
-    var headers = [];
-    $('.ht_clone_top .input-header').each(function(index, el) {
-      var header = $(el).val();
-      if (headers.indexOf(header) > -1) {
-        header = header + ' (1)';
-      }
-  
-      headers.push(header);
-    });
-  
-    return headers;
-  }
+  // Add columns as first row
+  data.unshift(columns);
 
   function onChanges() {
     if (dataLoaded) {
@@ -44,7 +27,18 @@ var spreadsheet = function(options) {
     }
   }
 
+  function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
+    var escaped = Handsontable.helper.stringify(value);
+    td.innerHTML = escaped;
+    $(td).css({
+      'font-weight': 'bold',
+      'background-color': '#e4e4e4'
+    });
+  }
+
   var hotSettings = {
+    stretchH: 'all',
+    fixedRowsTop: 1,
     // Prevent cells from being selected on column header click 
     beforeOnCellMouseDown: function(event, coords, element) {
       if (coords.row < 0) {
@@ -53,17 +47,22 @@ var spreadsheet = function(options) {
     },
     // Make first column read only
     cells: function (row, col, prop) {
-      return col === 0 ? { readOnly: true } : {} 
+      var cellProperties = {};
+      
+      if (row === 0 && col !== 0) {
+        cellProperties.renderer = columnValueRenderer;
+      }
+
+      if (col === 0) {
+        cellProperties.readOnly = true;
+      }
+
+      return cellProperties;
     },
-    contextMenu: ['row_above', 'row_below', 'remove_row', 'col_left','col_right', 'remove_col'],
+    contextMenu: ['row_above', 'row_below', 'col_left', 'col_right', 'remove_row', 'remove_col', 'undo', 'redo'],
     data: data,
     // Always have one empty row at the end
     minSpareRows: 2,
-    /*
-    * Render custom header. With an input field so we can edit the header
-    * Using this we need to make sure to update headers accordingly.
-    */
-    colHeaders: colHeaders,
     // columns: We can't use this options for now as this set max cols
     rowHeaders: false,
     // Hooks
@@ -78,25 +77,10 @@ var spreadsheet = function(options) {
     afterRemoveRow: function(index, amount) {
       onChanges();
     },
-    beforeCreateCol: function(index, amount, source) {
-      var newColumns = [];
-      var random = (new Date()).getTime().toString().slice(10);
-      for (var i = 0; i < amount; i++) {
-        newColumns.push('Column ' + random + i);
-      }
-      columns.splice.apply(columns, [index, 0].concat(newColumns));
-      hot.updateSettings({
-        colHeaders: colHeaders
-      });
-    },
     afterCreateCol: function(index, amount) {
       onChanges();
     },
     beforeRemoveCol: function(index, amount) {
-      columns.splice(index, amount);
-      hot.updateSettings({
-        colHeaders: colHeaders
-      });
     },
     afterRemoveCol: function(index, amount) {
       onChanges();
@@ -109,36 +93,48 @@ var spreadsheet = function(options) {
   
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
-  // Update headers when change the input fields 
-  $('#entries')
-    .on('change', '.input-header', function() {
-      $('[data-save]').removeClass('disabled');
-      columns = getColHeaders();
-      columns.unshift(ENTRY_ID_LABEL);
-      hot.updateSettings({
-        colHeaders: colHeaders
-      });
-      dataSourceEntriesHasChanged = true;
+  function getColumns() {
+    var random = (new Date()).getTime().toString().slice(10);
+    var headers = [];
+    var dataAtRow0 = hot.getDataAtRow(0);
+    dataAtRow0.shift();
+    dataAtRow0.forEach(function(header, index) {
+      if (header === '') {
+        header = 'Column ' + random + index;
+      }
+
+      if (headers.indexOf(header) > -1) {
+        header = header + ' (1)'
+      }
+      
+      headers.push(header);
     });
+    
+    return headers;
+  }
 
   return {
     getData: function() {
-      return data.map(function(row) {
-        var entry = { data: {}};
-        columns.forEach(function(column, index) {
-          if (index === 0) {
-            return entry.id = row[index]
-          }
-          
-          entry.data[column] = row[index];
+      var headers = getColumns();
+      // Clone data table
+      var tableData = JSON.parse(JSON.stringify(data));
+      // Remove entry columns from data table
+      tableData.shift();
+
+      return tableData.map(function(row) {
+        // Row at position 0 will have entry id
+        var entry = { id: row[0], data: {}};
+        
+        headers.forEach(function(header, index) {
+          entry.data[header] = row[index + 1];
         });
 
         return entry;
       }).filter(function(entry) {
         var empty = true;
         // Remove empty lines
-        columns.forEach(function(column) {
-          if (entry.data[column]) {
+        headers.forEach(function(header) {
+          if (entry.data[header]) {
             empty = false;
           }
         });
@@ -146,8 +142,11 @@ var spreadsheet = function(options) {
         return !empty;
       })
     },
+    getColumns: function() {
+      return getColumns();
+    },
     destroy: function() {
-      hot.destroy();
+      return hot.destroy();
     }
   }
 };

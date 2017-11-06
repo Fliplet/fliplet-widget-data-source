@@ -131,10 +131,13 @@ Fliplet.Widget.onSaveRequest(function() {
 function saveCurrentData() {
   $('.entries-message').html('Saving...');
   var entries = table.getData();
+  var columns = table.getColumns();
 
-  return currentDataSource.commit(entries)
+  return currentDataSource.commit(entries, columns)
     .then(function() {
-      document.getElementById('hot').innerHTML='';
+      // Clear hot div
+      table.destroy();
+      //document.getElementById('hot').innerHTML='';
     });
 }
 
