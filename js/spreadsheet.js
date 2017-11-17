@@ -1,20 +1,22 @@
+var hot, data;
+
 var spreadsheet = function(options) {
-  ENTRY_ID_LABEL = '_id';
+  ENTRY_ID_LABEL = 'ID';
   var rows = options.rows || [];
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
-  var hot;
-
-  // Include id on columns
-  columns.unshift(ENTRY_ID_LABEL);
+  var columnNameCounter = 0; // Counter to anonymous columns names
+  
 
   // Don't bind data to data source object
   // Data as an array
-  var data = rows.map(function(row) {
-    return columns.map(function(header, index) {
-      return index === 0 ? row.id : row.data[header];
+  data = rows.map(function(row) {
+    var dataRow = columns.map(function(header, index) {
+      return row.data[header];
     });
+    dataRow.id = row.id;
+    return dataRow;
   });
 
   // Add columns as first row
@@ -38,23 +40,45 @@ var spreadsheet = function(options) {
 
   var hotSettings = {
     stretchH: 'all',
+    manualColumnResize: true,
+    manualColumnMove: true,
+    minColsNumber: 1,
+    minRowsNumber: 100,
     fixedRowsTop: 1,
-    // Prevent cells from being selected on column header click 
-    beforeOnCellMouseDown: function(event, coords, element) {
-      if (coords.row < 0) {
-        event.stopImmediatePropagation();
-      }
+    colHeaders: true,
+    rowHeaders: true,
+    manualColumnMove: false,
+    columnSorting: true,
+    sortIndicator: true,
+    sortFunction: function(sortOrder, columnMeta) {
+    	return function(a, b) {
+      	var plugin = hot.getPlugin('columnSorting');
+        var sortFunction;
+        
+        if (a[0] === 0) {
+        	return -1;
+        }
+        
+        switch (columnMeta.type) {
+          case 'date':
+            sortFunction = plugin.dateSort;
+            break;
+          case 'numeric':
+            sortFunction = plugin.numericSort;
+            break;
+          default:
+            sortFunction = plugin.defaultSort;
+        }
+      	
+        return sortFunction(sortOrder, columnMeta)(a, b);
+      };
     },
     // Make first column read only
     cells: function (row, col, prop) {
       var cellProperties = {};
       
-      if (row === 0 && col !== 0) {
+      if (row === 0) {
         cellProperties.renderer = columnValueRenderer;
-      }
-
-      if (col === 0) {
-        cellProperties.readOnly = true;
       }
 
       return cellProperties;
@@ -62,14 +86,24 @@ var spreadsheet = function(options) {
     contextMenu: ['row_above', 'row_below', 'col_left', 'col_right', 'remove_row', 'remove_col', 'undo', 'redo'],
     data: data,
     // Always have one empty row at the end
-    minSpareRows: 2,
-    // columns: We can't use this options for now as this set max cols
-    rowHeaders: false,
+    minSpareRows: 100,
     // Hooks
-    afterChange: function(changes, source) {
-      if (['edit','UndoRedo.undo','CopyPaste.paste'].indexOf(source) > -1) {
-        onChanges();
-      }
+    beforeChange: function(changes, source) {
+      var headers = getColumns();
+      // Check if the change was on columns row and validate
+      changes.forEach(function(change) {
+        if (change[0] === 0) {
+          if (change[3] === '') {
+            change[3] = generateColumnName();
+          }
+    
+          if (headers.indexOf(change[3]) > -1) {
+            change[3] = fixColumnName(change[3]);
+          }
+        }
+      });
+
+      onChanges();
     },
     afterCreateRow: function(index, amount) {
       onChanges();
@@ -77,7 +111,12 @@ var spreadsheet = function(options) {
     afterRemoveRow: function(index, amount) {
       onChanges();
     },
-    afterCreateCol: function(index, amount) {
+    afterCreateCol: function(index, amount, source) {
+      for (var i = 0; i < amount; i++) {
+        var columnName = generateColumnName();
+        hot.setDataAtCell(0, index + i, columnName);
+      }
+
       onChanges();
     },
     beforeRemoveCol: function(index, amount) {
@@ -97,10 +136,12 @@ var spreadsheet = function(options) {
     var random = (new Date()).getTime().toString().slice(10);
     var headers = [];
     var dataAtRow0 = hot.getDataAtRow(0);
-    dataAtRow0.shift();
+
+    // At this point columns should all have name
+    // But just in case
     dataAtRow0.forEach(function(header, index) {
       if (header === '') {
-        header = 'Column ' + random + index;
+        header = generateColumnName();
       }
 
       if (headers.indexOf(header) > -1) {
@@ -113,34 +154,56 @@ var spreadsheet = function(options) {
     return headers;
   }
 
+  /**
+   * Generates a column name in the form 
+   * Column 1, Column 2, and so on...
+   */
+  function generateColumnName() {
+    var headers = getColumns();
+    columnNameCounter = columnNameCounter + 1;
+    var columnName = 'Column '+ columnNameCounter;
+    return headers.indexOf(columnName) > -1
+    ? generateColumnName()
+    : columnName;
+  }
+
+  /**
+   * Fixes column name for the user
+   * There can't be duplicated column names
+   */
+  function fixColumnName(name, j) {
+    var j = j + 1 || 1;
+    var headers = getColumns();
+    var columnName = name + '(' + j + ')';
+    return headers.indexOf(columnName) > -1
+    ? fixColumnName(name, j)
+    : columnName;
+  }
+
   return {
     getData: function() {
       var headers = getColumns();
-      // Clone data table
-      var tableData = JSON.parse(JSON.stringify(data));
-      // Remove entry columns from data table
-      tableData.shift();
+      var entries = [];
+      // Remove columns row
+      var tableData = data.slice(1);
 
-      return tableData.map(function(row) {
-        // Row at position 0 will have entry id
-        var entry = { id: row[0], data: {}};
-        
+      tableData.forEach(function(row, index) {
+        var entry = { id: row.id, data: {} };
+        var emptyRow = true;
+
         headers.forEach(function(header, index) {
-          entry.data[header] = row[index + 1];
+          if (row[index]) {
+            emptyRow = false;
+          }
+          entry.data[header] = row[index];
         });
 
-        return entry;
-      }).filter(function(entry) {
-        var empty = true;
-        // Remove empty lines
-        headers.forEach(function(header) {
-          if (entry.data[header]) {
-            empty = false;
-          }
-        });
-        
-        return !empty;
-      })
+        if (!emptyRow) {
+          entries.push(entry);
+        }
+      });
+
+      return entries;
     },
     getColumns: function() {
       return getColumns();

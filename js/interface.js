@@ -81,16 +81,16 @@ function fetchCurrentDataSourceEntries(entries) {
       if (!rows || !rows.length) {
         rows = [{
           data: {
-            id: 1,
-            name: 'Sample row 1'
+            "Column 1": 'demo data',
+            "Column 2": 'demo data',
           }
         }, {
           data: {
-            id: 2,
-            name: 'Sample row 2'
+            "Column 1": 'demo data',
+            "Column 2": 'demo data',
           }
         }];
-        columns = ['id', 'name'];
+        columns = ['Column 1', 'Column 2'];
       } else {
         // Let's make sure we get all the columns checking all rows
         // and add any missing column to the datasource columns
@@ -154,6 +154,29 @@ function windowResized() {
   $('#contents:visible').height($('body').height() - $('#contents').offset().top);
 }
 
+function browseDataSource(id) {
+  currentDataSourceId = id;
+  $contents.addClass('hidden');
+  $('.entries-message').html('<br>Loading data...');
+  $sourceContents.removeClass('hidden');
+  $sourceContents.find('h1').html(name);
+  windowResized();
+
+  // Input file temporarily disabled
+  // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
+
+  Promise.all([
+      fetchCurrentDataSourceEntries(),
+      fetchCurrentDataSourceUsers(),
+      fetchCurrentDataSourceDetails()
+    ])
+    .catch(function() {
+      // Something went wrong
+      // EG: User try to edit an already deleted data source
+      // TODO: Show some error message
+      getDataSources();
+    });
+}
 // events
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
@@ -161,7 +184,7 @@ $('#app')
     event.preventDefault();
 
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
-      document.getElementById('hot').innerHTML=''
+      table.destroy();
       dataSourceEntriesHasChanged = false;
       getDataSources();
     }
@@ -176,31 +199,10 @@ $('#app')
       getDataSources();
     })
   })
-  .on('click', '[data-browse-source]', function(event) {
+  .on('click', '[data-browse-source]', function (event) {
     event.preventDefault();
     currentDataSourceId = $(this).closest('.data-source').data('id');
-    var name = $(this).closest('.data-source').find('.data-source-name').text();
-
-    $contents.addClass('hidden');
-    $('.entries-message').html('<br>Loading data...');
-    $sourceContents.removeClass('hidden');
-    $sourceContents.find('h1').html(name);
-    windowResized();
-
-    // Input file temporarily disabled
-    // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
-
-    Promise.all([
-        fetchCurrentDataSourceEntries(),
-        fetchCurrentDataSourceUsers(),
-        fetchCurrentDataSourceDetails()
-      ])
-      .catch(function() {
-        // Something went wrong
-        // EG: User try to edit an already deleted data source
-        // TODO: Show some error message
-        getDataSources();
-      });
+    browseDataSource(currentDataSourceId);
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
@@ -237,6 +239,7 @@ $('#app')
     }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
       renderDataSource(createdDataSource);
+      browseDataSource(createdDataSource.id);
     });
   })
   .on('change', 'input[type="file"]', function(event) {
