@@ -1,5 +1,7 @@
-var hot, data;
-
+var hot, 
+    data, 
+    hotSelection; // Stores current selection to use for toolbar
+          
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
   var rows = options.rows || [];
@@ -29,6 +31,9 @@ var spreadsheet = function(options) {
     }
   }
 
+  /**
+   * Style firt row. First row is the columns names
+   */
   function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
     var escaped = Handsontable.helper.stringify(value);
     td.innerHTML = escaped;
@@ -47,7 +52,6 @@ var spreadsheet = function(options) {
     fixedRowsTop: 1,
     colHeaders: true,
     rowHeaders: true,
-    manualColumnMove: false,
     columnSorting: true,
     sortIndicator: true,
     sortFunction: function(sortOrder, columnMeta) {
@@ -73,7 +77,6 @@ var spreadsheet = function(options) {
         return sortFunction(sortOrder, columnMeta)(a, b);
       };
     },
-    // Make first column read only
     cells: function (row, col, prop) {
       var cellProperties = {};
       
@@ -83,7 +86,7 @@ var spreadsheet = function(options) {
 
       return cellProperties;
     },
-    contextMenu: ['row_above', 'row_below', 'col_left', 'col_right', 'remove_row', 'remove_col', 'undo', 'redo'],
+    contextMenu: ['row_above', 'row_below', 'remove_row', 'col_left', 'col_right', 'remove_col', 'undo', 'redo'],
     data: data,
     // Always have one empty row at the end
     minSpareRows: 100,
@@ -127,6 +130,9 @@ var spreadsheet = function(options) {
     afterLoadData: function(firstTime) {
       dataLoaded = true;
       $('.entries-message').html('');
+    },
+    afterSelectionEnd: function(r, c, r2, c2) {
+      hotSelection = [r, c, r2, c2];
     }
   };
   
@@ -213,3 +219,42 @@ var spreadsheet = function(options) {
     }
   }
 };
+
+  // Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
+  // TODO:
+  // - UI
+  // - Decide what to do on the paste functionality  
+  $("#toolbar")
+    .on('click', '.insert-row-before', function(e) {
+      hot.alter('insert_row', hotSelection[2], 1, 'Toolbar.rowBefore');
+    })
+    .on('click', '.insert-row-after', function() {
+      hot.alter('insert_row', hotSelection[2]+1, 1, 'Toolbar.rowAfter');
+    })
+    .on('click', '.insert-column-right', function() {
+      hot.alter('insert_col', hotSelection[3], 1, 'Toolbar.columnLeft');
+    })
+    .on('click', '.insert-column-left', function() {
+      hot.alter('insert_col', hotSelection[3]+1, 1, 'Toolbar.columnRight');
+    })
+    .on('click', '.remove-row', function() {
+      hot.alter('remove_row', hotSelection[2], 1, 'Toolbar.removeRow');
+    })
+    .on('click', '.remove-column', function() {
+      hot.alter('remove_col', hotSelection[3], 1, 'Toolbar.removeColumn');
+    })
+    .on('click', '.redo', function() {
+      hot.redo();
+    })
+    .on('click', '.undo', function() {
+      hot.undo();
+    })
+    .on('click', '.copy', function() {
+      var text = hot.getCopyableText(hotSelection[0], hotSelection[1], hotSelection[2], hotSelection[3]);
+      copy(text);
+    })
+    .on('click', '.paste', function() {
+      // TODO:
+      var plugin = hot.getPlugin('copyPaste');
+      plugin.paste;
+    })
