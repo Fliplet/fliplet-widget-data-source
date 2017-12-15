@@ -136,8 +136,10 @@ function saveCurrentData() {
   return currentDataSource.commit(entries, columns)
     .then(function() {
       // Clear hot div
-      table.destroy();
-      //document.getElementById('hot').innerHTML='';
+      try{
+        table.destroy();
+      } catch(e) {
+      }
     });
 }
 
@@ -159,6 +161,7 @@ function browseDataSource(id) {
   $contents.addClass('hidden');
   $('.entries-message').html('<br>Loading data...');
   $sourceContents.removeClass('hidden');
+  $('[href="#entries"]').click();
   $sourceContents.find('h1').html(name);
   windowResized();
 
@@ -184,7 +187,10 @@ $('#app')
     event.preventDefault();
 
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
-      table.destroy();
+      try{
+        table.destroy();
+      } catch(e) {
+      }
       dataSourceEntriesHasChanged = false;
       getDataSources();
     }
@@ -313,7 +319,7 @@ $('#app')
       })
       .then(function() {
         // update name on ui
-        $('.data-source[data-id="' + currentDataSourceId + '"] [data-browse-source]').text(name);
+        $('.data-source[data-id="' + currentDataSourceId + '"] a[data-browse-source]').text(name);
 
         // go back
         $('[data-back]').click();
