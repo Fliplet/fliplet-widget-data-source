@@ -188,7 +188,7 @@ html {
 
 .copy-cut-paste-overlay .shortcut-holder {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
 }
 
 .copy-cut-paste-overlay .shortcut p:first-child {
