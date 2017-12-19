@@ -24,6 +24,10 @@ this["Fliplet"]["Widget"]["Templates"]["templates.dataSource"] = Handlebars.temp
     + "</td>\n    <td class=\"text-right\"><button class=\"btn btn-default\" data-browse-source>Edit</button></td>\n</tr>";
 },"useData":true});
 
+this["Fliplet"]["Widget"]["Templates"]["templates.overlay"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    return "<p>These actions are unavailable, but you can still use:</p>\n<div class=\"shortcut-holder\">\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + C</p>\n    <p>for copy</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + X</p>\n    <p>for cut</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + V</p>\n    <p>for paste</p>\n  </div>\n</div>";
+},"useData":true});
+
 this["Fliplet"]["Widget"]["Templates"]["templates.users"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression, alias5=container.lambda;
 

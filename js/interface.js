@@ -14,6 +14,11 @@ var dataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
 
+// CHeck if user is on Apple MacOS system
+function isMac() {
+  return navigator.platform.indexOf('Mac') > -1
+}
+
 // Fetch all data sources
 function getDataSources() {
   $contents.removeClass('hidden');
@@ -179,6 +184,29 @@ function browseDataSource(id) {
       // TODO: Show some error message
       getDataSources();
     });
+}
+
+function openOverlay() {
+  var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
+  var copyCutPasteOverlay = new Fliplet.Utils.Overlay(htmlContent, {
+    title: 'Copying and pasting',
+    size: 'small',
+    classes: 'copy-cut-paste-overlay',
+    showOnInit: true,
+    beforeOpen: function() {
+      // Reset (just in case)
+      $('.mac').removeClass('active');
+      $('.win').removeClass('active');
+
+      // Change shorcut keys based on system (Win/Mac)
+      if (isMac()) {
+        $('.mac').addClass('active');
+        return;
+      }
+      // Windows
+      $('.win').addClass('active');
+    }
+  });
 }
 // events
 $(window).on('resize', windowResized).trigger('resize');
@@ -353,7 +381,15 @@ $('#app')
           $settings.find('#backdoor').val(result.code);
         }
       });
+  })
+  .on('click', '.action-unavailable', function(){
+    openOverlay();
   });
+
+$('[data-toggle="tooltip"]').tooltip({
+  container: 'body',
+  trigger: 'hover'
+});
 
 // Fetch data sources when the provider starts
 getDataSources();

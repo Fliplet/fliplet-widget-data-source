@@ -1,0 +1,15 @@
+@font-face {
+  font-family: 'tinymce';
+  src: url('vendor/fonts/tinymce.eot');
+  src: url('vendor/fonts/tinymce.eot?#iefix') format('embedded-opentype'), url('vendor/fonts/tinymce.woff') format('woff'), url('vendor/fonts/tinymce.ttf') format('truetype'), url('vendor/fonts/tinymce.svg#tinymce') format('svg');
+  font-weight: normal;
+  font-style: normal
+}
+
+@font-face {
+  font-family: 'tinymce-small';
+  src: url('vendor/fonts/tinymce-small.eot');
+  src: url('vendor/fonts/tinymce-small.eot?#iefix') format('embedded-opentype'), url('vendor/fonts/tinymce-small.woff') format('woff'), url('vendor/fonts/tinymce-small.ttf') format('truetype'), url('vendor/fonts/tinymce-small.svg#tinymce') format('svg');
+  font-weight: normal;
+  font-style: normal
+}

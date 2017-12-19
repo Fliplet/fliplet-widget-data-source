@@ -1,0 +1,256 @@
+/*
+===========================
+CONTENTS:
+
+01 Overlay
+===========================
+*/
+/* ----------------------------------------------------------------------------------------------------------
+01 Overlay --------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------- */
+body.overlayIsActive {
+  overflow: hidden;
+}
+body.overlayIsActive > :not(.overlay),
+body.overlayIsActive > :not(.overlay) * {
+  pointer-events: none;
+}
+body.overlayIsActive.overlay-on > :not(.image-container-wrapper.shown),
+body.overlayIsActive.overlay-on > :not(.image-container-wrapper.shown) * {
+  pointer-events: none;
+}
+body.overlayIsActive.overlay-on .image-container-wrapper.shown,
+body.overlayIsActive.overlay-on .image-container-wrapper.shown * {
+  pointer-events: all;
+}
+body.overlayIsActive.overlay-on .image-zoom.gallery-image-zoom,
+body.overlayIsActive.overlay-on .image-zoom.gallery-image-zoom * {
+  pointer-events: all;
+}
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: none;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  -webkit-transform: translate3d(0,0,0);
+  -moz-transform: translate3d(0,0,0);
+  -ms-transform: translate3d(0,0,0);
+  -o-transform: translate3d(0,0,0);
+  transform: translate3d(0,0,0);
+  pointer-events: none;
+}
+.overlay.overlay-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.active {
+  pointer-events: all;
+}
+.overlay.closing {
+  pointer-events: none;
+}
+.overlayPanelScreen {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 19999;
+  background-color: #000000;
+  background-color: rgba(0,0,0,0.7);
+  -webkit-transform: translate3d(0,0,-400px);
+  -moz-transform: translate3d(0,0,-400px);
+  -ms-transform: translate3d(0,0,-400px);
+  -o-transform: translate3d(0,0,-400px);
+  transform: translate3d(0,0,-400px);
+  opacity: 0;
+  pointer-events: none;
+  -webkit-transition-property: opacity;
+  -webkit-transition-duration: 0.2s;
+  -webkit-transition-timing-function: ease-out;
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-out;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+.overlay.active .overlayPanelScreen {
+  opacity: 1;
+  pointer-events: all;
+}
+.overlay.closing .overlayPanelScreen {
+  opacity: 0;
+  pointer-events: none;
+}
+.overlayPanel {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  z-index: 20000;
+  padding: 0;
+  -webkit-border-radius: 5px;
+  -webkit-transform: translate3d(0,0,0) scale(0);
+  transform: translate3d(0,0,0) scale(0);
+}
+.overlay.active .overlayPanel {
+  -webkit-transform: translate3d(0,0,0);
+  transform: translate3d(0,0,0);
+}
+.overlay.closing .overlayPanel {
+  pointer-events: none;
+}
+.overlay-compact .overlayPanel {
+  position: static;
+  overflow: auto;
+  max-width: 95%;
+  max-height: 95%;
+}
+.overlay-sm .overlayPanel {
+  width: 70%;
+  left: 15%;
+  right: 15%;
+  top: 15%;
+  bottom: 15%;
+}
+.overlay-full .overlayPanel {
+  width: 100%;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+@media screen and (min-width: 640px) {
+  .overlayPanel {
+    width: 62%;
+    top: 10%;
+    left: 19%;
+    bottom: 10%;
+    right: 19%;
+  }
+  .overlay-compact .overlayPanel {
+    max-width: 62%;
+    max-height: 62%;
+  }
+  .overlay-sm .overlayPanel {
+    width: 50%;
+    left: 25%;
+    right: 25%;
+    top: 19%;
+    bottom: 19%;
+  }
+  .overlay-lg .overlayPanel {
+    width: 85.56%;
+    left: 7.22%;
+    right: 7.22%;
+    top: 8%;
+    bottom: 8%;
+  }
+}
+.overlayTitle {
+  padding: 0 8px;
+}
+.overlayPanelContent {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 8px 16px;
+  background: #fff;
+  font-size: 1em;
+  color: #333;
+  text-shadow: none;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.overlay.hasNavbar .overlayPanelContent {
+  padding-top: 52px; /* 44 + 8 */
+}
+.overlay.overlay-compact .overlayPanelContent,
+.overlay.overlay-compact.hasNavbar .overlayPanelContent {
+  padding: 0;
+}
+.overlay.overlay-sm .overlayPanelContent {
+  padding: 10px 15px;
+}
+.overlay.overlay-sm.hasNavbar .overlayPanelContent {
+  padding-top: 54px; /* 44 + 10 */
+}
+@media screen and (min-width: 640px) {
+  .overlayPanelContent {
+    padding: 15px 30px;
+  }
+  .overlay.hasNavbar .overlayPanelContent {
+    padding-top: 59px; /* 44 + 15 */
+  }
+  .overlay.overlay-lg .overlayPanelContent {
+    padding: 30px 45px;
+  }
+  .overlay.overlay-lg.hasNavbar .overlayPanelContent {
+    padding-top: 74px; /* 44 + 30 */
+  }
+}
+.overlayNavbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  z-index: 1;
+  border-bottom: 1px solid #c9c9c9;
+  line-height: 44px;
+  font-size: 14px;
+  text-align: left;
+  font-weight: bold;
+  overflow: hidden;
+  background-color: #ffffff;
+  background-color: rgba(255,255,255,0.95);
+  color: #333;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  display: none;
+}
+.overlay.hasNavbar .overlayNavbar {
+  display: block;
+}
+.overlay.overlay-compact .overlayNavbar {
+  display: none;
+}
+.overlay .overlayPanel > .closeButton {
+  background: #fff;
+  padding: 0 5px;
+  height: 54px;
+  line-height: 54px;
+  text-align: center;
+  font-size: 14px;
+  cursor: pointer;
+  display: none !important;
+}
+.overlay.overlay-compact .overlayPanel > .closeButton {
+  display: block !important;
+}
+.overlayNavbar .closeButton {
+  float: left;
+  padding: 0 13px;
+  z-index: 1;
+  font-weight: normal;
+  cursor: pointer;
+}
+.overlayNavbar .actionButton {
+  float: right;
+  padding: 0 13px;
+  z-index: 2;
+  font-weight: normal;
+  cursor: pointer;
+}
+.overlayNavbar .overlayTitle {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
