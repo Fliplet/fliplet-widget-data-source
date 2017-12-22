@@ -153,6 +153,11 @@ html {
   overflow: visible;
 }
 
+#source-contents .tab-pane#roles,
+#source-contents .tab-pane#settings {
+  overflow: auto;
+}
+
 #toolbar {
   position: absolute;
   top: -94px;
