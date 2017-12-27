@@ -4,6 +4,10 @@ html {
   overflow: hidden;
 }
 
+body {
+  padding-top: 4px;
+}
+
 #app,
 #contents {
   height: 100%;
