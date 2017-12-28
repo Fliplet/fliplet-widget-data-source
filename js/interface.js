@@ -14,6 +14,9 @@ var dataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
 
+var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
+var data = Fliplet.Widget.getData(widgetId) || {};
+
 // CHeck if user is on Apple MacOS system
 function isMac() {
   return navigator.platform.indexOf('Mac') > -1
@@ -157,7 +160,13 @@ function renderDataSource(data) {
 
 function windowResized() {
   var pageTopElements = 120;
-  $('.tab-pane').height($('body').height() - ($('.tab-content').offset().top + pageTopElements));
+  if (data.dataSourceId) {
+    // If in overlay
+    $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
+  } else {
+    // If NOT in overlay
+    $('.tab-pane').height($('body').height() - ($('.tab-content').offset().top + pageTopElements));
+  }
   $('.table-entries').height($('.tab-content').height());
   $('#contents:visible').height($('body').height() - $('#contents').offset().top);
 }
@@ -209,6 +218,7 @@ function openOverlay() {
     }
   });
 }
+
 // events
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
@@ -392,5 +402,11 @@ $('[data-toggle="tooltip"]').tooltip({
   trigger: 'hover'
 });
 
-// Fetch data sources when the provider starts
-getDataSources();
+
+if (data.dataSourceId) {
+  // Enter data source when the provider starts if ID exists
+  browseDataSource(data.dataSourceId);
+} else {
+  // Fetch data sources when the provider starts
+  getDataSources();
+}
