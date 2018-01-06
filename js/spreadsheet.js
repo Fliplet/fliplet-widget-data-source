@@ -1,6 +1,7 @@
-var hot, 
+var hot,
+    copyPastePlugin,
     data, 
-    hotSelection; // Stores current selection to use for toolbar
+    s; // Stores current selection to use for toolbar
           
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -135,11 +136,12 @@ var spreadsheet = function(options) {
       $('.entries-message').html('');
     },
     afterSelectionEnd: function(r, c, r2, c2) {
-      hotSelection = [r, c, r2, c2];
+      s = [r, c, r2, c2];
     }
   };
   
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
+  copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
     var random = (new Date()).getTime().toString().slice(10);
@@ -209,10 +211,10 @@ var spreadsheet = function(options) {
       var headers = getColumns();
       var entries = [];
 
-      // Because source array doens't keep in sync with visual array and
+      // Because source array doesn't keep in sync with visual array and
       // we need to have the row id's. Visual data give us data with correct order
       // but without the id's, and physical data give us data with id's but
-      // might not be in the order visually presented.
+      // might not be in the order visually presented. So we need this magic...
 
       // Get data like we see it and exclude columns row.
       var visual = hot.getData().filter(isNotEmpty).slice(1);
@@ -253,41 +255,88 @@ var spreadsheet = function(options) {
   }
 };
 
-  // Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
-  // TODO:
-  // - UI
-  // - Decide what to do on the paste functionality  
-  $("#toolbar")
-    .on('click', '.insert-row-before', function(e) {
-      hot.alter('insert_row', hotSelection[2], 1, 'Toolbar.rowBefore');
-    })
-    .on('click', '.insert-row-after', function() {
-      hot.alter('insert_row', hotSelection[2]+1, 1, 'Toolbar.rowAfter');
-    })
-    .on('click', '.insert-column-right', function() {
-      hot.alter('insert_col', hotSelection[3], 1, 'Toolbar.columnLeft');
-    })
-    .on('click', '.insert-column-left', function() {
-      hot.alter('insert_col', hotSelection[3]+1, 1, 'Toolbar.columnRight');
-    })
-    .on('click', '.remove-row', function() {
-      hot.alter('remove_row', hotSelection[2], 1, 'Toolbar.removeRow');
-    })
-    .on('click', '.remove-column', function() {
-      hot.alter('remove_col', hotSelection[3], 1, 'Toolbar.removeColumn');
-    })
-    .on('click', '.redo', function() {
-      hot.redo();
-    })
-    .on('click', '.undo', function() {
-      hot.undo();
-    })
-    .on('click', '.copy', function() {
-      var text = hot.getCopyableText(hotSelection[0], hotSelection[1], hotSelection[2], hotSelection[3]);
-      copy(text);
-    })
-    .on('click', '.paste', function() {
-      // TODO:
-      var plugin = hot.getPlugin('copyPaste');
-      plugin.paste;
-    })
+// Search
+var searchFiled = document.getElementById('search-field');
+Handsontable.dom.addEvent(searchFiled, 'keyup', function (event) {
+  var queryResult = hot.search.query(this.value);
+  hot.render();
+});
+
+// CHeck if user is on Apple MacOS system
+function isMac() {
+  return navigator.platform.indexOf('Mac') > -1
+}
+
+function openOverlay() {
+  var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
+  var copyCutPasteOverlay = new Fliplet.Utils.Overlay(htmlContent, {
+    title: 'Copying and pasting',
+    size: 'small',
+    classes: 'copy-cut-paste-overlay',
+    showOnInit: true,
+    beforeOpen: function() {
+      // Reset (just in case)
+      $('.mac').removeClass('active');
+      $('.win').removeClass('active');
+
+      // Change shorcut keys based on system (Win/Mac)
+      if (isMac()) {
+        $('.mac').addClass('active');
+        return;
+      }
+      // Windows
+      $('.win').addClass('active');
+    }
+  });
+}
+
+// Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
+$("#toolbar")
+  .on('click', '[data-action="insert-row-before"]', function(e) {
+    hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
+  })
+  .on('click', '[data-action="insert-row-after"]', function() {
+    hot.alter('insert_row', s[2]+1, 1, 'Toolbar.rowAfter');
+  })
+  .on('click', '[data-action="insert-column-left"]', function() {
+    hot.alter('insert_col', s[3], 1, 'Toolbar.columnLeft');
+  })
+  .on('click', '[data-action="insert-column-right"]', function() {
+    hot.alter('insert_col', s[3]+1, 1, 'Toolbar.columnRight');
+  })
+  .on('click', '[data-action="remove-row"]', function() {
+    hot.alter('remove_row', s[2], 1, 'Toolbar.removeRow');
+  })
+  .on('click', '[data-action="remove-column"]', function() {
+    hot.alter('remove_col', s[3], 1, 'Toolbar.removeColumn');
+  })
+  .on('click', '[data-action="undo"]', function() {
+    // TODO
+  })
+  .on('click', '[data-action="redo"]', function() {
+    // TODO
+  })
+  .on('click', '[data-action="copy"]', function() {
+    try {
+      hot.selectCell(s[0], s[1], s[2], s[3]);
+      copyPastePlugin.copy();
+    } catch(err) {
+      openOverlay();
+    }  
+  })
+  .on('click', '[data-action="cut"]', function() {
+    try {
+      hot.selectCell(s[0], s[1], s[2], s[3]);
+      copyPastePlugin.cut();
+    } catch(err) {
+      openOverlay();
+    }  
+  })
+  .on('click', '[data-action="paste"]', function(){
+    openOverlay();
+  });
+
+  $('[data-toggle="tooltip"]').tooltip({
+    container: 'body',
+    trigger: 'hover'
+  });

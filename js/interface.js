@@ -186,28 +186,6 @@ function browseDataSource(id) {
     });
 }
 
-function openOverlay() {
-  var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
-  var copyCutPasteOverlay = new Fliplet.Utils.Overlay(htmlContent, {
-    title: 'Copying and pasting',
-    size: 'small',
-    classes: 'copy-cut-paste-overlay',
-    showOnInit: true,
-    beforeOpen: function() {
-      // Reset (just in case)
-      $('.mac').removeClass('active');
-      $('.win').removeClass('active');
-
-      // Change shorcut keys based on system (Win/Mac)
-      if (isMac()) {
-        $('.mac').addClass('active');
-        return;
-      }
-      // Windows
-      $('.win').addClass('active');
-    }
-  });
-}
 // events
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
@@ -382,14 +360,6 @@ $('#app')
         }
       });
   })
-  .on('click', '.action-unavailable', function(){
-    openOverlay();
-  });
-
-$('[data-toggle="tooltip"]').tooltip({
-  container: 'body',
-  trigger: 'hover'
-});
 
 // Fetch data sources when the provider starts
 getDataSources();
