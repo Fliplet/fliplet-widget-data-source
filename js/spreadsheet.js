@@ -47,12 +47,15 @@ var spreadsheet = function(options) {
     stretchH: 'all',
     manualColumnResize: true,
     manualColumnMove: true,
+    manualRowMove: true,
     minColsNumber: 1,
     minRowsNumber: 100,
     fixedRowsTop: 1,
     colHeaders: true,
     rowHeaders: true,
     columnSorting: true,
+    search: true,
+    undo: true,
     sortIndicator: true,
     sortFunction: function(sortOrder, columnMeta) {
     	return function(a, b) {
@@ -186,26 +189,56 @@ var spreadsheet = function(options) {
     : columnName;
   }
 
+  /**
+   * Check is a row is not empty. Empty means that all elements doesn't have a value
+   * @param {Array} row
+   */
+  function isNotEmpty(row) {
+    var isEmpty = true;
+    row.forEach(function(field) {
+      if (field) {
+        isEmpty = false;
+      }
+    });
+
+    return !isEmpty;
+  }
+
   return {
     getData: function() {
       var headers = getColumns();
       var entries = [];
-      // Remove columns row
-      var tableData = data.slice(1);
 
-      tableData.forEach(function(row, index) {
-        var entry = { id: row.id, data: {} };
-        var emptyRow = true;
+      // Because source array doens't keep in sync with visual array and
+      // we need to have the row id's. Visual data give us data with correct order
+      // but without the id's, and physical data give us data with id's but
+      // might not be in the order visually presented.
 
-        headers.forEach(function(header, index) {
-          if (row[index]) {
-            emptyRow = false;
+      // Get data like we see it and exclude columns row.
+      var visual = hot.getData().filter(isNotEmpty).slice(1);
+      
+      // Get data from the source and exclude columns row.
+      // For example moving rows doesn't keep the visual/physical order in sync
+      var physical = hot.getSourceData().filter(isNotEmpty).slice(1);
+
+      // And finally we wiil pick the id's to visual from physical
+      visual.forEach(function(row, order) {
+        // Loop through the physical items to get the id
+        for (i = 0; i < physical.length; i++) {
+          if (_.isEqual(row, physical[i])) {
+            var entry = { id: physical[i].id, data: {} };
+            headers.forEach(function(header, index) {
+              entry.data[header] = row[index];
+              entry.order = order;
+            });
+
+            entries.push(entry);
+
+            // We found our entry, we may now remove it from physical so the array
+            // Keeps getting smaller for each iteraction and get off the loop
+            physical.splice(i, 1);
+            break;
           }
-          entry.data[header] = row[index];
-        });
-
-        if (!emptyRow) {
-          entries.push(entry);
         }
       });
 
