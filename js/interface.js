@@ -40,7 +40,7 @@ function getDataSources() {
 }
 
 function fetchCurrentDataSourceDetails() {
-  return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
+  return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
     if (!dataSource.bundle) {
