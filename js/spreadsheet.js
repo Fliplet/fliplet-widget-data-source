@@ -112,10 +112,26 @@ var spreadsheet = function(options) {
 
       onChanges();
     },
-    afterCreateRow: function(index, amount) {
-      onChanges();
+    afterChangesObserved: function() {
+      // Change undo/redo state buttons
+      var disableUndo = !hot.isUndoAvailable();
+      var disableRedo = !hot.isRedoAvailable();
+      $('[data-action="undo"]').prop('disabled', disableUndo);
+      $('[data-action="redo"]').prop('disabled', disableRedo);
     },
     afterRemoveRow: function(index, amount) {
+      onChanges();
+    },
+    afterRemoveCol: function(index, amount) {
+      onChanges();
+    },
+    afterColumnMove: function() {
+      onChanges();
+    },
+    afterRowMove: function() {
+      onChanges();
+    },
+    afterCreateRow: function(index, amount) {
       onChanges();
     },
     afterCreateCol: function(index, amount, source) {
@@ -124,11 +140,6 @@ var spreadsheet = function(options) {
         hot.setDataAtCell(0, index + i, columnName);
       }
 
-      onChanges();
-    },
-    beforeRemoveCol: function(index, amount) {
-    },
-    afterRemoveCol: function(index, amount) {
       onChanges();
     },
     afterLoadData: function(firstTime) {
@@ -311,10 +322,10 @@ $("#toolbar")
     hot.alter('remove_col', s[3], 1, 'Toolbar.removeColumn');
   })
   .on('click', '[data-action="undo"]', function() {
-    // TODO
+    hot.undo();
   })
   .on('click', '[data-action="redo"]', function() {
-    // TODO
+    hot.redo();
   })
   .on('click', '[data-action="copy"]', function() {
     try {
