@@ -16,6 +16,7 @@ var dataSourceEntriesHasChanged = false;
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
+var copyData = data;
 
 // Fetch all data sources
 function getDataSources() {
@@ -155,7 +156,7 @@ function renderDataSource(data) {
 
 function windowResized() {
   var pageTopElements = 120;
-  if (data.dataSourceId) {
+  if (copyData.dataSourceId) {
     // If in overlay
     $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
   } else {
@@ -273,21 +274,35 @@ $('#app')
   })
   .on('click', '[data-create-role]', function(event) {
     event.preventDefault();
-    var userId = prompt('User ID');
-    var permissions = prompt('Permissions', 'crudq');
+    var _this = $(this);
+    var userId;
+    var permissions;
 
-    if (!userId || !permissions) {
-      return;
-    }
+    _this.addClass('disabled').text('Adding user...');
 
-    Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-      return source.addUserRole({
-        userId: userId,
-        permissions: permissions
+    setTimeout(function() {
+      userId = prompt('Enter the user ID');
+
+      if (userId) {
+        permissions = prompt('Set the permissions', 'crudq');
+      }
+        
+      if (!userId || !permissions) {
+        _this.removeClass('disabled').text('Add new user');
+        return;
+      }
+
+      Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+        _this.removeClass('disabled').text('Add new user');
+        return source.addUserRole({
+          userId: userId,
+          permissions: permissions
+        });
+      }).then(fetchCurrentDataSourceUsers, function(err) {
+        _this.removeClass('disabled').text('Add new user');
+        alert(err.responseJSON.message);
       });
-    }).then(fetchCurrentDataSourceUsers, function(err) {
-      alert(err.responseJSON.message);
-    });
+    }, 100);
   })
   .on('click', '[data-revoke-role]', function(event) {
     event.preventDefault();
@@ -337,7 +352,8 @@ $('#app')
       });
   })
   .on('click', '#cancel', function() {
-    $('[data-back]').click();
+    event.preventDefault();
+    $('[aria-controls="entries"]').click();
   })
   .on('keyup change paste', '.search', function() {
     // Escape search
@@ -358,17 +374,48 @@ $('#app')
   })
   .on('click', '#get-backdoor', function(event) {
     event.preventDefault();
+    $(this).addClass('disabled').text('Getting code...');
     Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/validation-code')
       .then(function(result) {
         if (result.code) {
-          $settings.find('#backdoor').val(result.code);
+          $settings.find('#backdoor').html(result.code);
+          $settings.find('#backdoor-eg').html(result.code);
+          $('.show-backdoor').addClass('hidden');
+          $('.show-backdoor a').removeClass('disabled').text('Show bypass code');
+          $('.hide-backdoor').addClass('show');
+          $('.backdoor-code').addClass('show');
         }
       });
   })
+  .on('click', '#hide-backdoor', function(event) {
+    event.preventDefault();
+    $('.show-backdoor').removeClass('hidden');
+    $('.hide-backdoor').removeClass('show');
+    $('.backdoor-code').removeClass('show');
+  })
+  .on('shown.bs.tab', function (e) {
+    var confirmData;
+
+    if ($(e.target).attr('aria-controls') !== 'entries' && dataSourceEntriesHasChanged) {
+      confirmData = confirm('Are you sure? Changes that you made may not be saved.');
+      if (!confirmData) {
+        $('[aria-controls="entries"]').click();
+        return;
+      }
+
+      dataSourceEntriesHasChanged = false;
+      $('[data-save]').addClass('disabled');
+      try{
+        table.destroy();
+        fetchCurrentDataSourceEntries();
+      } catch(e) {}
+    }
+  });
 
 
 if (data.dataSourceId) {
   // Enter data source when the provider starts if ID exists
+  $('[data-save]').addClass('disabled');
   browseDataSource(data.dataSourceId);
 } else {
   // Fetch data sources when the provider starts
