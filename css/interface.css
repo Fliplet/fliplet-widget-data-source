@@ -8,6 +8,11 @@ body {
   padding-top: 4px;
 }
 
+.btn.disabled {
+  pointer-events: none;
+  cursor: default;
+}
+
 #app,
 #contents {
   height: 100%;
@@ -19,6 +24,28 @@ body {
 
 #data-sources {
   margin-top: 20px;
+}
+
+[data-back] {
+  color: #999999;
+}
+
+.backdoor-code {
+  display: none;
+}
+
+.hide-backdoor {
+  display: none;
+}
+
+#backdoor {
+  display: inline-block;
+  margin-bottom: 0;
+}
+
+.show-backdoor a.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .mce-edit-focus {
