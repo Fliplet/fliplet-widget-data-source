@@ -39,7 +39,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.users"] = Handlebars.template(
     + alias4(alias5(((stack1 = (depth0 != null ? depth0.dataSourceRole : depth0)) != null ? stack1.permissions : stack1), depth0))
     + "</code></td>\n          <td>\n            <button class=\"btn btn-danger\" data-revoke-role=\""
     + alias4(alias5(((stack1 = (depth0 != null ? depth0.dataSourceRole : depth0)) != null ? stack1.userId : stack1), depth0))
-    + "\">Revoke role</button>\n          </td>\n        </tr>\n";
+    + "\">Delete permission</button>\n          </td>\n        </tr>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1;
 
