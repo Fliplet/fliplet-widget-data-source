@@ -35,7 +35,7 @@
               <a href="#entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#roles" aria-controls="roles" role="tab" data-toggle="tab">Access roles</a>
+              <a href="#roles" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
             </li>
             <li role="presentation">
               <a href="#settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
@@ -47,7 +47,7 @@
               <div id="toolbar">
 
                 <div class="filter-form">
-                  <input type="text" class="form-control" id="search-field" placeholder="Search" />
+                  <input type="text" class="form-control" id="search-field" placeholder="Type to filter" />
                 </div>
                 <div class="btn-group" role="group" aria-label="...">
                   <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip" data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>
@@ -71,7 +71,7 @@
             </div>
             <div role="tabpanel" class="tab-pane" id="roles">
               <br />
-              <button class="btn btn-primary" data-create-role>Add new role</button>
+              <button class="btn btn-primary" data-create-role>Add new user</button>
               <hr />
               <div id="users"></div>
             </div>
@@ -80,13 +80,13 @@
               <div class="container-fluid">
                 <form class="form form-horizontal" data-settings>
                   <div class="form-group">
-                    <label for="id" class="col-sm-4 control-label">ID</label>
+                    <label for="id" class="col-sm-4 control-label">Data source ID</label>
                     <div class="col-sm-8">
                       <p id="id" class="help-block"></p>
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="name" class="col-sm-4 control-label">DataSource name</label>
+                    <label for="name" class="col-sm-4 control-label">Data source name</label>
                     <div class="col-sm-8">
                       <input id="name" class="form-control" name="name" maxlength="48" />
                     </div>
@@ -97,16 +97,16 @@
                       <div class="checkbox checkbox-icon">
                         <input type="checkbox" id="bundle" name="bundle">
                         <label for="bundle">
-                          <span class="check"><i class="fa fa-check"></i></span> Exclude my data
+                          <span class="check"><i class="fa fa-check"></i></span> <strong>Yes, exclude my data</strong> - Checking this option won't include the data of this data source in your app. Data will be loaded from the server separately and will require an internet connection.
                         </label>
                       </div>
-                      <p class="help-block">Check this if you don't want a copy of this data included in apps. Data will be loaded from the server separately on loading the app and requires Internet connection.</p>
+                      <p class="help-block"></p>
                     </div>
                   </div>
                   <div class="form-group">
                     <div class="col-sm-4 control-label">
                       <label for="definition">Data source definition</label>
-                      <p class="help-block">Definitions can be used to apply additional developer features such as security, 2-factor authentication etc. See <a href="http://developers.fliplet.com/API/fliplet-datasources.html">documentation</a> for how to use this feature.</p>
+                      <p class="help-block">Definitions can be used to apply additional developer features such as security, two-factor authentication etc.<br>See <a href="http://developers.fliplet.com/API/fliplet-datasources.html">documentation</a> for how to use this feature.</p>
                     </div>
                     <div class="col-sm-8">
                       <div class="checkbox checkbox-icon">
@@ -117,18 +117,22 @@
                   <div class="form-group">
                     <div class="col-sm-4 control-label">
                       <label for="definition">Bypassing validation</label>
-                      <p class="help-block">Prefix the user email address with the bypass code and use the verification code <code>999999</code> to validate without receiving emails or text messages.</p>
+                      <p class="help-block">Use this option if you are using this data source in an email verification component and you want a user to be able to bypass the email verification.</p>
                     </div>
                     <div class="col-sm-8">
-                      <input id="backdoor" class="form-control" name="bypass-code" placeholder="Click the button below to generate a code" disabled/>
-                      <p class="help-block"><a href="#" id="get-backdoor">Get bypass code</a></p>
+                      <p class="help-block form-control-static show-backdoor"><a href="#" id="get-backdoor">Show bypass code</a></p>
+                      <p class="help-block form-control-static hide-backdoor"><a href="#" id="hide-backdoor">Hide bypass code</a></p>
+                      <div class="backdoor-code">
+                        <pre id="backdoor"></pre>
+                        <p class="help-block">Prefix the user email address with the bypass code (eg: <code><span id="backdoor-eg"></span>email@mail.com</code>) and use the verification code <code>999999</code> to validate without receiving emails or text messages.</p>
+                      </div>
                     </div>
                   </div>
                   <div class="form-group">
                     <hr />
-                    <input type="submit" class="btn btn-primary" value="Save Changes" />
-                    <button id="cancel" class="btn btn-primary">Cancel</button>
-                    <button class="btn btn-danger" data-delete-source>Delete</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <button type="button" id="cancel" class="btn btn-primary">Cancel</button>
+                    <button class="btn text-danger pull-right" data-delete-source>Delete data source</button>
                   </div>
                 </form>
               </div>
