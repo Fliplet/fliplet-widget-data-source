@@ -385,6 +385,9 @@ $('#app')
           $('.hide-backdoor').addClass('show');
           $('.backdoor-code').addClass('show');
         }
+      })
+      .catch(function() {
+        $('.show-backdoor a').removeClass('disabled').text('Show bypass code');
       });
   })
   .on('click', '#hide-backdoor', function(event) {
