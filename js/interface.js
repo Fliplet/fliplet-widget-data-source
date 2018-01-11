@@ -1,3 +1,4 @@
+var $initialSpinnerLoading = $('.spinner-holder.inital-state');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
@@ -20,7 +21,8 @@ var copyData = data;
 
 // Fetch all data sources
 function getDataSources() {
-  $contents.removeClass('hidden');
+  $initialSpinnerLoading.addClass('animated');
+  $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('disabled');
 
@@ -37,6 +39,8 @@ function getDataSources() {
       dataSources = userDataSources;
       $dataSources.empty();
       dataSources.forEach(renderDataSource);
+      $contents.removeClass('hidden');
+      $initialSpinnerLoading.removeClass('animated');
     });
 }
 
@@ -172,6 +176,7 @@ function browseDataSource(id) {
   $contents.addClass('hidden');
   $('.entries-message').html('<br>Loading data...');
   $sourceContents.removeClass('hidden');
+  $initialSpinnerLoading.removeClass('animated');
   $('[href="#entries"]').click();
   $sourceContents.find('h1').html(name);
   windowResized();
@@ -214,6 +219,11 @@ $('#app')
     dataSourceEntriesHasChanged = false;
 
     saveData.then(function() {
+      // Return to parent widget if in overlay
+      if (copyData.dataSourceId) {
+        Fliplet.Studio.emit('close-overlay');
+        return;
+      }
       getDataSources();
     })
   })
@@ -237,6 +247,11 @@ $('#app')
         return ds.id !== currentDataSourceId;
       });
 
+      // Return to parent widget if in overlay
+      if (copyData.dataSourceId) {
+        Fliplet.Studio.emit('close-overlay');
+        return;
+      }
       // Go back
       $('[data-back]').click();
     });
@@ -347,6 +362,11 @@ $('#app')
         // update name on ui
         $('.data-source[data-id="' + currentDataSourceId + '"] a[data-browse-source]').text(name);
 
+        // Return to parent widget if in overlay
+        if (copyData.dataSourceId) {
+          Fliplet.Studio.emit('close-overlay');
+          return;
+        }
         // go back
         $('[data-back]').click();
       });
@@ -416,7 +436,7 @@ $('#app')
   });
 
 
-if (data.dataSourceId) {
+if (copyData.dataSourceId) {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
   browseDataSource(data.dataSourceId);
