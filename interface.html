@@ -2,7 +2,12 @@
   <div class="container-fluid">
     <div class="row">
       <div class="col-xs-12">
-        <div id="contents">
+        <!-- Show loading animation -->
+        <div class="spinner-holder inital-state text-center animated">
+          <div class="spinner-overlay">Loading...</div>
+          <p>Loading...</p>
+        </div>
+        <div id="contents" class="hidden">
           <div class="row">
             <div class="col-sm-8">
               <button data-create-source class="btn btn-primary">Create new data source</button>
