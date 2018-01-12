@@ -77,14 +77,41 @@ body {
   margin-top: 0;
 }
 
+.nav-tabs {
+  margin-top: 15px;
+}
+
+.save-btn {
+  display: inline-block;
+}
+
 [data-save] {
   transition: all 0.2s linear;
   margin-left: 10px;
 }
 
 [data-save].disabled {
+  -webkit-filter: grayscale(100%);
+  filter: grayscale(100%);
+  pointer-events: none;
+}
+
+.save-btn.disabled [data-save]{
   opacity: 0;
   pointer-events: none;
+}
+
+.settings-btns {
+  display: none;
+  margin-left: 10px;
+}
+
+.settings-btns.active {
+  display: inline-block;
+}
+
+#close-overlay {
+  margin-left: 10px;
 }
 
 .no-results-found {

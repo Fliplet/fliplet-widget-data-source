@@ -33,7 +33,14 @@
           </div>
         </div>
         <div id="source-contents" class="hidden">
-          <a href="#" data-back><i class="fa fa-chevron-left"></i> See all data sources</a> <button data-save class="btn btn-primary">Save changes</button>
+          <a href="#" data-back><i class="fa fa-chevron-left"></i> See all data sources</a>
+          <div class="save-btn">
+            <button data-save class="btn btn-primary">Save changes</button>
+          </div>
+          <div class="settings-btns">
+            <button save-settings class="btn btn-primary ">Save changes</button>
+          </div>
+          <button type="button" id="close-overlay" class="btn btn-secondary hidden">Close</button>
           <!-- Nav tabs -->
           <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" class="active">
@@ -97,7 +104,7 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="bundle" class="col-sm-4 control-label">Exclude this data when downloading apps</label>
+                    <label for="bundle" class="col-sm-4 control-label">Do you want to exclude this data when downloading the app?</label>
                     <div class="col-sm-8">
                       <div class="checkbox checkbox-icon">
                         <input type="checkbox" id="bundle" name="bundle">
@@ -134,9 +141,7 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <hr />
-                    <button type="submit" class="btn btn-primary">Save changes</button>
-                    <button type="button" id="cancel" class="btn btn-primary">Cancel</button>
+                    <hr />                    
                     <button class="btn text-danger pull-right" data-delete-source>Delete data source</button>
                   </div>
                 </form>

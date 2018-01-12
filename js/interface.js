@@ -28,6 +28,8 @@ function getDataSources() {
 
   // If we already have data sources no need to go further.
   if (dataSources) {
+    $initialSpinnerLoading.removeClass('animated');
+    $contents.removeClass('hidden');
     return;
   }
 
@@ -174,6 +176,7 @@ function windowResized() {
 function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
+  $('.settings-btns').removeClass('active');
   $('.entries-message').html('<br>Loading data...');
   $sourceContents.removeClass('hidden');
   $initialSpinnerLoading.removeClass('animated');
@@ -226,6 +229,9 @@ $('#app')
       }
       getDataSources();
     })
+  })
+  .on('click', '[save-settings]', function() {
+    $('form[data-settings]').submit();
   })
   .on('click', '[data-browse-source]', function (event) {
     event.preventDefault();
@@ -371,9 +377,9 @@ $('#app')
         $('[data-back]').click();
       });
   })
-  .on('click', '#cancel', function() {
+  .on('click', '#close-overlay', function() {
     event.preventDefault();
-    $('[aria-controls="entries"]').click();
+    Fliplet.Studio.emit('close-overlay');
   })
   .on('keyup change paste', '.search', function() {
     // Escape search
@@ -419,19 +425,38 @@ $('#app')
   .on('shown.bs.tab', function (e) {
     var confirmData;
 
-    if ($(e.target).attr('aria-controls') !== 'entries' && dataSourceEntriesHasChanged) {
-      confirmData = confirm('Are you sure? Changes that you made may not be saved.');
-      if (!confirmData) {
-        $('[aria-controls="entries"]').click();
-        return;
-      }
+    if ($(e.target).attr('aria-controls') !== 'entries') {
+      if (dataSourceEntriesHasChanged) {
+        confirmData = confirm('Are you sure? Changes that you made may not be saved.');
+        if (!confirmData) {
+          $('[aria-controls="entries"]').click();
+          return;
+        }
 
-      dataSourceEntriesHasChanged = false;
-      $('[data-save]').addClass('disabled');
-      try{
-        table.destroy();
-        fetchCurrentDataSourceEntries();
-      } catch(e) {}
+        dataSourceEntriesHasChanged = false;
+        $('[data-save]').addClass('disabled');
+        try{
+          table.destroy();
+          fetchCurrentDataSourceEntries();
+        } catch(e) {}
+      }
+    } else {
+      $('.save-btn').removeClass('hidden disabled');
+    }
+
+    if ($(e.target).attr('aria-controls') === 'settings') {
+      $('.settings-btns').addClass('active');
+      $('.save-btn').addClass('hidden');
+    } else {
+      $('.settings-btns').removeClass('active');
+    }
+
+    if ($(e.target).attr('aria-controls') === 'roles') {
+      $('.save-btn').removeClass('hidden').addClass('disabled');
+
+      if (copyData.dataSourceId) {
+        $('.save-btn').addClass('hidden');
+      }
     }
   });
 
@@ -439,6 +464,7 @@ $('#app')
 if (copyData.dataSourceId) {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
+  $('#close-overlay').removeClass('hidden');
   browseDataSource(data.dataSourceId);
 } else {
   // Fetch data sources when the provider starts
