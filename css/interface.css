@@ -78,7 +78,7 @@ body {
 }
 
 .nav-tabs {
-  margin-top: 15px;
+  margin-top: 4px;
 }
 
 .save-btn {
@@ -93,6 +93,7 @@ body {
 [data-save].disabled {
   -webkit-filter: grayscale(100%);
   filter: grayscale(100%);
+  opacity: 0.3;
   pointer-events: none;
 }
 
