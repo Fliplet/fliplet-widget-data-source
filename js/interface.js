@@ -162,7 +162,7 @@ function renderDataSource(data) {
 
 function windowResized() {
   var pageTopElements = 120;
-  if (copyData.dataSourceId) {
+  if (copyData.context === 'overlay') {
     // If in overlay
     $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
   } else {
@@ -223,7 +223,7 @@ $('#app')
 
     saveData.then(function() {
       // Return to parent widget if in overlay
-      if (copyData.dataSourceId) {
+      if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
         return;
       }
@@ -254,7 +254,7 @@ $('#app')
       });
 
       // Return to parent widget if in overlay
-      if (copyData.dataSourceId) {
+      if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
         return;
       }
@@ -369,7 +369,7 @@ $('#app')
         $('.data-source[data-id="' + currentDataSourceId + '"] a[data-browse-source]').text(name);
 
         // Return to parent widget if in overlay
-        if (copyData.dataSourceId) {
+        if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
           return;
         }
@@ -454,14 +454,14 @@ $('#app')
     if ($(e.target).attr('aria-controls') === 'roles') {
       $('.save-btn').removeClass('hidden').addClass('disabled');
 
-      if (copyData.dataSourceId) {
+      if (copyData.context === 'overlay') {
         $('.save-btn').addClass('hidden');
       }
     }
   });
 
 
-if (copyData.dataSourceId) {
+if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
   $('#close-overlay').removeClass('hidden');
