@@ -465,7 +465,7 @@ if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
   $('#close-overlay').removeClass('hidden');
-  browseDataSource(data.dataSourceId);
+  browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts
   getDataSources();
