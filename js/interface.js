@@ -192,6 +192,17 @@ function browseDataSource(id) {
       fetchCurrentDataSourceUsers(),
       fetchCurrentDataSourceDetails()
     ])
+    .then(function() {
+      if (copyData.context === 'overlay') {
+        Fliplet.DataSources.get({
+            roles: 'publisher,editor',
+            type: null
+          })
+          .then(function onGetDataSources(userDataSources) {
+            dataSources = userDataSources;
+          });
+      }
+    })
     .catch(function() {
       // Something went wrong
       // EG: User try to edit an already deleted data source
