@@ -216,7 +216,6 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
-
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
       try{
         table.destroy();
@@ -388,7 +387,7 @@ $('#app')
         $('[data-back]').click();
       });
   })
-  .on('click', '#close-overlay', function() {
+  .on('click', '#close-overlay, #close-overlay-list', function() {
     event.preventDefault();
     Fliplet.Studio.emit('close-overlay');
   })
@@ -476,6 +475,7 @@ if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
   $('#close-overlay').removeClass('hidden');
+  $('#close-overlay-list').removeClass('hidden');
   browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts
