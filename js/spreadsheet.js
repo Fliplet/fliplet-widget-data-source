@@ -237,11 +237,11 @@ var spreadsheet = function(options) {
     visual.forEach(function(visualRow, order) {
       // We need to sort bot visual and physical because column
       // move also doesn't keep the physical data in order
-      var sortedVisual = visualRow.sort();
+      var sortedVisual = _.clone(visualRow).sort();
       // Loop through the physical items to get the id
       for (i = 0; i < physical.length; i++) {
-        var sortedPhysical = physical[i].sort();
-        if (_.isEqual(visualRow, physical[i])) {
+        var sortedPhysical = _.clone(physical[i]).sort();
+        if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
           headers.forEach(function(header, index) {
             entry.data[header] = visualRow[index];
