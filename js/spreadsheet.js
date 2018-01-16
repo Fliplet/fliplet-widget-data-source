@@ -50,7 +50,7 @@ var spreadsheet = function(options) {
     manualColumnMove: true,
     manualRowMove: true,
     minColsNumber: 1,
-    minRowsNumber: 100,
+    minRowsNumber: 40,
     fixedRowsTop: 1,
     colHeaders: true,
     rowHeaders: true,
@@ -93,7 +93,7 @@ var spreadsheet = function(options) {
     contextMenu: ['row_above', 'row_below', 'remove_row', 'col_left', 'col_right', 'remove_col', 'undo', 'redo'],
     data: data,
     // Always have one empty row at the end
-    minSpareRows: 100,
+    minSpareRows: 40,
     // Hooks
     beforeChange: function(changes, source) {
       var headers = getColumns();
@@ -217,46 +217,52 @@ var spreadsheet = function(options) {
     return !isEmpty;
   }
 
-  return {
-    getData: function() {
-      var headers = getColumns();
-      var entries = [];
+  var getData = function() {
+    var headers = getColumns();
+    var entries = [];
 
-      // Because source array doesn't keep in sync with visual array and
-      // we need to have the row id's. Visual data give us data with correct order
-      // but without the id's, and physical data give us data with id's but
-      // might not be in the order visually presented. So we need this magic...
+    // Because source array doesn't keep in sync with visual array and
+    // we need to have the row id's. Visual data give us data with correct order
+    // but without the id's, and physical data give us data with id's but
+    // might not be in the order visually presented. So we need this magic...
 
-      // Get data like we see it and exclude columns row.
-      var visual = hot.getData().filter(isNotEmpty).slice(1);
-      
-      // Get data from the source and exclude columns row.
-      // For example moving rows doesn't keep the visual/physical order in sync
-      var physical = hot.getSourceData().filter(isNotEmpty).slice(1);
+    // Get data like we see it and exclude columns row.
+    var visual = hot.getData().filter(isNotEmpty).slice(1);
+    
+    // Get data from the source and exclude columns row.
+    // For example moving rows doesn't keep the visual/physical order in sync
+    var physical = hot.getSourceData().filter(isNotEmpty).slice(1);
 
-      // And finally we wiil pick the id's to visual from physical
-      visual.forEach(function(row, order) {
-        // Loop through the physical items to get the id
-        for (i = 0; i < physical.length; i++) {
-          if (_.isEqual(row, physical[i])) {
-            var entry = { id: physical[i].id, data: {} };
-            headers.forEach(function(header, index) {
-              entry.data[header] = row[index];
-              entry.order = order;
-            });
+    // And finally we pick the id's to visual from physical
+    visual.forEach(function(visualRow, order) {
+      // We need to sort bot visual and physical because column
+      // move also doesn't keep the physical data in order
+      var sortedVisual = visualRow.sort();
+      // Loop through the physical items to get the id
+      for (i = 0; i < physical.length; i++) {
+        var sortedPhysical = physical[i].sort();
+        if (_.isEqual(visualRow, physical[i])) {
+          var entry = { id: physical[i].id, data: {} };
+          headers.forEach(function(header, index) {
+            entry.data[header] = visualRow[index];
+            entry.order = order;
+          });
 
-            entries.push(entry);
+          entries.push(entry);
 
-            // We found our entry, we may now remove it from physical so the array
-            // Keeps getting smaller for each iteraction and get off the loop
-            physical.splice(i, 1);
-            break;
-          }
+          // We found our entry, we may now remove it from physical so the array
+          // Keeps getting smaller for each iteraction and get off the loop
+          physical.splice(i, 1);
+          break;
         }
-      });
+      }
+    });
 
-      return entries;
-    },
+    return entries;
+  };
+
+  return {
+    getData,
     getColumns: function() {
       return getColumns();
     },
