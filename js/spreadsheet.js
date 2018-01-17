@@ -224,7 +224,7 @@ var spreadsheet = function(options) {
   function fixColumnName(name, j) {
     var j = j + 1 || 1;
     var headers = getColumns();
-    var columnName = name + '(' + j + ')';
+    var columnName = name + ' (' + j + ')';
     return headers.indexOf(columnName) > -1
     ? fixColumnName(name, j)
     : columnName;
