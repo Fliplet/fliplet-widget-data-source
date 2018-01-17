@@ -1,3 +1,7 @@
+// Used for undo/redo feature
+var dataStack;
+var currentDataStackIndex;
+
 var hot,
     copyPastePlugin,
     data, 
@@ -10,20 +14,33 @@ var spreadsheet = function(options) {
   var connection = options.connection;
   var dataLoaded = false;
   var columnNameCounter = 0; // Counter to anonymous columns names
-  
+
+  dataStack = [];
+  currentDataStackIndex = 0;
 
   // Don't bind data to data source object
   // Data as an array
-  data = rows.map(function(row) {
-    var dataRow = columns.map(function(header, index) {
-      return row.data[header];
+  data = prepareData(rows, columns);
+  
+  /**
+   * Given an array of data source entries it does return an array 
+   * of data prepared to be consumed by Handsontable
+   * @param {Array} rows 
+   */
+  function prepareData(rows, columns) {
+    var preparedData = rows.map(function(row) {
+      var dataRow = columns.map(function(header, index) {
+        return row.data[header];
+      });
+      dataRow.id = row.id;
+      return dataRow;
     });
-    dataRow.id = row.id;
-    return dataRow;
-  });
 
-  // Add columns as first row
-  data.unshift(columns);
+    // Add columns as first row
+    preparedData.unshift(columns);
+
+    return preparedData;
+  }
 
   function onChanges() {
     if (dataLoaded) {
@@ -90,7 +107,6 @@ var spreadsheet = function(options) {
 
       return cellProperties;
     },
-    contextMenu: ['row_above', 'row_below', 'remove_row', 'col_left', 'col_right', 'remove_col', 'undo', 'redo'],
     data: data,
     // Always have one empty row at the end
     minSpareRows: 40,
@@ -113,11 +129,22 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterChangesObserved: function() {
-      // Change undo/redo state buttons
-      var disableUndo = !hot.isUndoAvailable();
-      var disableRedo = !hot.isRedoAvailable();
-      $('[data-action="undo"]').prop('disabled', disableUndo);
-      $('[data-action="redo"]').prop('disabled', disableRedo);
+      console.log('afterChangesObserved');
+      // Deal with the undo/redo stack
+      var data = getData({ removeEmptyRows: false });
+      var columns = getColumns();
+      var preparedData = prepareData(data, columns);
+
+      // Clear all aftr current index to reset redo
+      if (currentDataStackIndex + 1 < dataStack.length) {
+        dataStack.splice(currentDataStackIndex + 1);
+      }
+
+      // Add current change to stack
+      dataStack.push({ data: preparedData });
+      currentDataStackIndex = currentDataStackIndex + 1;
+
+      undoRedoToggle();
     },
     afterRemoveRow: function(index, amount) {
       onChanges();
@@ -151,6 +178,7 @@ var spreadsheet = function(options) {
     }
   };
   
+  dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
   copyPastePlugin = hot.getPlugin('copyPaste');
 
@@ -217,7 +245,8 @@ var spreadsheet = function(options) {
     return !isEmpty;
   }
 
-  var getData = function() {
+  var getData = function(options) {
+    options = options || { removeEmptyRows: true };
     var headers = getColumns();
     var entries = [];
 
@@ -227,11 +256,17 @@ var spreadsheet = function(options) {
     // might not be in the order visually presented. So we need this magic...
 
     // Get data like we see it and exclude columns row.
-    var visual = hot.getData().filter(isNotEmpty).slice(1);
+    var visual = hot.getData().slice(1);
     
     // Get data from the source and exclude columns row.
     // For example moving rows doesn't keep the visual/physical order in sync
-    var physical = hot.getSourceData().filter(isNotEmpty).slice(1);
+    var physical = hot.getSourceData().slice(1);
+
+    if (options.removeEmptyRows) {
+      visual = visual.filter(isNotEmpty);
+      physical = physical.filter(isNotEmpty);
+
+    }
 
     // And finally we pick the id's to visual from physical
     visual.forEach(function(visualRow, order) {
@@ -307,6 +342,14 @@ function openOverlay() {
   });
 }
 
+function undoRedoToggle() {
+  // Change undo/redo state buttons
+  var disableUndo = dataStack[currentDataStackIndex - 1] ? false : true;
+  var disableRedo = dataStack[currentDataStackIndex + 1] ? false : true;
+  $('[data-action="undo"]').prop('disabled', disableUndo);
+  $('[data-action="redo"]').prop('disabled', disableRedo);
+}
+
 // Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
 $("#toolbar")
   .on('click', '[data-action="insert-row-before"]', function(e) {
@@ -327,11 +370,25 @@ $("#toolbar")
   .on('click', '[data-action="remove-column"]', function() {
     hot.alter('remove_col', s[3], 1, 'Toolbar.removeColumn');
   })
-  .on('click', '[data-action="undo"]', function() {
-    hot.undo();
+  .on('click', '[data-action="undo"]', function undo() {
+    if (!dataStack[currentDataStackIndex - 1]) {
+      return;
+    }
+
+
+    hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex - 1].data));
+    currentDataStackIndex = currentDataStackIndex - 1;
+    undoRedoToggle();
   })
-  .on('click', '[data-action="redo"]', function() {
-    hot.redo();
+  .on('click', '[data-action="redo"]', function redo() {
+    if (!dataStack[currentDataStackIndex + 1]) {
+      return;
+    }
+
+
+    hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex + 1].data));
+    currentDataStackIndex = currentDataStackIndex + 1;
+    undoRedoToggle();
   })
   .on('click', '[data-action="copy"]', function() {
     try {
