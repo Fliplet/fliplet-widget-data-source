@@ -24,25 +24,28 @@ function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
-  $('[data-save]').addClass('disabled');
+  $('[data-save]').addClass('hidden');
+  $('.data-save-updated').removeClass('hidden');
+  $('.search').val(''); // Reset search
 
+  // COMMENTED BECASUE WE SHOULD ALWAYS UPDATE THE LIST OF DATA SOURCES
   // If we already have data sources no need to go further.
-  if (dataSources) {
+  /*if (dataSources) {
     $initialSpinnerLoading.removeClass('animated');
     $contents.removeClass('hidden');
     return;
-  }
+  }*/
 
   Fliplet.DataSources.get({
       roles: 'publisher,editor',
       type: null
     })
-    .then(function onGetDataSources(userDataSources) {
+    .then(function(userDataSources) {
       dataSources = userDataSources;
-      $dataSources.empty();
+      $dataSources.html('');
       dataSources.forEach(renderDataSource);
-      $contents.removeClass('hidden');
       $initialSpinnerLoading.removeClass('animated');
+      $contents.removeClass('hidden');
     });
 }
 
@@ -76,8 +79,22 @@ function fetchCurrentDataSourceEntries(entries) {
 
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       currentDataSource = source;
+
       return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
-        $sourceContents.find('.editing-data-source-name').html(dataSource.name);
+        var sourceName = dataSource.name;
+        var sourceUpdatedAt = dataSource.updatedAt;
+        var formatedUpdatedAt = 'Last saved: ' + moment(sourceUpdatedAt).calendar(null, {
+          sameDay: '[Today at] h:mm A',
+          nextDay: '[Tomorrow at ] h:mm A',
+          nextWeek: 'dddd [at] h:mm A',
+          lastDay: '[Yesterday at] h:mm A',
+          lastWeek: '[Last] dddd [at] h:mm A',
+          sameElse: 'MMMM Do YYYY'
+        });
+
+        $sourceContents.find('.editing-data-source-name').html(sourceName);
+        $sourceContents.find('.data-save-updated').html(formatedUpdatedAt);
+        
         columns = dataSource.columns || [];
 
         if (entries) {
@@ -140,7 +157,7 @@ Fliplet.Widget.onSaveRequest(function() {
 });
 
 function saveCurrentData() {
-  $('.entries-message').html('Saving...');
+  $('[data-save]').addClass('disabled').html('Saving...');
   var entries = table.getData();
   var columns = table.getColumns();
 
@@ -149,6 +166,7 @@ function saveCurrentData() {
       // Clear hot div
       try{
         table.destroy();
+        fetchCurrentDataSourceEntries();
       } catch(e) {
       }
     });
@@ -176,12 +194,9 @@ function windowResized() {
 function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
+  $initialSpinnerLoading.addClass('animated');
   $('.settings-btns').removeClass('active');
   $('.entries-message').html('<br>Loading data...');
-  $sourceContents.removeClass('hidden');
-  $initialSpinnerLoading.removeClass('animated');
-  $('[href="#entries"]').click();
-  windowResized();
 
   // Input file temporarily disabled
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
@@ -192,13 +207,20 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
+      $sourceContents.removeClass('hidden');
+      $initialSpinnerLoading.removeClass('animated');
+      $('[href="#entries"]').click();
+      windowResized();
+
       if (copyData.context === 'overlay') {
         Fliplet.DataSources.get({
             roles: 'publisher,editor',
             type: null
           })
-          .then(function onGetDataSources(userDataSources) {
-            dataSources = userDataSources;
+          .then(function(updatedDataSources) {
+            dataSources = updatedDataSources;
+            $dataSources.html('');
+            dataSources.forEach(renderDataSource);
           });
       }
     })
@@ -236,7 +258,9 @@ $('#app')
         Fliplet.Studio.emit('close-overlay');
         return;
       }
-      getDataSources();
+
+      $('[data-save]').removeClass('disabled').addClass('hidden').html('Save changes');
+      $('.data-save-updated').removeClass('hidden');
     })
   })
   .on('click', '[save-settings]', function() {
@@ -249,27 +273,27 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    if (!confirm('Are you sure you want to delete this data source? All entries will be deleted.')) {
-      return;
-    }
+    var confirmAlert = confirm('Are you sure you want to delete this data source? All entries will be deleted.');
 
-    Fliplet.DataSources.delete(currentDataSourceId).then(function() {
-      // Remove from UI
-      $('[data-id=' + currentDataSourceId + ']').remove();
+    if (confirmAlert) {
+      Fliplet.DataSources.delete(currentDataSourceId).then(function() {
+        // Remove from UI
+        $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
 
-      // Remove from dataSources
-      dataSources = dataSources.filter(function(ds) {
-        return ds.id !== currentDataSourceId;
+        // Remove from dataSources
+        dataSources = dataSources.filter(function(ds) {
+          return ds.id !== currentDataSourceId;
+        });
+
+        // Return to parent widget if in overlay
+        if (copyData.context === 'overlay') {
+          Fliplet.Studio.emit('close-overlay');
+          return;
+        }
+        // Go back
+        $('[data-back]').click();
       });
-
-      // Return to parent widget if in overlay
-      if (copyData.context === 'overlay') {
-        Fliplet.Studio.emit('close-overlay');
-        return;
-      }
-      // Go back
-      $('[data-back]').click();
-    });
+    }
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
@@ -397,7 +421,7 @@ $('#app')
       return dataSource.name.match(term);
     });
 
-    $dataSources.empty();
+    $dataSources.html('');
     if (search.length === 0 && dataSources.length) {
       $noResults.addClass('show');
     }
@@ -439,7 +463,8 @@ $('#app')
         }
 
         dataSourceEntriesHasChanged = false;
-        $('[data-save]').addClass('disabled');
+        $('[data-save]').addClass('hidden');
+        $('.data-save-updated').removeClass('hidden');
         try{
           table.destroy();
           fetchCurrentDataSourceEntries();
@@ -468,7 +493,8 @@ $('#app')
 
 if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
-  $('[data-save]').addClass('disabled');
+  $('[data-save]').addClass('hidden');
+  $('.data-save-updated').removeClass('hidden');
   browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts

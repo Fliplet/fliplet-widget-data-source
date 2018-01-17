@@ -45,7 +45,8 @@ var spreadsheet = function(options) {
   function onChanges() {
     if (dataLoaded) {
       dataSourceEntriesHasChanged = true;
-      $('[data-save]').removeClass('disabled');
+      $('[data-save]').removeClass('hidden');
+      $('.data-save-updated').addClass('hidden');
     }
   }
 

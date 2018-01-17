@@ -15,7 +15,8 @@
       "handsontable",
       "fliplet-datasources",
       "fliplet-studio-ui",
-      "animate-css"
+      "animate-css",
+      "moment"
     ],
     "assets": [
       "vendor/fonts/tinymce-small.eot",
