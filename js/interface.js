@@ -88,7 +88,7 @@ function fetchCurrentDataSourceEntries(entries) {
         });
       });
     }).then(function(rows) {
-      if (!rows || !rows.length) {
+      if ((!rows || !rows.length) && (!columns || !columns.length)) {
         rows = [{
           data: {
             "Column 1": 'demo data',
