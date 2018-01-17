@@ -27,6 +27,7 @@ function getDataSources() {
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').removeClass('hidden');
   $('.search').val(''); // Reset search
+  $('#search-field').val(''); // Reset filter
 
   // COMMENTED BECASUE WE SHOULD ALWAYS UPDATE THE LIST OF DATA SOURCES
   // If we already have data sources no need to go further.
@@ -39,6 +40,8 @@ function getDataSources() {
   Fliplet.DataSources.get({
       roles: 'publisher,editor',
       type: null
+    }, {
+      cache: false
     })
     .then(function(userDataSources) {
       dataSources = userDataSources;
@@ -216,6 +219,8 @@ function browseDataSource(id) {
         Fliplet.DataSources.get({
             roles: 'publisher,editor',
             type: null
+          }, {
+            cache: false
           })
           .then(function(updatedDataSources) {
             dataSources = updatedDataSources;
@@ -399,15 +404,15 @@ $('#app')
       })
       .then(function() {
         // update name on ui
-        $('.data-source[data-id="' + currentDataSourceId + '"] a[data-browse-source]').text(name);
+        $('.editing-data-source-name').html(name);
 
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
           return;
         }
-        // go back
-        $('[data-back]').click();
+        // go to entries
+        $('[aria-controls="entries"]').click();
       });
   })
   .on('keyup change paste', '.search', function() {
@@ -471,21 +476,25 @@ $('#app')
         } catch(e) {}
       }
     } else {
-      $('.save-btn').removeClass('hidden disabled');
+      $('.save-btn').removeClass('hidden');
+      $('.back-name-holder').removeClass('hide-date');
     }
 
     if ($(e.target).attr('aria-controls') === 'settings') {
       $('.settings-btns').addClass('active');
       $('.save-btn').addClass('hidden');
+      $('.back-name-holder').addClass('hide-date');
     } else {
       $('.settings-btns').removeClass('active');
     }
 
     if ($(e.target).attr('aria-controls') === 'roles') {
-      $('.save-btn').removeClass('hidden').addClass('disabled');
+      $('.save-btn').addClass('hidden');
+      $('.back-name-holder').addClass('hide-date');
 
       if (copyData.context === 'overlay') {
         $('.save-btn').addClass('hidden');
+        $('.back-name-holder').addClass('hide-date');
       }
     }
   });

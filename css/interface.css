@@ -111,7 +111,11 @@ a[data-back] {
 
 .data-save-updated {
   color: #999999;
-  margin-left: 20px;
+  margin-left: 5px;
+}
+
+.back-name-holder.hide-date .data-save-updated {
+  display: none;
 }
 
 [data-save] {
