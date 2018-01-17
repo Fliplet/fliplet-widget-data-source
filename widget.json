@@ -29,6 +29,7 @@
       "vendor/fonts/tinymce.ttf",
       "vendor/fonts/tinymce.woff",
       "vendor/overlay.js",
+      "js/undo-redo.js",
       "js/spreadsheet.js",
       "js/interface.js",
       "vendor/tinymce-fonts.css",

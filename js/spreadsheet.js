@@ -73,7 +73,7 @@ var spreadsheet = function(options) {
     rowHeaders: true,
     columnSorting: true,
     search: true,
-    undo: true,
+    undo: false,
     sortIndicator: true,
     sortFunction: function(sortOrder, columnMeta) {
     	return function(a, b) {
@@ -350,6 +350,38 @@ function undoRedoToggle() {
   $('[data-action="redo"]').prop('disabled', disableRedo);
 }
 
+// Capture undo/redo shortcuts
+document.addEventListener('keydown', function(event) {
+  if (isUndo(event)) {
+    undo();
+  }
+
+  if (isRedo(event)) {
+    redo();
+  }
+})
+
+function redo() {
+  if (!dataStack[currentDataStackIndex + 1]) {
+    return;
+  }
+
+  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex + 1].data));
+  currentDataStackIndex = currentDataStackIndex + 1;
+  undoRedoToggle();
+}
+
+function undo() {
+  if (!dataStack[currentDataStackIndex - 1]) {
+    return;
+  }
+
+
+  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex - 1].data));
+  currentDataStackIndex = currentDataStackIndex - 1;
+  undoRedoToggle();
+}
+
 // Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
 $("#toolbar")
   .on('click', '[data-action="insert-row-before"]', function(e) {
@@ -374,26 +406,8 @@ $("#toolbar")
     var amount = Math.abs(s[1] - s[3]) + 1;
     hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
-  .on('click', '[data-action="undo"]', function undo() {
-    if (!dataStack[currentDataStackIndex - 1]) {
-      return;
-    }
-
-
-    hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex - 1].data));
-    currentDataStackIndex = currentDataStackIndex - 1;
-    undoRedoToggle();
-  })
-  .on('click', '[data-action="redo"]', function redo() {
-    if (!dataStack[currentDataStackIndex + 1]) {
-      return;
-    }
-
-
-    hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex + 1].data));
-    currentDataStackIndex = currentDataStackIndex + 1;
-    undoRedoToggle();
-  })
+  .on('click', '[data-action="undo"]', undo)
+  .on('click', '[data-action="redo"]', redo)
   .on('click', '[data-action="copy"]', function() {
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
