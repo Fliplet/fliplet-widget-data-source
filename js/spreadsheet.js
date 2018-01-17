@@ -364,11 +364,15 @@ $("#toolbar")
   .on('click', '[data-action="insert-column-right"]', function() {
     hot.alter('insert_col', s[3]+1, 1, 'Toolbar.columnRight');
   })
-  .on('click', '[data-action="remove-row"]', function() {
-    hot.alter('remove_row', s[2], 1, 'Toolbar.removeRow');
+  .on('click', '[data-action="remove-row"]', function removeRow() {
+    var index = s[0] < s[2] ? s[0] : s[2];
+    var amount = Math.abs(s[0] - s[2]) + 1;
+    hot.alter('remove_row', index, amount, 'Toolbar.removeRow');
   })
-  .on('click', '[data-action="remove-column"]', function() {
-    hot.alter('remove_col', s[3], 1, 'Toolbar.removeColumn');
+  .on('click', '[data-action="remove-column"]', function removeColumn() {
+    var index = s[1] < s[3] ? s[1] : s[3];
+    var amount = Math.abs(s[1] - s[3]) + 1;
+    hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
   .on('click', '[data-action="undo"]', function undo() {
     if (!dataStack[currentDataStackIndex - 1]) {
