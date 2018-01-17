@@ -77,6 +77,7 @@ function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       currentDataSource = source;
       return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+        $sourceContents.find('.editing-data-source-name').html(dataSource.name);
         columns = dataSource.columns || [];
 
         if (entries) {
@@ -180,7 +181,6 @@ function browseDataSource(id) {
   $sourceContents.removeClass('hidden');
   $initialSpinnerLoading.removeClass('animated');
   $('[href="#entries"]').click();
-  $sourceContents.find('h1').html(name);
   windowResized();
 
   // Input file temporarily disabled
@@ -386,10 +386,6 @@ $('#app')
         $('[data-back]').click();
       });
   })
-  .on('click', '#close-overlay, #close-overlay-list', function() {
-    event.preventDefault();
-    Fliplet.Studio.emit('close-overlay');
-  })
   .on('keyup change paste', '.search', function() {
     // Escape search
     var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -473,8 +469,6 @@ $('#app')
 if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('disabled');
-  $('#close-overlay').removeClass('hidden');
-  $('#close-overlay-list').removeClass('hidden');
   browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts
