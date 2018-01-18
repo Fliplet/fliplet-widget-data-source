@@ -1,12 +1,12 @@
 body,
 html {
     height: 100%;
-    overflow: hidden;
 }
 
 #app,
 #contents {
     height: 100%;
+    padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
 }
 
 #contents {
