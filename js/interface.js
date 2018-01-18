@@ -25,7 +25,6 @@ function getDataSources() {
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('hidden');
-  $('.data-save-updated').removeClass('hidden');
   $('.search').val(''); // Reset search
   $('#search-field').val(''); // Reset filter
 
@@ -85,18 +84,9 @@ function fetchCurrentDataSourceEntries(entries) {
 
       return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
         var sourceName = dataSource.name;
-        var sourceUpdatedAt = dataSource.updatedAt;
-        var formatedUpdatedAt = 'Last saved: ' + moment(sourceUpdatedAt).calendar(null, {
-          sameDay: '[Today at] h:mm A',
-          nextDay: '[Tomorrow at ] h:mm A',
-          nextWeek: 'dddd [at] h:mm A',
-          lastDay: '[Yesterday at] h:mm A',
-          lastWeek: '[Last] dddd [at] h:mm A',
-          sameElse: 'MMMM Do YYYY'
-        });
 
         $sourceContents.find('.editing-data-source-name').html(sourceName);
-        $sourceContents.find('.data-save-updated').html(formatedUpdatedAt);
+        $sourceContents.find('.data-save-updated').html('All changes saved!');
         
         columns = dataSource.columns || [];
 
@@ -160,19 +150,12 @@ Fliplet.Widget.onSaveRequest(function() {
 });
 
 function saveCurrentData() {
-  $('[data-save]').addClass('disabled').html('Saving...');
+  $('[data-save]').addClass('hidden');
+  $('.data-save-updated').removeClass('hidden').html('Saving...');
   var entries = table.getData();
   var columns = table.getColumns();
 
-  return currentDataSource.commit(entries, columns)
-    .then(function() {
-      // Clear hot div
-      try{
-        table.destroy();
-        fetchCurrentDataSourceEntries();
-      } catch(e) {
-      }
-    });
+  return currentDataSource.commit(entries, columns);
 }
 
 // Append a data source to the DOM
@@ -248,6 +231,7 @@ $('#app')
       } catch(e) {
       }
       dataSourceEntriesHasChanged = false;
+      $('.data-save-updated').addClass('hidden');
       getDataSources();
     }
   })
@@ -264,8 +248,7 @@ $('#app')
         return;
       }
 
-      $('[data-save]').removeClass('disabled').addClass('hidden').html('Save changes');
-      $('.data-save-updated').removeClass('hidden');
+      $('.data-save-updated').html('All changes saved!');
     })
   })
   .on('click', '[save-settings]', function() {
@@ -456,6 +439,19 @@ $('#app')
     $('.hide-backdoor').removeClass('show');
     $('.backdoor-code').removeClass('show');
   })
+  .on('focus', '.filter-form .form-control', function() {
+    $('.filter-form').addClass('expanded');
+    $('#search-field').attr('placeholder', 'Type to find...');
+  })
+  .on('blur', '.filter-form .form-control', function() {
+    var value = $(this).val();
+    
+    if (value === '') {
+      $('.filter-form').removeClass('expanded');
+      $('.find-results').html('');
+      $('#search-field').attr('placeholder', 'Find');
+    }
+  })
   .on('shown.bs.tab', function (e) {
     var confirmData;
 
@@ -476,6 +472,7 @@ $('#app')
         } catch(e) {}
       }
     } else {
+      hot.render();
       $('.save-btn').removeClass('hidden');
       $('.back-name-holder').removeClass('hide-date');
     }
@@ -503,7 +500,7 @@ $('#app')
 if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('hidden');
-  $('.data-save-updated').removeClass('hidden');
+  $('.data-save-updated').addClass('hidden');
   browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts

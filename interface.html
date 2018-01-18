@@ -38,7 +38,7 @@
               <a href="#" data-back><i class="fa fa-chevron-left"></i> See all data sources</a>
               <p>
               <span class="editing-data-source-name"></span>
-              <span class="data-save-updated"></span>
+              <span class="data-save-updated hidden"></span>
               </p>
             </div>
             <div class="save-btn">
@@ -64,9 +64,12 @@
           <div class="tab-content">
             <div role="tabpanel" class="tab-pane active" id="entries">
               <div id="toolbar">
-
-                <div class="filter-form">
-                  <input type="text" class="form-control" id="search-field" placeholder="Type to filter" />
+                <div class="filter-wrapper">
+                  <div class="filter-form">
+                    <div class="find-results"></div>
+                    <div class="find-icon"><i class="fa fa-search"></i></div>
+                    <input type="text" class="form-control" id="search-field" placeholder="Find" />
+                  </div>
                 </div>
                 <div class="btn-group" role="group" aria-label="...">
                   <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip" data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>

@@ -313,7 +313,7 @@ var searchFiled = document.getElementById('search-field');
 Handsontable.dom.addEvent(searchFiled, 'keyup', function (event) {
   var queryResult = hot.search.query(this.value);
   var resultsCount = queryResult.length;
-  // TODO: Update div with results count
+  $('.find-results').html(resultsCount + ' found');
   hot.render();
 });
 
