@@ -152,6 +152,7 @@ Fliplet.Widget.onSaveRequest(function() {
 function saveCurrentData() {
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').removeClass('hidden').html('Saving...');
+  $('.name-wrapper').addClass('saved');
   var entries = table.getData();
   var columns = table.getColumns();
 
@@ -232,6 +233,7 @@ $('#app')
       }
       dataSourceEntriesHasChanged = false;
       $('.data-save-updated').addClass('hidden');
+      $('.name-wrapper').removeClass('saved');
       getDataSources();
     }
   })
@@ -466,6 +468,7 @@ $('#app')
         dataSourceEntriesHasChanged = false;
         $('[data-save]').addClass('hidden');
         $('.data-save-updated').removeClass('hidden');
+        $('.name-wrapper').addClass('saved');
         try{
           table.destroy();
           fetchCurrentDataSourceEntries();
@@ -501,6 +504,7 @@ if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').addClass('hidden');
+  $('.name-wrapper').removeClass('saved');
   browseDataSource(copyData.dataSourceId);
 } else {
   // Fetch data sources when the provider starts

@@ -23,7 +23,7 @@ body {
 }
 
 .controls-wrapper {
-  width: calc(100% - 476px);
+  width: calc(100% - 491px);
   display: flex;
   align-items: flex-end;
   min-height: 46px;
@@ -32,7 +32,7 @@ body {
 .back-name-holder {
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  width: 100%;
 }
 
 a[data-back] {
@@ -40,12 +40,26 @@ a[data-back] {
   font-size: 12px;
 }
 
+.name-wrapper {
+  display: flex;
+  align-items: flex-end;
+}
+
 .editing-data-source-name {
+  max-width: 100%;
   margin: 0;
   font-size: 16px;
   font-weight: bold;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.name-wrapper.saved .editing-data-source-name {
+  max-width: calc(100% - 130px);
+}
+
+.back-name-holder.hide-date .editing-data-source-name {
+  max-width: 100%;
 }
 
 .backdoor-code {

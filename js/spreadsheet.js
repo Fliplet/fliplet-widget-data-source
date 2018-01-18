@@ -47,6 +47,7 @@ var spreadsheet = function(options) {
       dataSourceEntriesHasChanged = true;
       $('[data-save]').removeClass('hidden');
       $('.data-save-updated').addClass('hidden');
+      $('.name-wrapper').removeClass('saved');
     }
   }
 
