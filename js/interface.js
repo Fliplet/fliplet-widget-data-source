@@ -478,12 +478,14 @@ $('#app')
       hot.render();
       $('.save-btn').removeClass('hidden');
       $('.back-name-holder').removeClass('hide-date');
+      $('.controls-wrapper').removeClass('data-settings data-roles');
     }
 
     if ($(e.target).attr('aria-controls') === 'settings') {
       $('.settings-btns').addClass('active');
       $('.save-btn').addClass('hidden');
       $('.back-name-holder').addClass('hide-date');
+      $('.controls-wrapper').removeClass('data-roles').addClass('data-settings');
     } else {
       $('.settings-btns').removeClass('active');
     }
@@ -491,6 +493,7 @@ $('#app')
     if ($(e.target).attr('aria-controls') === 'roles') {
       $('.save-btn').addClass('hidden');
       $('.back-name-holder').addClass('hide-date');
+      $('.controls-wrapper').removeClass('data-settings').addClass('data-roles');
 
       if (copyData.context === 'overlay') {
         $('.save-btn').addClass('hidden');

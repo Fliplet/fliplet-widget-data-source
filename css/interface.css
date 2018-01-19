@@ -29,10 +29,14 @@ body {
   min-height: 46px;
 }
 
+.controls-wrapper.data-settings,
+.controls-wrapper.data-roles {
+  width: 100%;
+}
+
 .back-name-holder {
   overflow: hidden;
   white-space: nowrap;
-  width: 100%;
 }
 
 a[data-back] {
@@ -52,10 +56,6 @@ a[data-back] {
   font-weight: bold;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.name-wrapper.saved .editing-data-source-name {
-  max-width: calc(100% - 130px);
 }
 
 .back-name-holder.hide-date .editing-data-source-name {
