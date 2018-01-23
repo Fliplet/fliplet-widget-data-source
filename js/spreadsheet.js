@@ -432,7 +432,11 @@ $("#toolbar")
     openOverlay();
   });
 
-  $('[data-toggle="tooltip"]').tooltip({
-    container: 'body',
-    trigger: 'hover'
-  });
+$('[data-toggle="tooltip"]').tooltip({
+  container: 'body',
+  trigger: 'hover'
+});
+
+$('[data-toggle="tooltip"]').on('click', function () {
+  $(this).tooltip('hide');
+})
