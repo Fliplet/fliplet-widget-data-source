@@ -167,14 +167,7 @@ function renderDataSource(data) {
 }
 
 function windowResized() {
-  var pageTopElements = 120;
-  if (copyData.context === 'overlay') {
-    // If in overlay
-    $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
-  } else {
-    // If NOT in overlay
-    $('.tab-pane').height($('body').height() - ($('.tab-content').offset().top + pageTopElements));
-  }
+  $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
   $('.table-entries').height($('.tab-content').height());
 }
 
