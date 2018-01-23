@@ -150,11 +150,25 @@ Fliplet.Widget.onSaveRequest(function() {
 });
 
 function saveCurrentData() {
+  var columns;
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').removeClass('hidden').html('Saving...');
   $('.name-wrapper').addClass('saved');
   var entries = table.getData();
-  var columns = table.getColumns();
+  // If we don't have data we might also have no columns
+  // Check if all columns are empty and clear them on the data source
+  // This way next load will load demo data
+  if (!entries.length) {
+    columns = table.getColumns({ raw: true });
+    if (_.some(columns)) {
+      columns = table.getColumns();
+    } else {
+      columns = [];
+    }
+  } else {
+    columns = table.getColumns();
+  }
+  
 
   return currentDataSource.commit(entries, columns);
 }

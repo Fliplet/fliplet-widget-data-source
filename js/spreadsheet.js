@@ -184,18 +184,18 @@ var spreadsheet = function(options) {
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
   copyPastePlugin = hot.getPlugin('copyPaste');
 
-  function getColumns() {
+  function getColumns(options) {
+    options = options || {};
     var random = (new Date()).getTime().toString().slice(10);
     var headers = [];
     var dataAtRow0 = hot.getDataAtRow(0);
+    if (options.raw) {
+      return dataAtRow0;
+    }
 
     // At this point columns should all have name
     // But just in case
     dataAtRow0.forEach(function(header, index) {
-      if (header === '') {
-        header = generateColumnName();
-      }
-
       if (headers.indexOf(header) > -1) {
         header = header + ' (1)'
       }
@@ -300,9 +300,7 @@ var spreadsheet = function(options) {
 
   return {
     getData,
-    getColumns: function() {
-      return getColumns();
-    },
+    getColumns: getColumns,
     destroy: function() {
       return hot.destroy();
     }
