@@ -133,11 +133,11 @@ function fetchCurrentDataSourceEntries(entries) {
       var message = error;
       if (error instanceof Error) {
         var message = 'Error loading data source.';
-        if (Raven) {
+        if (typeof Raven !== 'undefined') {
           Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
         }
       } else {
-        if (Raven) {
+        if (typeof Raven !== 'undefined') {
           Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
         }
       }
