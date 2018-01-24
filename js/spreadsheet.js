@@ -131,7 +131,6 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterChangesObserved: function() {
-      console.log('afterChangesObserved');
       // Deal with the undo/redo stack
       var data = getData({ removeEmptyRows: false });
       var columns = getColumns();
