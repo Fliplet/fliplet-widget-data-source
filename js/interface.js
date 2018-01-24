@@ -181,7 +181,7 @@ function renderDataSource(data) {
 }
 
 function windowResized() {
-  $('.tab-pane').height($('body').height() - $('.tab-content').offset().top);
+  $('.tab-pane').height($('body').outerHeight() - $('.tab-content').offset().top);
   $('.table-entries').height($('.tab-content').height());
 }
 
