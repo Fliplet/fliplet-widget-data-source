@@ -4,7 +4,8 @@ var currentDataStackIndex;
 
 var hot,
     copyPastePlugin,
-    data, 
+    data,
+    colWidths, 
     s; // Stores current selection to use for toolbar
           
 var spreadsheet = function(options) {
@@ -74,6 +75,7 @@ var spreadsheet = function(options) {
     colHeaders: true,
     rowHeaders: true,
     columnSorting: true,
+    persistentState: true,
     search: true,
     undo: false,
     sortIndicator: true,
@@ -151,7 +153,22 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterRemoveCol: function(index, amount) {
+      // Remove columns widths from the widths array
+      // 
+      colWidths.splice(index, amount);
       onChanges();
+    },
+    beforeRemoveCol: function(index, amount) {
+      // Set current widths to get them after column column is removed
+      colWidths = hot.getColHeader().map(function(header, index) {
+        return hot.getColWidth(index);
+      });
+    },
+    beforeCreateCol: function() {
+      // Set current widths to get them after column column is created
+      colWidths = hot.getColHeader().map(function(header, index) {
+        return hot.getColWidth(index);
+      });
     },
     afterColumnMove: function() {
       onChanges();
@@ -163,10 +180,15 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterCreateCol: function(index, amount, source) {
+      // Column name
       for (var i = 0; i < amount; i++) {
         var columnName = generateColumnName();
         hot.setDataAtCell(0, index + i, columnName);
       }
+
+      // Add this new width before set the widths again
+      colWidths.splice(index, 0, 50);
+      hot.updateSettings({ colWidths: colWidths })
 
       onChanges();
     },
