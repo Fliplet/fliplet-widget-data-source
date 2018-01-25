@@ -168,7 +168,11 @@ function saveCurrentData() {
   } else {
     columns = table.getColumns();
   }
-  
+
+  // Let's also try to save widths on local storage.
+  // This way we can try to load widths on next load
+  widths = table.getColWidths();
+  Fliplet.Storage.set('hotWidths_' + currentDataSourceId, widths);
 
   return currentDataSource.commit(entries, columns);
 }

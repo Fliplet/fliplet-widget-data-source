@@ -160,15 +160,11 @@ var spreadsheet = function(options) {
     },
     beforeRemoveCol: function(index, amount) {
       // Set current widths to get them after column column is removed
-      colWidths = hot.getColHeader().map(function(header, index) {
-        return hot.getColWidth(index);
-      });
+      colWidths = getColWidths();
     },
     beforeCreateCol: function() {
       // Set current widths to get them after column column is created
-      colWidths = hot.getColHeader().map(function(header, index) {
-        return hot.getColWidth(index);
-      });
+      colWidths = getColWidths();
     },
     afterColumnMove: function() {
       onChanges();
@@ -200,6 +196,16 @@ var spreadsheet = function(options) {
       s = [r, c, r2, c2];
     }
   };
+
+  // Let's try to get previously stored col widths
+  var storedWidths = localStorage.getItem('hotWidths_'  + currentDataSourceId);
+  if (storedWidths) {
+    try {
+      colWidths = JSON.parse(storedWidths);
+      hotSettings.colWidths = colWidths;
+    } catch (e) {
+    }
+  }
   
   dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
@@ -268,6 +274,12 @@ var spreadsheet = function(options) {
     return !isEmpty;
   }
 
+  var getColWidths = function() {
+    return hot.getColHeader().map(function(header, index) {
+      return hot.getColWidth(index);
+    });
+  };
+
   var getData = function(options) {
     options = options || { removeEmptyRows: true };
     var headers = getColumns();
@@ -322,6 +334,7 @@ var spreadsheet = function(options) {
   return {
     getData,
     getColumns: getColumns,
+    getColWidths: getColWidths,
     destroy: function() {
       return hot.destroy();
     }
