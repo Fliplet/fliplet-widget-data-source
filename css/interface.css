@@ -31,7 +31,7 @@ body {
 .controls-wrapper {
   width: calc(100% - 491px);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   min-height: 46px;
 }
 
@@ -217,6 +217,12 @@ a[data-back] {
 #source-contents .tab-content {
   position: relative;
   overflow: visible;
+}
+
+#source-contents .header {
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
 }
 
 #source-contents .tab-pane#roles,
