@@ -66,33 +66,38 @@
           <!-- Tab panes -->
           <div class="tab-content">
             <div role="tabpanel" class="tab-pane active" id="entries">
-              <div id="toolbar">
-                <div class="filter-wrapper">
-                  <div class="filter-form">
-                    <div class="find-results"></div>
-                    <div class="find-icon"><i class="fa fa-search"></i></div>
-                    <input type="text" class="form-control" id="search-field" placeholder="Find" />
+              <div class="row">
+                <div id="toolbar">
+                  <div class="filter-wrapper">
+                    <div class="filter-form">
+                      <div class="find-results"></div>
+                      <div class="find-icon"><i class="fa fa-search"></i></div>
+                      <input type="text" class="form-control" id="search-field" placeholder="Find" />
+                    </div>
                   </div>
+                  <div class="btn-group" role="group" aria-label="...">
+                    <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip" data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>
+                    <button type="button" class="btn btn-default" data-action="redo" data-toggle="tooltip" data-placement="bottom" title="Redo" disabled><i class="mce-ico mce-i-redo"></i></button>
+
+                    <button type="button" class="btn btn-default action-copy" data-action="copy" data-toggle="tooltip" data-placement="bottom" title="Copy"><i class="fa fa-files-o"></i></button>
+                    <button type="button" class="btn btn-default action-cut" data-action="cut" data-toggle="tooltip" data-placement="bottom" title="Cut"><i class="fa fa-scissors"></i></button>
+                    <button type="button" class="btn btn-default action-unavailable" data-action="paste" data-toggle="tooltip" data-placement="bottom" title="Paste"><i class="fa fa-clipboard"></i></button>
+
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-before" data-placement="bottom" title="Insert row before"><i class="mce-ico mce-i-tableinsertrowbefore"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-after" data-placement="bottom" title="Insert row after"><i class="mce-ico mce-i-tableinsertrowafter"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-row" data-placement="bottom" title="Delete row"><i class="mce-ico mce-i-tabledeleterow"></i></button>
+
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-left" data-placement="bottom" title="Insert column before"><i class="mce-ico mce-i-tableinsertcolbefore"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-right" data-placement="bottom" title="Insert column after"><i class="mce-ico mce-i-tableinsertcolafter"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-column" data-placement="bottom" title="Delete column"><i class="mce-ico mce-i-tabledeletecol"></i></button>
+                  </div>
+
                 </div>
-                <div class="btn-group" role="group" aria-label="...">
-                  <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip" data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>
-                  <button type="button" class="btn btn-default" data-action="redo" data-toggle="tooltip" data-placement="bottom" title="Redo" disabled><i class="mce-ico mce-i-redo"></i></button>
-
-                  <button type="button" class="btn btn-default action-copy" data-action="copy" data-toggle="tooltip" data-placement="bottom" title="Copy"><i class="fa fa-files-o"></i></button>
-                  <button type="button" class="btn btn-default action-cut" data-action="cut" data-toggle="tooltip" data-placement="bottom" title="Cut"><i class="fa fa-scissors"></i></button>
-                  <button type="button" class="btn btn-default action-unavailable" data-action="paste" data-toggle="tooltip" data-placement="bottom" title="Paste"><i class="fa fa-clipboard"></i></button>
-
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-before" data-placement="bottom" title="Insert row before"><i class="mce-ico mce-i-tableinsertrowbefore"></i></button>
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-after" data-placement="bottom" title="Insert row after"><i class="mce-ico mce-i-tableinsertrowafter"></i></button>
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-row" data-placement="bottom" title="Delete row"><i class="mce-ico mce-i-tabledeleterow"></i></button>
-
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-left" data-placement="bottom" title="Insert column before"><i class="mce-ico mce-i-tableinsertcolbefore"></i></button>
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-right" data-placement="bottom" title="Insert column after"><i class="mce-ico mce-i-tableinsertcolafter"></i></button>
-                  <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-column" data-placement="bottom" title="Delete column"><i class="mce-ico mce-i-tabledeletecol"></i></button>
+                <div class="table-entries">
+                  <div class="entries-message"></div>
+                  <div id="hot"></div>
                 </div>
-
               </div>
-              <div class="table-entries"><div class="entries-message"></div><div id="hot"></div></div>
             </div>
             <div role="tabpanel" class="tab-pane" id="roles">
               <br />
