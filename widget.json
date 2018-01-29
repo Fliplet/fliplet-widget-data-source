@@ -7,17 +7,33 @@
   "provider_only": true,
   "interface": {
     "dependencies": [
+      "handlebars",
       "lodash",
       "jquery",
       "bootstrap",
       "tinymce",
+      "handsontable",
       "fliplet-datasources",
-      "fliplet-studio-ui"
+      "fliplet-studio-ui",
+      "animate-css"
     ],
     "assets": [
-      "vendor/handlebars.js",
-      "vendor/jquery.tabletojson.js",
+      "vendor/fonts/tinymce-small.eot",
+      "vendor/fonts/tinymce-small.json",
+      "vendor/fonts/tinymce-small.svg",
+      "vendor/fonts/tinymce-small.ttf",
+      "vendor/fonts/tinymce-small.woff",
+      "vendor/fonts/tinymce.eot",
+      "vendor/fonts/tinymce.json",
+      "vendor/fonts/tinymce.svg",
+      "vendor/fonts/tinymce.ttf",
+      "vendor/fonts/tinymce.woff",
+      "vendor/overlay.js",
+      "js/undo-redo.js",
+      "js/spreadsheet.js",
       "js/interface.js",
+      "vendor/tinymce-fonts.css",
+      "vendor/overlay.css",
       "css/interface.css",
       "js/interface.templates.js"
     ]
