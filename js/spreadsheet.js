@@ -5,7 +5,7 @@ var currentDataStackIndex;
 var hot,
     copyPastePlugin,
     data,
-    colWidths, 
+    colWidths = [], 
     s; // Stores current selection to use for toolbar
           
 var spreadsheet = function(options) {
@@ -213,6 +213,11 @@ var spreadsheet = function(options) {
       };
     }
   });
+
+  // Initialize colWidths if they wasn't stored locally
+  if (!colWidths) {
+    colWidths = getColWidths();
+  }
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
