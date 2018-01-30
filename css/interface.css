@@ -267,24 +267,91 @@ a[data-back] {
   border: 1px solid #e4e9eb;
   padding: 6px 108px 6px 30px;
   cursor: initial;
+  width: calc(100% - 131px);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-#toolbar .filter-form .find-results {
+#toolbar .filter-form .form-control:focus {
+  border-color: #00abd1;
+  -webkit-box-shadow: none;
+  box-shadow: none;
+}
+
+#toolbar .filter-form .find-controls {
   opacity: 0;
   visibility: hidden;
   position: absolute;
-  right: 12px;
+  right: 0;
+  display: flex;
+  align-items: center;
   z-index: 1;
   height: 44px;
   line-height: 44px;
-  color: #ccc;
   -webkit-transition: opacity 0.25s ease-out;
   transition: opacity 0.25s ease-out;
 }
 
-#toolbar .filter-form.expanded .find-results {
+#toolbar .filter-form .find-results {
+  color: #ccc;
+  margin-right: 10px;
+}
+
+#toolbar .filter-form.expanded .find-controls {
   opacity: 1;
   visibility: visible;
+}
+
+#toolbar .filter-form .find-prev,
+#toolbar .filter-form .find-next,
+#toolbar .filter-form .reset-find {
+  width: 44px;
+  height: 44px;
+  text-align: center;
+  background-color: #f7f7f7;
+  border: 1px solid #e4e9eb;
+  cursor: pointer;
+}
+
+#toolbar .filter-form .find-prev:hover,
+#toolbar .filter-form .find-next:hover,
+#toolbar .filter-form .reset-find:hover {
+  background-color: #eee;
+}
+
+#toolbar .filter-form .find-prev:active,
+#toolbar .filter-form .find-next:active,
+#toolbar .filter-form .reset-find:active,
+#toolbar .filter-form .find-prev:hover:active,
+#toolbar .filter-form .find-next:hover:active,
+#toolbar .filter-form .reset-find:hover:active {
+  background-color: #ccc;
+  -webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+}
+
+#toolbar .filter-form .find-controls.disabled .find-prev,
+#toolbar .filter-form .find-controls.disabled .find-next,
+#toolbar .filter-form .find-controls.disabled .reset-find,
+#toolbar .filter-form .find-prev.disabled,
+#toolbar .filter-form .find-next.disabled,
+#toolbar .filter-form .reset-find.disabled {
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+#toolbar .filter-form .find-prev {
+  border-right: none;
+}
+
+#toolbar .filter-form .find-next {
+  border-left: none;
+}
+
+#toolbar .filter-form .reset-find {
+  border-left: none;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 
 #toolbar .filter-form .find-icon {
@@ -296,6 +363,7 @@ a[data-back] {
   line-height: 44px;
   text-align: center;
   color: #ccc;
+  cursor: pointer;
 }
 
 #toolbar .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
