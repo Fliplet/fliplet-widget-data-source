@@ -75,7 +75,6 @@ var spreadsheet = function(options) {
     colHeaders: true,
     rowHeaders: true,
     columnSorting: true,
-    persistentState: true,
     search: true,
     undo: false,
     sortIndicator: true,
