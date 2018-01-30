@@ -267,7 +267,7 @@ a[data-back] {
   border: 1px solid #e4e9eb;
   padding: 6px 108px 6px 30px;
   cursor: initial;
-  width: calc(100% - 131px);
+  width: calc(100% - 132px);
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -342,6 +342,7 @@ a[data-back] {
 
 #toolbar .filter-form .find-prev {
   border-right: none;
+  border-left: none;
 }
 
 #toolbar .filter-form .find-next {
