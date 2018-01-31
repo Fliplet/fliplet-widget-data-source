@@ -247,10 +247,8 @@ function activateFind() {
       hot.deselectCell();
       searchField.focus();
       return true;
-      break;
     default:
       return false;
-      break;
   }
 }
 
