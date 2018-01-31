@@ -351,28 +351,97 @@ var spreadsheet = function(options) {
 };
 
 // Search
-var searchFiled = document.getElementById('search-field');
-Handsontable.dom.addEvent(searchFiled, 'keyup', function (event) {
-  var value = this.value;
-  var queryResult = hot.search.query(value);
-  var resultsCount = queryResult.length;
+var searchField = document.getElementById('search-field');
 
-  if (resultsCount > 0) {
-    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-  } else {
-    $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+// Prevent cmd+f default behaviour and use our find
+window.addEventListener("keydown", function (event) {
+  var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
+
+  if (!ctrlDown) {
+    return;
   }
 
+  if (event.keyCode === 114 || (ctrlDown && event.keyCode === 70)) { 
+    event.preventDefault();
+    hot.deselectCell();
+    searchField.focus();
+  }
+});
+
+var queryResultIndex;
+var queryResult = [];
+
+
+/**
+ * This will make a search
+ * It's used on keyup event on search field or on click prev/next icons
+ * passing a custom event object
+ * @param {*} event 
+ */
+function search (event) {
+  var value = this.value;
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
   } else {
     $('.filter-form .find-controls').addClass('disabled');
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
+
+  // Previous result
+  if (event.keyCode === 13 && event.shiftKey && queryResultIndex > 0) {
+    queryResultIndex = queryResultIndex - 1;
+  }
+
+  // Next result
+  if (event.keyCode === 13 && !event.shiftKey && queryResultIndex < queryResult.length - 1) { 
+    queryResultIndex = queryResultIndex + 1;
+  }
+
+  if (event.keyCode === 13) { 
+    hot.selectCell(queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+  }
+
+  if (event.keyCode !== 13) {
+    queryResultIndex = 0;
+    queryResult = hot.search.query(value);
+    var resultsCount = queryResult.length;
+    if (resultsCount) {
+      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
+    } else {
+      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+    }
+
+    var foundMessage = resultsCount + ' found';
+    if (resultsCount) {
+      foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
+    }
+
+    $('.find-results').html(foundMessage);
+    hot.render();
+  }
   
-  $('.find-results').html(resultsCount + ' found');
-  hot.render();
+  searchField.focus();
+}
+
+search.bind(searchField);
+
+$('.find-prev, .find-next').on('click', function() {
+  // Simulate prev/next keys press on the search field
+  var event = {
+    keyCode: 13,
+    shiftKey: $(this).attr("class").indexOf('prev') > -1 ? true : false
+  };
+  search(event);
 });
+
+// Clear search field
+$('.reset-find').on('click', function() {
+  searchField.value='';
+  searchField.focus();
+});
+
+Handsontable.dom.addEvent(searchField, 'keyup', search);
 
 // CHeck if user is on Apple MacOS system
 function isMac() {
