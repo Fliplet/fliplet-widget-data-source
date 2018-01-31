@@ -361,12 +361,19 @@ var resultsCount = 0;
  * This will make a search
  * @param {string} type next | prev | find | clear
  */
+var previousSearchValue = '';
 function search(type) {
   if (type === 'clear') {
     searchField.value = '';
   }
 
   var value = searchField.value;
+  //  Don't run search again if the value hasn't changed
+  if (type === 'find' && previousSearchValue === value) {
+    return;
+  }
+  previousSearchValue = value;
+
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
   } else {
@@ -374,6 +381,20 @@ function search(type) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
   
+  if (type === 'find') {
+    queryResultIndex = 0;
+    queryResult = hot.search.query(value);
+    resultsCount = queryResult.length;
+    if (resultsCount) {
+      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
+    } else {
+      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+    }
+
+    hot.render();
+  }
+
   if (type === 'next' || type === 'prev') {
     if (type === 'next') {
       if (++queryResultIndex >= queryResult.length) {
@@ -391,20 +412,6 @@ function search(type) {
       queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
   }
   
-  if (type === 'find') {
-    queryResultIndex = 0;
-    queryResult = hot.search.query(value);
-    resultsCount = queryResult.length;
-    if (resultsCount) {
-      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
-    } else {
-      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
-    }
-
-    hot.render();
-  }
-
   // Update message
   var foundMessage = resultsCount + ' found';
   if (resultsCount) {
@@ -431,7 +438,7 @@ $('.find-prev, .find-next').on('click', function() {
 
 // Clear search field
 $('.reset-find').on('click', function() {
-  clearFind();
+  search('clear');
 });
 
 Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
