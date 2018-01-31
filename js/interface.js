@@ -233,31 +233,132 @@ function browseDataSource(id) {
 }
 
 function activateFind() {
-  if (typeof hot === 'undefined') {
+  // Returns TRUE if an action is carried out
+  
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
     $('.search').focus();
-    return;
+    return true;
+  }
+  
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      hot.deselectCell();
+      searchField.focus();
+      return true;
+      break;
+    default:
+      return false;
+      break;
+  }
+}
+
+function findNext() {
+  // Returns TRUE if an action is carried out
+  
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
+    return false;
   }
 
-  hot.deselectCell();
-  var field = document.getElementById('search-field');
-  if (field) {
-    field.focus();
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      search({
+        keyCode: 13,
+        shiftKey: false
+      });
+      return true;
+      break;
+    default:
+      return false;
+      break;
   }
+}
+
+function findPrev() {
+  // Returns TRUE if an action is carried out
+  
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
+    return false;
+  }
+
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      search({
+        keyCode: 13,
+        shiftKey: true
+      });
+      return true;
+      break;
+    default:
+      return false;
+      break;
+  }
+}
+
+function clearFind() {
+  // Returns TRUE if an action is carried out
+  
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
+    return false;
+  }
+
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      searchField.value = '';
+      search({ keyCode: 8 });
+      $('.find-results').html('');
+      return true;
+      break;
+    default:
+      return false;
+      break;
+  }
+
 }
 
 // Events
 
 // Prevent Cmd + F default behaviour and use our find
-window.addEventListener("keydown", function (event) {
+window.addEventListener('keydown', function (event) {
   var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
 
-  if (!ctrlDown) {
+  // F3 or Cmd/Ctrl + F
+  if (event.keyCode === 114 || (ctrlDown && !event.shiftKey && event.keyCode === 70)) { 
+    if (activateFind()) {
+      event.preventDefault();
+    }
+    return;
+  }
+  
+  // Cmd/Ctrl + G
+  if (ctrlDown && !event.shiftKey && event.keyCode === 71) { 
+    if (findNext()) {
+      event.preventDefault();
+    }
     return;
   }
 
-  if (event.keyCode === 114 || (ctrlDown && event.keyCode === 70)) { 
-    event.preventDefault();
-    activateFind();
+  // Cmd/Ctrl + Shift + G
+  if (ctrlDown && event.shiftKey && event.keyCode === 71) { 
+    if (findPrev()) {
+      event.preventDefault();
+    }
+    return;
+  }
+  
+  // Esc
+  if (event.keyCode == 27) {
+    if (clearFind()) {
+      event.preventDefault();
+      return;
+    }
   }
 });
 

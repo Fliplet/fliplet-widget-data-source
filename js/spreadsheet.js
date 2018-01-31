@@ -364,7 +364,7 @@ var resultsCount = 0;
  * @param {*} event 
  */
 function search (event) {
-  var value = this.value;
+  var value = searchField.value;
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
   } else {
@@ -419,18 +419,18 @@ search.bind(searchField);
 
 $('.find-prev, .find-next').on('click', function() {
   // Simulate prev/next keys press on the search field
-  var event = {
-    keyCode: 13,
-    shiftKey: $(this).attr("class").indexOf('prev') > -1 ? true : false
-  };
-  search(event);
+  if ($(this).hasClass('find-prev')) {
+    findPrev();
+  }
+
+  if ($(this).hasClass('find-next')) {
+    findNext();
+  }
 });
 
 // Clear search field
 $('.reset-find').on('click', function() {
-  searchField.value='';
-  search({ keyCode: 8 });
-  $('.find-results').html('');
+  clearFind();
 });
 
 Handsontable.dom.addEvent(searchField, 'keyup', search);
