@@ -421,7 +421,11 @@ function search (event) {
   if (resultsCount) {
     foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
   }
-  $('.find-results').html(foundMessage);
+  if (value !== '') {
+    $('.find-results').html(foundMessage);
+  } else {
+    $('.find-results').html('');
+  }
   
   // Focus back to the search field
   searchField.focus();
@@ -442,6 +446,7 @@ $('.find-prev, .find-next').on('click', function() {
 $('.reset-find').on('click', function() {
   searchField.value='';
   search({ keyCode: 8 });
+  $('.find-results').html('');
 });
 
 Handsontable.dom.addEvent(searchField, 'keyup', search);
