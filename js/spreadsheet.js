@@ -359,11 +359,13 @@ var resultsCount = 0;
 
 /**
  * This will make a search
- * It's used on keyup event on search field or on click prev/next icons
- * passing a custom event object
- * @param {*} event 
+ * @param {string} type next | prev | find | clear
  */
-function search(event) {
+function search(type) {
+  if (type === 'clear') {
+    searchField.value = '';
+  }
+
   var value = searchField.value;
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
@@ -371,22 +373,25 @@ function search(event) {
     $('.filter-form .find-controls').addClass('disabled');
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
+  
+  if (type === 'next' || type === 'prev') {
+    if (type === 'next') {
+      if (++queryResultIndex >= queryResult.length) {
+        queryResultIndex = 0;
+      }
+    }
 
-  // Previous result
-  if (event.keyCode === 13 && event.shiftKey && queryResultIndex > 0) {
-    queryResultIndex = queryResultIndex - 1;
+    if (type === 'prev') {
+      if (--queryResultIndex < 0) {
+        queryResultIndex = queryResult.length - 1;
+      }
+    }
+
+    hot.selectCell(
+      queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
   }
-
-  // Next result
-  if (event.keyCode === 13 && !event.shiftKey && queryResultIndex < queryResult.length - 1) { 
-    queryResultIndex = queryResultIndex + 1;
-  }
-
-  if (event.keyCode === 13) { 
-    hot.selectCell(queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
-  }
-
-  if (event.keyCode !== 13) {
+  
+  if (type === 'find') {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
@@ -405,11 +410,7 @@ function search(event) {
   if (resultsCount) {
     foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
   }
-  if (value !== '') {
-    $('.find-results').html(foundMessage);
-  } else {
-    $('.find-results').html('');
-  }
+  $('.find-results').html(value !== '' ? foundMessage : '');
   
   // Focus back to the search field
   searchField.focus();
@@ -420,11 +421,11 @@ search.bind(searchField);
 $('.find-prev, .find-next').on('click', function() {
   // Simulate prev/next keys press on the search field
   if ($(this).hasClass('find-prev')) {
-    findPrev();
+    search('prev');
   }
 
   if ($(this).hasClass('find-next')) {
-    findNext();
+    search('next');
   }
 });
 
@@ -433,7 +434,30 @@ $('.reset-find').on('click', function() {
   clearFind();
 });
 
-Handsontable.dom.addEvent(searchField, 'keyup', search);
+Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
+
+  // Enter & Shift + Enter
+  if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
+    search(event.shiftKey ? 'prev' : 'next');
+    return;
+  }
+
+  // Typing
+  if (event.keyCode === 27) {
+    search('clear');
+    return;
+  }
+
+  // Typing
+  search('find');
+  return;
+});
 
 // CHeck if user is on Apple MacOS system
 function isMac() {

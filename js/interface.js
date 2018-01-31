@@ -265,10 +265,7 @@ function findNext() {
   // Data source view
   switch ($sourceContents.find('.tab-pane.active').attr('id')) {
     case 'entries':
-      search({
-        keyCode: 13,
-        shiftKey: false
-      });
+      search('next');
       return true;
       break;
     default:
@@ -288,10 +285,7 @@ function findPrev() {
   // Data source view
   switch ($sourceContents.find('.tab-pane.active').attr('id')) {
     case 'entries':
-      search({
-        keyCode: 13,
-        shiftKey: true
-      });
+      search('prev');
       return true;
       break;
     default:
@@ -311,9 +305,7 @@ function clearFind() {
   // Data source view
   switch ($sourceContents.find('.tab-pane.active').attr('id')) {
     case 'entries':
-      searchField.value = '';
-      search({ keyCode: 8 });
-      $('.find-results').html('');
+      search('clear');
       return true;
       break;
     default:
@@ -327,10 +319,15 @@ function clearFind() {
 
 // Prevent Cmd + F default behaviour and use our find
 window.addEventListener('keydown', function (event) {
-  var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
 
   // F3 or Cmd/Ctrl + F
-  if (event.keyCode === 114 || (ctrlDown && !event.shiftKey && event.keyCode === 70)) { 
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) { 
     if (activateFind()) {
       event.preventDefault();
     }
@@ -338,7 +335,7 @@ window.addEventListener('keydown', function (event) {
   }
   
   // Cmd/Ctrl + G
-  if (ctrlDown && !event.shiftKey && event.keyCode === 71) { 
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 71) { 
     if (findNext()) {
       event.preventDefault();
     }
@@ -346,7 +343,7 @@ window.addEventListener('keydown', function (event) {
   }
 
   // Cmd/Ctrl + Shift + G
-  if (ctrlDown && event.shiftKey && event.keyCode === 71) { 
+  if (ctrlDown && !event.altKey && event.shiftKey && event.keyCode === 71) { 
     if (findPrev()) {
       event.preventDefault();
     }
@@ -354,7 +351,7 @@ window.addEventListener('keydown', function (event) {
   }
   
   // Esc
-  if (event.keyCode == 27) {
+  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode == 27) {
     if (clearFind()) {
       event.preventDefault();
       return;
