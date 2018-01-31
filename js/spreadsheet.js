@@ -467,7 +467,10 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   }
 
   // Typing
-  search('find');
+  var debouncedFind = _.debounce(function(){
+    search('find');
+  }, 500);
+  debouncedFind();
 });
 
 // CHeck if user is on Apple MacOS system
