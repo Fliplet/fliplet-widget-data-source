@@ -448,15 +448,26 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
     return;
   }
 
-  // Typing
-  if (event.keyCode === 27) {
+  // Esc
+  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
     search('clear');
+    return;
+  }
+
+  // Cmd/Ctrl (+ Shift) + G
+  if (ctrlDown && !event.altKey && event.keyCode === 71) { 
+    search(event.shiftKey ? 'prev' : 'next');
+    event.preventDefault();
+    return;
+  }
+  
+  // Any other keys, but with Ctrl/Cmd modifier
+  if (ctrlDown) {
     return;
   }
 
   // Typing
   search('find');
-  return;
 });
 
 // CHeck if user is on Apple MacOS system

@@ -254,67 +254,6 @@ function activateFind() {
   }
 }
 
-function findNext() {
-  // Returns TRUE if an action is carried out
-  
-  // Data sources list view
-  if (!$contents.hasClass('hidden')) {
-    return false;
-  }
-
-  // Data source view
-  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
-    case 'entries':
-      search('next');
-      return true;
-      break;
-    default:
-      return false;
-      break;
-  }
-}
-
-function findPrev() {
-  // Returns TRUE if an action is carried out
-  
-  // Data sources list view
-  if (!$contents.hasClass('hidden')) {
-    return false;
-  }
-
-  // Data source view
-  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
-    case 'entries':
-      search('prev');
-      return true;
-      break;
-    default:
-      return false;
-      break;
-  }
-}
-
-function clearFind() {
-  // Returns TRUE if an action is carried out
-  
-  // Data sources list view
-  if (!$contents.hasClass('hidden')) {
-    return false;
-  }
-
-  // Data source view
-  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
-    case 'entries':
-      search('clear');
-      return true;
-      break;
-    default:
-      return false;
-      break;
-  }
-
-}
-
 // Events
 
 // Prevent Cmd + F default behaviour and use our find
@@ -326,36 +265,12 @@ window.addEventListener('keydown', function (event) {
 
   var ctrlDown = (event.ctrlKey || event.metaKey);
 
-  // F3 or Cmd/Ctrl + F
+  // Cmd/Ctrl + F
   if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) { 
     if (activateFind()) {
       event.preventDefault();
     }
     return;
-  }
-  
-  // Cmd/Ctrl + G
-  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 71) { 
-    if (findNext()) {
-      event.preventDefault();
-    }
-    return;
-  }
-
-  // Cmd/Ctrl + Shift + G
-  if (ctrlDown && !event.altKey && event.shiftKey && event.keyCode === 71) { 
-    if (findPrev()) {
-      event.preventDefault();
-    }
-    return;
-  }
-  
-  // Esc
-  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode == 27) {
-    if (clearFind()) {
-      event.preventDefault();
-      return;
-    }
   }
 });
 
