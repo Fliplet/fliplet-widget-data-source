@@ -407,8 +407,6 @@ function search(type) {
   searchField.focus();
 }
 
-search.bind(searchField);
-
 $('.find-prev, .find-next').on('click', function() {
   // Simulate prev/next keys press on the search field
   if ($(this).hasClass('find-prev')) {
