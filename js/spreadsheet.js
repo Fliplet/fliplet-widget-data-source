@@ -370,6 +370,7 @@ window.addEventListener("keydown", function (event) {
 
 var queryResultIndex;
 var queryResult = [];
+var resultsCount = 0;
 
 
 /**
@@ -404,7 +405,7 @@ function search (event) {
   if (event.keyCode !== 13) {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
-    var resultsCount = queryResult.length;
+    resultsCount = queryResult.length;
     if (resultsCount) {
       $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
       hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
@@ -412,15 +413,17 @@ function search (event) {
       $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
     }
 
-    var foundMessage = resultsCount + ' found';
-    if (resultsCount) {
-      foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
-    }
-
-    $('.find-results').html(foundMessage);
     hot.render();
   }
+
+  // Update message
+  var foundMessage = resultsCount + ' found';
+  if (resultsCount) {
+    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
+  }
+  $('.find-results').html(foundMessage);
   
+  // Focus back to the search field
   searchField.focus();
 }
 
@@ -439,6 +442,8 @@ $('.find-prev, .find-next').on('click', function() {
 $('.reset-find').on('click', function() {
   searchField.value='';
   searchField.focus();
+  hot.search.query('');
+  hot.render();
 });
 
 Handsontable.dom.addEvent(searchField, 'keyup', search);
