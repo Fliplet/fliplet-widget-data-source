@@ -363,7 +363,7 @@ var resultsCount = 0;
  * passing a custom event object
  * @param {*} event 
  */
-function search (event) {
+function search(event) {
   var value = searchField.value;
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
