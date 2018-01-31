@@ -353,25 +353,9 @@ var spreadsheet = function(options) {
 // Search
 var searchField = document.getElementById('search-field');
 
-// Prevent cmd+f default behaviour and use our find
-window.addEventListener("keydown", function (event) {
-  var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
-
-  if (!ctrlDown) {
-    return;
-  }
-
-  if (event.keyCode === 114 || (ctrlDown && event.keyCode === 70)) { 
-    event.preventDefault();
-    hot.deselectCell();
-    searchField.focus();
-  }
-});
-
 var queryResultIndex;
 var queryResult = [];
 var resultsCount = 0;
-
 
 /**
  * This will make a search

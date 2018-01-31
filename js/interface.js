@@ -232,7 +232,42 @@ function browseDataSource(id) {
     });
 }
 
-// events
+function activateFind() {
+  if (typeof hot === 'undefined') {
+    $('.search').focus();
+    return;
+  }
+
+  hot.deselectCell();
+  var field = document.getElementById('search-field');
+  if (field) {
+    field.focus();
+  }
+}
+
+// Events
+
+// Prevent Cmd + F default behaviour and use our find
+window.addEventListener("keydown", function (event) {
+  var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
+
+  if (!ctrlDown) {
+    return;
+  }
+
+  if (event.keyCode === 114 || (ctrlDown && event.keyCode === 70)) { 
+    event.preventDefault();
+    activateFind();
+  }
+});
+
+// Capture browser-find event from outside the iframe to trigger find
+window.addEventListener('message', function(event){
+  if (event.data && event.data.type === 'browser-find') {
+    activateFind();
+  }
+}, false);
+
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-back]', function(event) {
