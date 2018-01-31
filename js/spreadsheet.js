@@ -441,9 +441,7 @@ $('.find-prev, .find-next').on('click', function() {
 // Clear search field
 $('.reset-find').on('click', function() {
   searchField.value='';
-  searchField.focus();
-  hot.search.query('');
-  hot.render();
+  search({ keyCode: 8 });
 });
 
 Handsontable.dom.addEvent(searchField, 'keyup', search);
