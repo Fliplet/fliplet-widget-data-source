@@ -465,15 +465,6 @@ $('#app')
       $('#search-field').attr('placeholder', 'Find');
     }
   })
-  .on('keyup', '.filter-form .form-control', function() {
-    var value = $(this).val();
-    
-    if (value !== '') {
-      $('.filter-form .find-controls').removeClass('disabled');
-    } else {
-      $('.filter-form .find-controls').addClass('disabled');
-    }
-  })
   .on('click', '.find-icon', function() {
     $('.filter-form .form-control').trigger('focus');
   })

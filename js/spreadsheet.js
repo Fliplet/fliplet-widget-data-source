@@ -353,8 +353,23 @@ var spreadsheet = function(options) {
 // Search
 var searchFiled = document.getElementById('search-field');
 Handsontable.dom.addEvent(searchFiled, 'keyup', function (event) {
-  var queryResult = hot.search.query(this.value);
+  var value = this.value;
+  var queryResult = hot.search.query(value);
   var resultsCount = queryResult.length;
+
+  if (resultsCount > 0) {
+    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+  } else {
+    $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+  }
+
+  if (value !== '') {
+    $('.filter-form .find-controls').removeClass('disabled');
+  } else {
+    $('.filter-form .find-controls').addClass('disabled');
+    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+  }
+  
   $('.find-results').html(resultsCount + ' found');
   hot.render();
 });
