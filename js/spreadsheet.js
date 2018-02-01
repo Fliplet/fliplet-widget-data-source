@@ -345,6 +345,10 @@ var queryResultIndex;
 var queryResult = [];
 var resultsCount = 0;
 
+function searchSpinner() {
+  $('.find-results').html('<i class="fa fa-spinner fa-pulse"></i>');
+}
+
 /**
  * This will make a search
  * @param {string} action next | prev | find | clear
@@ -353,7 +357,11 @@ var previousSearchValue = '';
 function search(action) {
   if (action === 'clear') {
     searchField.value = '';
-    action = 'find';
+    searchSpinner();
+    setTimeout(function(){
+      search('find');
+    }, 50); // 50ms for spinner to render
+    return;
   }
 
   var value = searchField.value;
@@ -465,6 +473,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   }
 
   // Typing
+  searchSpinner();
   var debouncedFind = _.debounce(function(){
     search('find');
   }, 500);
