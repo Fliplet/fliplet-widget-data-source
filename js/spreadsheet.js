@@ -14,7 +14,7 @@ var spreadsheet = function(options) {
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
-  var columnNameCounter = 0; // Counter to anonymous columns names
+  var columnNameCounter = 1; // Counter to anonymous columns names
 
   dataStack = [];
   currentDataStackIndex = 0;
@@ -96,13 +96,13 @@ var spreadsheet = function(options) {
       // Check if the change was on columns row and validate
       changes.forEach(function(change) {
         if (change[0] === 0) {
+          if (change[3] === change[2]) {
+            return;
+          }
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
-    
-          if (headers.indexOf(change[3]) > -1) {
-            change[3] = fixColumnName(change[3]);
-          }
+          change[3] = validateOrFixColumnName(change[3]);
         }
       });
 
@@ -223,22 +223,8 @@ var spreadsheet = function(options) {
   function getColumns(options) {
     options = options || {};
     var random = (new Date()).getTime().toString().slice(10);
-    var headers = [];
-    var dataAtRow0 = hot.getDataAtRow(0);
-    if (options.raw) {
-      return dataAtRow0;
-    }
+    var headers = hot.getDataAtRow(0);
 
-    // At this point columns should all have name
-    // But just in case
-    dataAtRow0.forEach(function(header, index) {
-      if (headers.indexOf(header) > -1) {
-        header = header + ' (1)'
-      }
-      
-      headers.push(header);
-    });
-    
     return headers;
   }
 
@@ -246,10 +232,11 @@ var spreadsheet = function(options) {
    * Generates a column name in the form 
    * Column 1, Column 2, and so on...
    */
-  function generateColumnName() {
+  function generateColumnName(name) {
+    name = name || 'Column ';
     var headers = getColumns();
+    var columnName = name + '(' + columnNameCounter + ')';
     columnNameCounter = columnNameCounter + 1;
-    var columnName = 'Column '+ columnNameCounter;
     return headers.indexOf(columnName) > -1
     ? generateColumnName()
     : columnName;
@@ -259,13 +246,14 @@ var spreadsheet = function(options) {
    * Fixes column name for the user
    * There can't be duplicated column names
    */
-  function fixColumnName(name, j) {
-    var j = j + 1 || 1;
+  function validateOrFixColumnName(name) {
     var headers = getColumns();
-    var columnName = name + ' (' + j + ')';
-    return headers.indexOf(columnName) > -1
-    ? fixColumnName(name, j)
-    : columnName;
+    if (headers.indexOf(name) > -1) {
+      var newName = generateColumnName(name);
+      return newName;
+    }
+    
+    return name;
   }
 
   /**
