@@ -394,8 +394,10 @@ function search(type) {
       }
     }
 
-    hot.selectCell(
-      queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+    if (queryResult[queryResultIndex]) {
+      hot.selectCell(
+        queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+    }
   }
   
   // Update message
