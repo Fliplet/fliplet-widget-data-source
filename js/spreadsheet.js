@@ -381,13 +381,15 @@ function search(type) {
 
   if (type === 'next' || type === 'prev') {
     if (type === 'next') {
-      if (++queryResultIndex >= queryResult.length) {
+      queryResultIndex++;
+      if (queryResultIndex >= queryResult.length) {
         queryResultIndex = 0;
       }
     }
 
     if (type === 'prev') {
-      if (--queryResultIndex < 0) {
+      queryResultIndex--;
+      if (queryResultIndex < 0) {
         queryResultIndex = queryResult.length - 1;
       }
     }
