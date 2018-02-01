@@ -347,13 +347,18 @@ var resultsCount = 0;
 
 /**
  * This will make a search
- * @param {string} type next | prev | find
+ * @param {string} action next | prev | find | clear
  */
 var previousSearchValue = '';
-function search(type) {
+function search(action) {
+  if (action === 'clear') {
+    searchField.value = '';
+    action = 'find';
+  }
+
   var value = searchField.value;
   //  Don't run search again if the value hasn't changed
-  if (type === 'find' && previousSearchValue === value) {
+  if (action === 'find' && previousSearchValue === value) {
     return;
   }
   previousSearchValue = value;
@@ -365,7 +370,7 @@ function search(type) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
   
-  if (type === 'find') {
+  if (action === 'find') {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
@@ -379,15 +384,15 @@ function search(type) {
     hot.render();
   }
 
-  if (type === 'next' || type === 'prev') {
-    if (type === 'next') {
+  if (action === 'next' || action === 'prev') {
+    if (action === 'next') {
       queryResultIndex++;
       if (queryResultIndex >= queryResult.length) {
         queryResultIndex = 0;
       }
     }
 
-    if (type === 'prev') {
+    if (action === 'prev') {
       queryResultIndex--;
       if (queryResultIndex < 0) {
         queryResultIndex = queryResult.length - 1;
@@ -424,8 +429,7 @@ $('.find-prev, .find-next').on('click', function() {
 
 // Clear search field
 $('.reset-find').on('click', function() {
-  searchField.value = '';
-  search('find');
+  search('clear');
 });
 
 Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
@@ -444,8 +448,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
 
   // Esc
   if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
-    searchField.value = '';
-    search('find');
+    search('clear');
     return;
   }
 
