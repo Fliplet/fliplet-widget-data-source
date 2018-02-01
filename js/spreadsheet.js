@@ -92,7 +92,6 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     // Hooks
     beforeChange: function(changes, source) {
-      var headers = getColumns();
       // Check if the change was on columns row and validate
       changes.forEach(function(change) {
         if (change[0] === 0) {
@@ -220,8 +219,7 @@ var spreadsheet = function(options) {
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
-  function getColumns(options) {
-    options = options || {};
+  function getColumns() {
     var random = (new Date()).getTime().toString().slice(10);
     var headers = hot.getDataAtRow(0);
 
