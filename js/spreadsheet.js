@@ -343,8 +343,22 @@ var queryResultIndex;
 var queryResult = [];
 var resultsCount = 0;
 
+function setSearchMessage(msg) {
+  if (msg) {
+    $('.find-results').html(msg);
+    return;
+  }
+
+  var value = searchField.value;
+  var foundMessage = resultsCount + ' found';
+  if (resultsCount) {
+    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
+  }
+  $('.find-results').html(value !== '' ? foundMessage : '');
+}
+
 function searchSpinner() {
-  $('.find-results').html('<i class="fa fa-spinner fa-pulse"></i>');
+  setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
 }
 
 /**
@@ -365,6 +379,7 @@ function search(action) {
   var value = searchField.value;
   //  Don't run search again if the value hasn't changed
   if (action === 'find' && previousSearchValue === value) {
+    setSearchMessage();
     return;
   }
   previousSearchValue = value;
@@ -412,11 +427,7 @@ function search(action) {
   }
   
   // Update message
-  var foundMessage = resultsCount + ' found';
-  if (resultsCount) {
-    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
-  }
-  $('.find-results').html(value !== '' ? foundMessage : '');
+  setSearchMessage();
   
   // Focus back to the search field
   searchField.focus();
