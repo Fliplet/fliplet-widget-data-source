@@ -347,14 +347,10 @@ var resultsCount = 0;
 
 /**
  * This will make a search
- * @param {string} type next | prev | find | clear
+ * @param {string} type next | prev | find
  */
 var previousSearchValue = '';
 function search(type) {
-  if (type === 'clear') {
-    searchField.value = '';
-  }
-
   var value = searchField.value;
   //  Don't run search again if the value hasn't changed
   if (type === 'find' && previousSearchValue === value) {
@@ -426,7 +422,8 @@ $('.find-prev, .find-next').on('click', function() {
 
 // Clear search field
 $('.reset-find').on('click', function() {
-  search('clear');
+  searchField.value = '';
+  search('find');
 });
 
 Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
@@ -445,7 +442,8 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
 
   // Esc
   if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
-    search('clear');
+    searchField.value = '';
+    search('find');
     return;
   }
 
