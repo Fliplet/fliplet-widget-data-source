@@ -14,7 +14,7 @@ var spreadsheet = function(options) {
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
-  var columnNameCounter = 0; // Counter to anonymous columns names
+  var columnNameCounter = 1; // Counter to anonymous columns names
 
   dataStack = [];
   currentDataStackIndex = 0;
@@ -92,17 +92,16 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     // Hooks
     beforeChange: function(changes, source) {
-      var headers = getColumns();
       // Check if the change was on columns row and validate
       changes.forEach(function(change) {
         if (change[0] === 0) {
+          if (change[3] === change[2]) {
+            return;
+          }
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
-    
-          if (headers.indexOf(change[3]) > -1) {
-            change[3] = fixColumnName(change[3]);
-          }
+          change[3] = validateOrFixColumnName(change[3]);
         }
       });
 
@@ -220,25 +219,10 @@ var spreadsheet = function(options) {
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
-  function getColumns(options) {
-    options = options || {};
+  function getColumns() {
     var random = (new Date()).getTime().toString().slice(10);
-    var headers = [];
-    var dataAtRow0 = hot.getDataAtRow(0);
-    if (options.raw) {
-      return dataAtRow0;
-    }
+    var headers = hot.getDataAtRow(0);
 
-    // At this point columns should all have name
-    // But just in case
-    dataAtRow0.forEach(function(header, index) {
-      if (headers.indexOf(header) > -1) {
-        header = header + ' (1)'
-      }
-      
-      headers.push(header);
-    });
-    
     return headers;
   }
 
@@ -246,10 +230,11 @@ var spreadsheet = function(options) {
    * Generates a column name in the form 
    * Column 1, Column 2, and so on...
    */
-  function generateColumnName() {
+  function generateColumnName(name) {
+    name = name || 'Column ';
     var headers = getColumns();
+    var columnName = name + '(' + columnNameCounter + ')';
     columnNameCounter = columnNameCounter + 1;
-    var columnName = 'Column '+ columnNameCounter;
     return headers.indexOf(columnName) > -1
     ? generateColumnName()
     : columnName;
@@ -259,13 +244,14 @@ var spreadsheet = function(options) {
    * Fixes column name for the user
    * There can't be duplicated column names
    */
-  function fixColumnName(name, j) {
-    var j = j + 1 || 1;
+  function validateOrFixColumnName(name) {
     var headers = getColumns();
-    var columnName = name + ' (' + j + ')';
-    return headers.indexOf(columnName) > -1
-    ? fixColumnName(name, j)
-    : columnName;
+    if (headers.indexOf(name) > -1) {
+      var newName = generateColumnName(name);
+      return newName;
+    }
+    
+    return name;
   }
 
   /**
@@ -351,12 +337,156 @@ var spreadsheet = function(options) {
 };
 
 // Search
-var searchFiled = document.getElementById('search-field');
-Handsontable.dom.addEvent(searchFiled, 'keyup', function (event) {
-  var queryResult = hot.search.query(this.value);
-  var resultsCount = queryResult.length;
-  $('.find-results').html(resultsCount + ' found');
-  hot.render();
+var searchField = document.getElementById('search-field');
+
+var queryResultIndex;
+var queryResult = [];
+var resultsCount = 0;
+
+function setSearchMessage(msg) {
+  if (msg) {
+    $('.find-results').html(msg);
+    return;
+  }
+
+  var value = searchField.value;
+  var foundMessage = resultsCount + ' found';
+  if (resultsCount) {
+    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
+  }
+  $('.find-results').html(value !== '' ? foundMessage : '');
+}
+
+function searchSpinner() {
+  setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
+}
+
+/**
+ * This will make a search
+ * @param {string} action next | prev | find | clear
+ */
+var previousSearchValue = '';
+function search(action) {
+  if (action === 'clear') {
+    searchField.value = '';
+    searchSpinner();
+    setTimeout(function(){
+      search('find');
+    }, 50); // 50ms for spinner to render
+    return;
+  }
+
+  var value = searchField.value;
+  //  Don't run search again if the value hasn't changed
+  if (action === 'find' && previousSearchValue === value) {
+    setSearchMessage();
+    return;
+  }
+  previousSearchValue = value;
+
+  if (value !== '') {
+    $('.filter-form .find-controls').removeClass('disabled');
+  } else {
+    $('.filter-form .find-controls').addClass('disabled');
+    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+  }
+  
+  if (action === 'find') {
+    queryResultIndex = 0;
+    queryResult = hot.search.query(value);
+    resultsCount = queryResult.length;
+    if (resultsCount) {
+      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
+    } else {
+      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+    }
+
+    hot.render();
+  }
+
+  if (action === 'next' || action === 'prev') {
+    if (action === 'next') {
+      queryResultIndex++;
+      if (queryResultIndex >= queryResult.length) {
+        queryResultIndex = 0;
+      }
+    }
+
+    if (action === 'prev') {
+      queryResultIndex--;
+      if (queryResultIndex < 0) {
+        queryResultIndex = queryResult.length - 1;
+      }
+    }
+
+    if (queryResult[queryResultIndex]) {
+      hot.selectCell(
+        queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+    }
+  }
+  
+  // Update message
+  setSearchMessage();
+  
+  // Focus back to the search field
+  searchField.focus();
+}
+
+$('.find-prev, .find-next').on('click', function() {
+  // Simulate prev/next keys press on the search field
+  if ($(this).hasClass('find-prev')) {
+    search('prev');
+  }
+
+  if ($(this).hasClass('find-next')) {
+    search('next');
+  }
+});
+
+// Clear search field
+$('.reset-find').on('click', function() {
+  search('clear');
+});
+
+Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
+
+  // Enter & Shift + Enter
+  if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
+    search(event.shiftKey ? 'prev' : 'next');
+    return;
+  }
+
+  // Esc
+  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
+    search('clear');
+    return;
+  }
+
+  // Cmd/Ctrl (+ Shift) + G
+  if (ctrlDown && !event.altKey && event.keyCode === 71) { 
+    search(event.shiftKey ? 'prev' : 'next');
+    event.preventDefault();
+    return;
+  }
+  
+  // Any other keys, but with Ctrl/Cmd modifier
+  if (ctrlDown) {
+    return;
+  }
+
+  // Typing
+  searchSpinner();
+  var debouncedFind = _.debounce(function(){
+    search('find');
+  }, 500);
+  debouncedFind();
 });
 
 // CHeck if user is on Apple MacOS system

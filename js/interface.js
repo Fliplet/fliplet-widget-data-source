@@ -232,7 +232,53 @@ function browseDataSource(id) {
     });
 }
 
-// events
+function activateFind() {
+  // Returns TRUE if an action is carried out
+  
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
+    $('.search').focus();
+    return true;
+  }
+  
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      hot.deselectCell();
+      searchField.focus();
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Events
+
+// Prevent Cmd + F default behaviour and use our find
+window.addEventListener('keydown', function (event) {
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
+
+  // Cmd/Ctrl + F
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) { 
+    if (activateFind()) {
+      event.preventDefault();
+    }
+    return;
+  }
+});
+
+// Capture browser-find event from outside the iframe to trigger find
+window.addEventListener('message', function(event){
+  if (event.data && event.data.type === 'browser-find') {
+    activateFind();
+  }
+}, false);
+
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-back]', function(event) {
@@ -464,6 +510,9 @@ $('#app')
       $('.find-results').html('');
       $('#search-field').attr('placeholder', 'Find');
     }
+  })
+  .on('click', '.find-icon', function() {
+    $('.filter-form .form-control').trigger('focus');
   })
   .on('shown.bs.tab', function (e) {
     var confirmData;
