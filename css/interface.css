@@ -119,6 +119,14 @@ a[data-back] {
   margin-top: 0;
 }
 
+.data-source-id {
+  color: #bbbbbb;
+}
+
+.data-source-edit {
+  width: 80px;
+}
+
 .data-source-edit {
   width: 80px;
 }
