@@ -46,9 +46,6 @@ function getDataSources() {
       var html = [];
       dataSources = userDataSources;
       dataSources.forEach(function (dataSource) {
-        dataSource.apps = _.uniqBy(dataSource.apps, function (app) {
-          return app.id;
-        });
         html.push(renderDataSource(dataSource, { append: false }));
       });
       $dataSources.html(html.join(''));
@@ -187,7 +184,13 @@ function saveCurrentData() {
 function renderDataSource(data, options) {
   options = options || {};
   var tpl = Fliplet.Widget.Templates['templates.dataSource'];
-  var html = tpl(data);
+  var html = '';
+  if (Array.isArray(data.apps)) {
+    data.apps = _.uniqBy(data.apps, function (app) {
+      return app.id;
+    });
+  }
+  html = tpl(data);
   if (!options.append) {
     return html;
   }
@@ -231,9 +234,6 @@ function browseDataSource(id) {
             var html = [];
             dataSources = updatedDataSources;
             dataSources.forEach(function (dataSource) {
-              dataSource.apps = _.uniqBy(dataSource.apps, function (app) {
-                return app.id
-              });
               html.push(renderDataSource(dataSource, { append: false }));
             });
             $dataSources.html(html.join(''));
