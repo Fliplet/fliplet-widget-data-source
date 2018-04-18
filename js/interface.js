@@ -43,9 +43,15 @@ function getDataSources() {
       cache: false
     })
     .then(function(userDataSources) {
+      var html = [];
       dataSources = userDataSources;
-      $dataSources.html('');
-      dataSources.forEach(renderDataSource);
+      dataSources.forEach(function (dataSource) {
+        dataSource.apps = _.uniqBy(dataSource.apps, function (app) {
+          return app.id;
+        });
+        html.push(renderDataSource(dataSource, { append: false }));
+      });
+      $dataSources.html(html.join(''));
       $initialSpinnerLoading.removeClass('animated');
       $contents.removeClass('hidden');
     });
@@ -178,9 +184,13 @@ function saveCurrentData() {
 }
 
 // Append a data source to the DOM
-function renderDataSource(data) {
+function renderDataSource(data, options) {
+  options = options || {};
   var tpl = Fliplet.Widget.Templates['templates.dataSource'];
   var html = tpl(data);
+  if (!options.append) {
+    return html;
+  }
   $dataSources.append(html);
 }
 
@@ -218,9 +228,15 @@ function browseDataSource(id) {
             cache: false
           })
           .then(function(updatedDataSources) {
+            var html = [];
             dataSources = updatedDataSources;
-            $dataSources.html('');
-            dataSources.forEach(renderDataSource);
+            dataSources.forEach(function (dataSource) {
+              dataSource.apps = _.uniqBy(dataSource.apps, function (app) {
+                return app.id
+              });
+              html.push(renderDataSource(dataSource, { append: false }));
+            });
+            $dataSources.html(html.join(''));
           });
       }
     })
@@ -465,14 +481,19 @@ $('#app')
     $noResults.removeClass('show');
 
     var search = dataSources.filter(function(dataSource) {
-      return dataSource.name.match(term);
+      return dataSource.name.match(term) || dataSource.id.toString().match(term)
     });
 
     $dataSources.html('');
     if (search.length === 0 && dataSources.length) {
       $noResults.addClass('show');
     }
-    search.forEach(renderDataSource);
+
+    var html = [];
+    search.forEach(function (dataSource) {
+      html.push(renderDataSource(dataSource, { append: false }));
+    });
+    $dataSources.html(html.join(''));
   })
   .on('click', '#get-backdoor', function(event) {
     event.preventDefault();
