@@ -46,7 +46,7 @@ function getDataSources() {
       var html = [];
       dataSources = userDataSources;
       dataSources.forEach(function (dataSource) {
-        html.push(renderDataSource(dataSource, { append: false }));
+        html.push(getDataSourceRender(dataSource));
       });
       $dataSources.html(html.join(''));
       $initialSpinnerLoading.removeClass('animated');
@@ -181,8 +181,7 @@ function saveCurrentData() {
 }
 
 // Append a data source to the DOM
-function renderDataSource(data, options) {
-  options = options || {};
+function getDataSourceRender(data) {
   var tpl = Fliplet.Widget.Templates['templates.dataSource'];
   var html = '';
   if (Array.isArray(data.apps)) {
@@ -191,10 +190,7 @@ function renderDataSource(data, options) {
     });
   }
   html = tpl(data);
-  if (!options.append) {
-    return html;
-  }
-  $dataSources.append(html);
+  return html;
 }
 
 function windowResized() {
@@ -234,7 +230,7 @@ function browseDataSource(id) {
             var html = [];
             dataSources = updatedDataSources;
             dataSources.forEach(function (dataSource) {
-              html.push(renderDataSource(dataSource, { append: false }));
+              html.push(getDataSourceRender(dataSource));
             });
             $dataSources.html(html.join(''));
           });
@@ -373,7 +369,7 @@ $('#app')
       });
     }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
-      renderDataSource(createdDataSource);
+      $dataSources.append(getDataSourceRender(createdDataSource));
       browseDataSource(createdDataSource.id);
     });
   })
@@ -491,7 +487,7 @@ $('#app')
 
     var html = [];
     search.forEach(function (dataSource) {
-      html.push(renderDataSource(dataSource, { append: false }));
+      html.push(getDataSourceRender(dataSource));
     });
     $dataSources.html(html.join(''));
   })
