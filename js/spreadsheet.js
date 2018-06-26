@@ -74,6 +74,10 @@ var spreadsheet = function(options) {
     fixedRowsTop: 1,
     colHeaders: true,
     rowHeaders: true,
+    copyPaste: {
+      columnsLimit: 1000000000,
+      rowsLimit: 1000000000
+    },
     columnSorting: true,
     search: true,
     undo: false,
