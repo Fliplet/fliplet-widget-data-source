@@ -69,6 +69,7 @@ var spreadsheet = function(options) {
     manualColumnResize: true,
     manualColumnMove: true,
     manualRowMove: true,
+    colWidths: 250,
     minColsNumber: 1,
     minRowsNumber: 40,
     fixedRowsTop: 1,
