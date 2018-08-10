@@ -332,7 +332,7 @@ var spreadsheet = function(options) {
   };
 
   return {
-    getData,
+    getData: getData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
