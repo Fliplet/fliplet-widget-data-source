@@ -28,6 +28,16 @@ body {
   margin-top: 20px;
 }
 
+#data-sources th {
+  border: none;
+}
+
+#data-sources td {
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
 .controls-wrapper {
   width: calc(100% - 491px);
   display: flex;
