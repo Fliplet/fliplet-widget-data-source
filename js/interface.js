@@ -88,9 +88,9 @@ function fetchCurrentDataSourceEntries(entries) {
       return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
         var sourceName = dataSource.name;
 
-        $sourceContents.find('.editing-data-source-name').html(sourceName);
+        $sourceContents.find('.editing-data-source-name').html('<strong>#' + currentDataSourceId + '</strong> ' + sourceName);
         $sourceContents.find('.data-save-updated').html('All changes saved!');
-        
+
         columns = dataSource.columns || [];
 
         if (entries) {
@@ -246,13 +246,13 @@ function browseDataSource(id) {
 
 function activateFind() {
   // Returns TRUE if an action is carried out
-  
+
   // Data sources list view
   if (!$contents.hasClass('hidden')) {
     $('.search').focus();
     return true;
   }
-  
+
   // Data source view
   switch ($sourceContents.find('.tab-pane.active').attr('id')) {
     case 'entries':
@@ -276,7 +276,7 @@ window.addEventListener('keydown', function (event) {
   var ctrlDown = (event.ctrlKey || event.metaKey);
 
   // Cmd/Ctrl + F
-  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) { 
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) {
     if (activateFind()) {
       event.preventDefault();
     }
@@ -399,7 +399,7 @@ $('#app')
       if (userId) {
         permissions = prompt('Set the permissions', 'crudq');
       }
-        
+
       if (!userId || !permissions) {
         _this.removeClass('disabled').text('Add new user');
         return;
@@ -521,7 +521,7 @@ $('#app')
   })
   .on('blur', '.filter-form .form-control', function() {
     var value = $(this).val();
-    
+
     if (value === '') {
       $('.filter-form').removeClass('expanded');
       $('.find-results').html('');
