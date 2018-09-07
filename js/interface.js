@@ -451,23 +451,22 @@ $('#app')
     }
 
     Fliplet.DataSources.update({
-        id: currentDataSourceId,
-        name: name,
-        bundle: bundle,
-        definition: definition
-      })
-      .then(function() {
-        // update name on ui
-        $('.editing-data-source-name').html('<strong>#' + currentDataSourceId + '</strong> ' + name);
+      id: currentDataSourceId,
+      name: name,
+      bundle: bundle,
+      definition: definition
+    }).then(function() {
+      // update name on ui
+      $('.editing-data-source-name').html('<strong>#' + currentDataSourceId + '</strong> ' + name);
 
-        // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
-          Fliplet.Studio.emit('close-overlay');
-          return;
-        }
-        // go to entries
-        $('[aria-controls="entries"]').click();
-      });
+      // Return to parent widget if in overlay
+      if (copyData.context === 'overlay') {
+        Fliplet.Studio.emit('close-overlay');
+        return;
+      }
+      // go to entries
+      $('[aria-controls="entries"]').click();
+    });
   })
   .on('keyup change paste', '.search', function() {
     // Escape search
