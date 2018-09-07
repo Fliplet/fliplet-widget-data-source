@@ -458,7 +458,7 @@ $('#app')
       })
       .then(function() {
         // update name on ui
-        $('.editing-data-source-name').html(name);
+        $('.editing-data-source-name').html('<strong>#' + currentDataSourceId + '</strong> ' + name);
 
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
