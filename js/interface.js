@@ -44,7 +44,22 @@ function getDataSources() {
     })
     .then(function(userDataSources) {
       var html = [];
-      dataSources = userDataSources;
+
+      if (copyData.context === 'app-overlay' || copyData.app) {
+        var filteredDataSources = [];
+        userDataSources.forEach(function(dataSource, index) {
+          var matchedApp = _.find(dataSource.apps, function(app) {
+            return dataSource.appId === copyData.app.id || app.id === copyData.app.id;
+          });
+
+          if (matchedApp) {
+            filteredDataSources.push(userDataSources[index]);
+          }
+        });
+        dataSources = filteredDataSources;
+      } else {
+        dataSources = userDataSources;
+      }
       dataSources.forEach(function (dataSource) {
         html.push(getDataSourceRender(dataSource));
       });
