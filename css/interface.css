@@ -32,10 +32,26 @@ body {
   border: none;
 }
 
+#data-sources th.desc,
+#data-sources th.asc {
+  cursor: pointer;
+}
+
+#data-sources th.desc .fa-sort-amount-asc,
+#data-sources th.asc .fa-sort-amount-desc {
+  display: none;
+}
+
+#data-sources th.desc .fa-sort-amount-desc,
+#data-sources th.asc .fa-sort-amount-asc {
+  display: inline-block;
+}
+
 #data-sources td {
   border-left: none;
   border-right: none;
   border-bottom: none;
+  vertical-align: middle;
 }
 
 .controls-wrapper {

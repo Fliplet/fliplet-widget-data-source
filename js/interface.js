@@ -12,8 +12,10 @@ var currentDataSource;
 var currentDataSourceId;
 var currentEditor;
 var dataSources;
+var allDataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
+var isShowingAll = false;
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
@@ -43,9 +45,14 @@ function getDataSources() {
       cache: false
     })
     .then(function(userDataSources) {
-      var html = [];
+      allDataSources = userDataSources;
 
       if (copyData.context === 'app-overlay' || copyData.app) {
+        // Changes UI text
+        $('[data-show-all-source]').removeClass('hidden');
+        $('[data-back]').text('See all my app\'s data sources');
+
+        // Filters data sources
         var filteredDataSources = [];
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
@@ -60,13 +67,24 @@ function getDataSources() {
       } else {
         dataSources = userDataSources;
       }
-      dataSources.forEach(function (dataSource) {
-        html.push(getDataSourceRender(dataSource));
-      });
-      $dataSources.html(html.join(''));
-      $initialSpinnerLoading.removeClass('animated');
-      $contents.removeClass('hidden');
+
+      // Order data sources by updatedAt
+      var orderedDataSources = sortDataSources('updatedAt', 'desc');
+
+      // Start rendering process
+      renderDataSources(orderedDataSources);
     });
+}
+
+function renderDataSources(dataSources) {
+  var html = [];
+
+  dataSources.forEach(function (dataSource) {
+    html.push(getDataSourceRender(dataSource));
+  });
+  $dataSources.html(html.join(''));
+  $initialSpinnerLoading.removeClass('animated');
+  $contents.removeClass('hidden');
 }
 
 function fetchCurrentDataSourceDetails() {
@@ -279,6 +297,41 @@ function activateFind() {
   }
 }
 
+function sortDataSources(key, order) {
+  var toBeOrderedDataSources = dataSources;
+
+  if ((copyData.context === 'app-overlay' || copyData.app) && isShowingAll) {
+    toBeOrderedDataSources = allDataSources;
+  }
+
+  // Order by updatedAt
+  var orderedDataSources = _.orderBy(toBeOrderedDataSources, function(ds) {
+    var date = new Date(ds[key]);
+    if (Object.prototype.toString.call(date) === "[object Date]" && !isNaN(date)) {
+      return new Date(ds[key]).getTime();
+    }
+
+    var tempData = ds[key].toString().toUpperCase();
+    tempData = tempData.match(/[A-Za-z]/)
+      ? tempData
+      : '{' + tempData;
+    return tempData;
+  }, [order]);
+
+  return orderedDataSources;
+}
+
+Handlebars.registerHelper('momentCalendar', function(date) {
+  return moment(date).calendar(null, {
+    sameDay: '[Today at] h:mm A',
+    nextDay: '[Tomorrow at ] h:mm A',
+    nextWeek: 'dddd [at] h:mm A',
+    lastDay: '[Yesterday at] h:mm A',
+    lastWeek: '[Last] dddd [at] h:mm A',
+    sameElse: 'MMMM Do YYYY'
+  });
+});
+
 // Events
 
 // Prevent Cmd + F default behaviour and use our find
@@ -308,6 +361,58 @@ window.addEventListener('message', function(event){
 
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
+  .on('click', '[data-order-date]', function() {
+    if ($(this).hasClass('desc')) {
+      $(this).removeClass('desc').addClass('asc');
+      // Order data sources by updatedAt
+      var orderedDataSources = sortDataSources('updatedAt', 'asc');
+      // Start rendering process
+      renderDataSources(orderedDataSources);
+      return;
+    }
+
+    if ($(this).hasClass('asc')) {
+      $(this).removeClass('asc').addClass('desc');
+      // Order data sources by updatedAt
+      var orderedDataSources = sortDataSources('updatedAt', 'desc');
+      // Start rendering process
+      renderDataSources(orderedDataSources);
+      return;
+    }
+  })
+  .on('click', '[data-order-name]', function() {
+    if ($(this).hasClass('desc')) {
+      $(this).removeClass('desc').addClass('asc');
+      // Order data sources by updatedAt
+      var orderedDataSources = sortDataSources('name', 'asc');
+      // Start rendering process
+      renderDataSources(orderedDataSources);
+      return;
+    }
+
+    if ($(this).hasClass('asc')) {
+      $(this).removeClass('asc').addClass('desc');
+      // Order data sources by updatedAt
+      var orderedDataSources = sortDataSources('name', 'desc');
+      // Start rendering process
+      renderDataSources(orderedDataSources);
+      return;
+    }
+  })
+  .on('click', '[data-show-all-source]', function() {
+    isShowingAll = true;
+    $('[data-show-all-source]').addClass('hidden');
+    $('[data-app-source]').removeClass('hidden');
+    var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    renderDataSources(orderedDataSources);
+  })
+  .on('click', '[data-app-source]', function() {
+    isShowingAll = false;
+    $('[data-app-source]').addClass('hidden');
+    $('[data-show-all-source]').removeClass('hidden');
+    var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    renderDataSources(orderedDataSources);
+  })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
@@ -318,6 +423,7 @@ $('#app')
       dataSourceEntriesHasChanged = false;
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
+      $('[data-order-date]').removeClass('asc').addClass('desc');
       getDataSources();
     }
   })
