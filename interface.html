@@ -11,6 +11,8 @@
           <div class="row">
             <div class="col-sm-8">
               <button data-create-source class="btn btn-primary">Create new data source</button>
+              <button data-show-all-source class="btn btn-secondary hidden">Show all data sources</button>
+              <button data-app-source class="btn btn-secondary hidden">Show app's data sources</button>
             </div>
             <div class="col-sm-4">
               <input class="search pull-right form-control" type="search" placeholder="Search data sources" />
@@ -20,8 +22,17 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Data source</th>
+                <th class="desc" data-order-name>
+                  Data source
+                  <i class="fa fa-sort-amount-asc"></i>
+                  <i class="fa fa-sort-amount-desc"></i>
+                </th>
                 <th>Used by apps</th>
+                <th class="desc" data-order-date>
+                  Last updated
+                  <i class="fa fa-sort-amount-asc"></i>
+                  <i class="fa fa-sort-amount-desc"></i>
+                </th>
                 <th>&nbsp;</th>
               </tr>
             </thead>
