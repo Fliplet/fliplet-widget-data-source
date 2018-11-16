@@ -47,7 +47,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (copyData.context === 'app-overlay' || copyData.app) {
+      if (copyData.context === 'app-overlay' || copyData.appId) {
         // Changes UI text
         $('[data-show-all-source]').removeClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
@@ -56,7 +56,7 @@ function getDataSources() {
         var filteredDataSources = [];
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
-            return dataSource.appId === copyData.app.id || app.id === copyData.app.id;
+            return dataSource.appId === copyData.appId || app.id === copyData.appId;
           });
 
           if (matchedApp) {
@@ -300,7 +300,7 @@ function activateFind() {
 function sortDataSources(key, order) {
   var toBeOrderedDataSources = dataSources;
 
-  if ((copyData.context === 'app-overlay' || copyData.app) && isShowingAll) {
+  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll) {
     toBeOrderedDataSources = allDataSources;
   }
 
