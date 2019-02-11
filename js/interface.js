@@ -86,7 +86,7 @@ function getDataSources() {
         return;
       }
 
-      Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+      Raven.captureException(error);
     });
 }
 
