@@ -76,6 +76,17 @@ function getDataSources() {
     })
     .catch(function (error) {
       console.error(error);
+
+      if (typeof Raven === 'undefined') {
+        return;
+      }
+
+      if (!(error instanceof Error)) {
+        Raven.captureMessage('Error loading data sources', { extra: { error: error } });
+        return;
+      }
+
+      Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
     });
 }
 
