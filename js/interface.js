@@ -38,12 +38,12 @@ function getDataSources() {
     return;
   }*/
 
-  Fliplet.DataSources.get({
-      roles: 'publisher,editor',
-      type: null
-    }, {
-      cache: false
-    })
+  return Fliplet.DataSources.get({
+    roles: 'publisher,editor',
+    type: null
+  }, {
+    cache: false
+  })
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
@@ -73,6 +73,23 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
+    })
+    .catch(function (error) {
+      renderError({
+        message: 'Error loading data sources',
+        error: error
+      });
+
+      if (typeof Raven === 'undefined') {
+        return;
+      }
+
+      if (!(error instanceof Error)) {
+        Raven.captureMessage('Error loading data sources', { extra: { error: error } });
+        return;
+      }
+
+      Raven.captureException(error);
     });
 }
 
@@ -82,9 +99,49 @@ function renderDataSources(dataSources) {
   dataSources.forEach(function (dataSource) {
     html.push(getDataSourceRender(dataSource));
   });
+
   $dataSources.html(html.join(''));
   $initialSpinnerLoading.removeClass('animated');
   $contents.removeClass('hidden');
+}
+
+function renderError(options) {
+  if (options === 'string') {
+    options = {
+      message: options
+    };
+  }
+
+  options = options || {};
+  options.message = options.message || 'Unexpected error';
+  var parsedError = Fliplet.parseError(options.error);
+
+  if (!parsedError) {
+    Fliplet.Modal.alert({
+      message: options.message
+    });
+    return;
+  }
+
+  Fliplet.Modal.confirm({
+    message: options.message,
+    buttons: {
+      cancel: {
+        label: 'Details'
+      },
+      confirm: {
+        label: 'OK'
+      }
+    }
+  }).then(function (dismiss) {
+    if (dismiss) {
+      return;
+    }
+
+    Fliplet.Modal.alert({
+      message: parsedError
+    });
+  });
 }
 
 function fetchCurrentDataSourceDetails() {
@@ -123,7 +180,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
         $sourceContents.find('.editing-data-source-name').html(sourceName);
         $sourceContents.find('.data-save-updated').html('All changes saved!');
-        
+
         columns = dataSource.columns || [];
 
         if (entries) {
@@ -279,13 +336,13 @@ function browseDataSource(id) {
 
 function activateFind() {
   // Returns TRUE if an action is carried out
-  
+
   // Data sources list view
   if (!$contents.hasClass('hidden')) {
     $('.search').focus();
     return true;
   }
-  
+
   // Data source view
   switch ($sourceContents.find('.tab-pane.active').attr('id')) {
     case 'entries':
@@ -344,7 +401,7 @@ window.addEventListener('keydown', function (event) {
   var ctrlDown = (event.ctrlKey || event.metaKey);
 
   // Cmd/Ctrl + F
-  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) { 
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) {
     if (activateFind()) {
       event.preventDefault();
     }
@@ -520,7 +577,7 @@ $('#app')
       if (userId) {
         permissions = prompt('Set the permissions', 'crudq');
       }
-        
+
       if (!userId || !permissions) {
         _this.removeClass('disabled').text('Add new user');
         return;
@@ -642,7 +699,7 @@ $('#app')
   })
   .on('blur', '.filter-form .form-control', function() {
     var value = $(this).val();
-    
+
     if (value === '') {
       $('.filter-form').removeClass('expanded');
       $('.find-results').html('');
