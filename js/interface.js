@@ -38,12 +38,12 @@ function getDataSources() {
     return;
   }*/
 
-  Fliplet.DataSources.get({
-      roles: 'publisher,editor',
-      type: null
-    }, {
-      cache: false
-    })
+  return Fliplet.DataSources.get({
+    roles: 'publisher,editor',
+    type: null
+  }, {
+    cache: false
+  })
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
@@ -73,6 +73,9 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
+    })
+    .catch(function (error) {
+      console.error(error);
     });
 }
 
