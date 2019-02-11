@@ -75,7 +75,10 @@ function getDataSources() {
       renderDataSources(orderedDataSources);
     })
     .catch(function (error) {
-      console.error(error);
+      renderError({
+        message: 'Error loading data sources',
+        error: error
+      });
 
       if (typeof Raven === 'undefined') {
         return;
@@ -96,9 +99,49 @@ function renderDataSources(dataSources) {
   dataSources.forEach(function (dataSource) {
     html.push(getDataSourceRender(dataSource));
   });
+
   $dataSources.html(html.join(''));
   $initialSpinnerLoading.removeClass('animated');
   $contents.removeClass('hidden');
+}
+
+function renderError(options) {
+  if (options === 'string') {
+    options = {
+      message: options
+    };
+  }
+
+  options = options || {};
+  options.message = options.message || 'Unexpected error';
+  var parsedError = Fliplet.parseError(options.error);
+
+  if (!parsedError) {
+    Fliplet.Modal.alert({
+      message: options.message
+    });
+    return;
+  }
+
+  Fliplet.Modal.confirm({
+    message: options.message,
+    buttons: {
+      cancel: {
+        label: 'Details'
+      },
+      confirm: {
+        label: 'OK'
+      }
+    }
+  }).then(function (dismiss) {
+    if (dismiss) {
+      return;
+    }
+
+    Fliplet.Modal.alert({
+      message: parsedError
+    });
+  });
 }
 
 function fetchCurrentDataSourceDetails() {
