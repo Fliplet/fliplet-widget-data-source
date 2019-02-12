@@ -10,6 +10,7 @@ var $noResults = $('.no-results-found');
 var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
 var currentDataSourceId;
+var currentDataSourceDefinition;
 var currentEditor;
 var dataSources;
 var allDataSources;
@@ -151,6 +152,9 @@ function fetchCurrentDataSourceDetails() {
     if (!dataSource.bundle) {
       $('#bundle').prop('checked', true);
     }
+
+    currentDataSourceDefinition = dataSource.definition || {};
+
     if (dataSource.definition) {
       $('#definition').val(JSON.stringify(dataSource.definition, null, 2));
     }
@@ -262,10 +266,15 @@ function saveCurrentData() {
     columns = table.getColumns();
   }
 
-  // Let's also try to save widths on local storage.
-  // This way we can try to load widths on next load
-  widths = table.getColWidths();
-  Fliplet.Storage.set('hotWidths_' + currentDataSourceId, widths);
+  var widths = table.getColWidths();
+
+  // Update column sizes in background
+  return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+    dataSource.definition = dataSource.definition || {};
+    dataSource.definition.columnsWidths = widths;
+
+    return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
+  }).catch(console.error);
 
   return currentDataSource.commit(entries, columns);
 }

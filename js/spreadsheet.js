@@ -151,6 +151,14 @@ var spreadsheet = function(options) {
     },
     afterColumnResize: function () {
       colWidths = getColWidths();
+
+      // Update column sizes in background
+      return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+        dataSource.definition = dataSource.definition || {};
+        dataSource.definition.columnsWidths = colWidths;
+
+        return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
+      }).catch(console.error);
     },
     afterRowMove: function() {
       onChanges();
@@ -180,14 +188,8 @@ var spreadsheet = function(options) {
     }
   };
 
-  // Let's try to get previously stored col widths
-  var storedWidths = localStorage.getItem('hotWidths_'  + currentDataSourceId);
-  if (storedWidths) {
-    try {
-      colWidths = JSON.parse(storedWidths);
-      hotSettings.colWidths = colWidths;
-    } catch (e) {
-    }
+  if (currentDataSourceDefinition && Array.isArray(currentDataSourceDefinition.columnsWidths)) {
+    hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
 
   dataStack.push({ data: _.cloneDeep(data) });
