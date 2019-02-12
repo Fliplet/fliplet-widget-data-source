@@ -149,6 +149,9 @@ var spreadsheet = function(options) {
     afterColumnMove: function() {
       onChanges();
     },
+    afterColumnResize: function () {
+      colWidths = getColWidths();
+    },
     afterRowMove: function() {
       onChanges();
     },
@@ -192,6 +195,7 @@ var spreadsheet = function(options) {
 
   // Set a sort function using Handsontable columnSorting plugin
   hot.updateSettings({
+    colWidths: hotSettings.colWidths,
     sortFunction: function(sortOrder, columnMeta) {
       return function(a, b) {
         var plugin = hot.getPlugin('columnSorting');
