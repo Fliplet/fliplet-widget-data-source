@@ -5,9 +5,9 @@ var currentDataStackIndex;
 var hot,
     copyPastePlugin,
     data,
-    colWidths = [], 
+    colWidths = [],
     s; // Stores current selection to use for toolbar
-          
+
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
   var rows = options.rows || [];
@@ -22,11 +22,11 @@ var spreadsheet = function(options) {
   // Don't bind data to data source object
   // Data as an array
   data = prepareData(rows, columns);
-  
+
   /**
-   * Given an array of data source entries it does return an array 
+   * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
-   * @param {Array} rows 
+   * @param {Array} rows
    */
   function prepareData(rows, columns) {
     var preparedData = rows.map(function(row) {
@@ -85,7 +85,7 @@ var spreadsheet = function(options) {
     sortIndicator: true,
     cells: function (row, col, prop) {
       var cellProperties = {};
-      
+
       if (row === 0) {
         cellProperties.renderer = columnValueRenderer;
       }
@@ -134,7 +134,7 @@ var spreadsheet = function(options) {
     },
     afterRemoveCol: function(index, amount) {
       // Remove columns widths from the widths array
-      // 
+      //
       colWidths.splice(index, amount);
       onChanges();
     },
@@ -148,6 +148,17 @@ var spreadsheet = function(options) {
     },
     afterColumnMove: function() {
       onChanges();
+    },
+    afterColumnResize: function () {
+      colWidths = getColWidths();
+
+      // Update column sizes in background
+      return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+        dataSource.definition = dataSource.definition || {};
+        dataSource.definition.columnsWidths = colWidths;
+
+        return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
+      }).catch(console.error);
     },
     afterRowMove: function() {
       onChanges();
@@ -177,30 +188,25 @@ var spreadsheet = function(options) {
     }
   };
 
-  // Let's try to get previously stored col widths
-  var storedWidths = localStorage.getItem('hotWidths_'  + currentDataSourceId);
-  if (storedWidths) {
-    try {
-      colWidths = JSON.parse(storedWidths);
-      hotSettings.colWidths = colWidths;
-    } catch (e) {
-    }
+  if (currentDataSourceDefinition && Array.isArray(currentDataSourceDefinition.columnsWidths)) {
+    hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
-  
+
   dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Set a sort function using Handsontable columnSorting plugin
   hot.updateSettings({
+    colWidths: hotSettings.colWidths,
     sortFunction: function(sortOrder, columnMeta) {
       return function(a, b) {
         var plugin = hot.getPlugin('columnSorting');
         var sortFunction;
-        
+
         if (a[0] === 0) {
           return -1;
         }
-        
+
         switch (columnMeta.type) {
           case 'date':
             sortFunction = plugin.dateSort;
@@ -211,7 +217,7 @@ var spreadsheet = function(options) {
           default:
             sortFunction = plugin.defaultSort;
         }
-        
+
         return sortFunction(sortOrder, columnMeta)(a, b);
       };
     }
@@ -232,7 +238,7 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * Generates a column name in the form 
+   * Generates a column name in the form
    * Column 1, Column 2, and so on...
    */
   function generateColumnName(name) {
@@ -255,7 +261,7 @@ var spreadsheet = function(options) {
       var newName = generateColumnName(name);
       return newName;
     }
-    
+
     return name;
   }
 
@@ -292,7 +298,7 @@ var spreadsheet = function(options) {
 
     // Get data like we see it and exclude columns row.
     var visual = hot.getData().slice(1);
-    
+
     // Get data from the source and exclude columns row.
     // For example moving rows doesn't keep the visual/physical order in sync
     var physical = hot.getSourceData().slice(1);
@@ -395,7 +401,7 @@ function search(action) {
     $('.filter-form .find-controls').addClass('disabled');
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
-  
+
   if (action === 'find') {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
@@ -430,10 +436,10 @@ function search(action) {
         queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
     }
   }
-  
+
   // Update message
   setSearchMessage();
-  
+
   // Focus back to the search field
   searchField.focus();
 }
@@ -475,12 +481,12 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   }
 
   // Cmd/Ctrl (+ Shift) + G
-  if (ctrlDown && !event.altKey && event.keyCode === 71) { 
+  if (ctrlDown && !event.altKey && event.keyCode === 71) {
     search(event.shiftKey ? 'prev' : 'next');
     event.preventDefault();
     return;
   }
-  
+
   // Any other keys, but with Ctrl/Cmd modifier
   if (ctrlDown) {
     return;
@@ -594,7 +600,7 @@ $("#toolbar")
       copyPastePlugin.copy();
     } catch(err) {
       openOverlay();
-    }  
+    }
   })
   .on('click', '[data-action="cut"]', function() {
     try {
@@ -602,7 +608,7 @@ $("#toolbar")
       copyPastePlugin.cut();
     } catch(err) {
       openOverlay();
-    }  
+    }
   })
   .on('click', '[data-action="paste"]', function(){
     openOverlay();
