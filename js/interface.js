@@ -269,7 +269,7 @@ function saveCurrentData() {
   var widths = table.getColWidths();
 
   // Update column sizes in background
-  return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
+  Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
     dataSource.definition = dataSource.definition || {};
     dataSource.definition.columnsWidths = widths;
 
