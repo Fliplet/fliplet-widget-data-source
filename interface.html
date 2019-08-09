@@ -72,7 +72,7 @@
               <a href="#roles" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
             </li>
             <li role="presentation">
-              <a href="#settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
+              <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -157,7 +157,18 @@
                     </div>
                     <div class="col-sm-8">
                       <div class="checkbox checkbox-icon">
-                        <textarea class="form-control" id="definition" rows="15"></textarea>
+                        <textarea class="form-control form-code" id="definition" rows="15"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="hooks">Data source hooks</label>
+                      <p class="help-block">Hooks are usually set by Fliplet components such as Forms sending emails.</p>
+                    </div>
+                    <div class="col-sm-8">
+                      <div class="checkbox checkbox-icon">
+                        <textarea class="form-control form-code" id="hooks" rows="15"></textarea>
                       </div>
                     </div>
                   </div>
@@ -176,7 +187,7 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <hr />                    
+                    <hr />
                     <button class="btn text-danger" data-delete-source>Delete data source</button>
                   </div>
                 </form>

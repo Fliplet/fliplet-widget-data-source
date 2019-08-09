@@ -22,6 +22,16 @@ var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
 var copyData = data;
 
+var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
+  lineNumbers: true,
+  mode: 'javascript'
+});
+
+var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
+  lineNumbers: true,
+  mode: 'javascript'
+});
+
 // Fetch all data sources
 function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
@@ -146,6 +156,9 @@ function renderError(options) {
 }
 
 function fetchCurrentDataSourceDetails() {
+  definitionEditor.setValue('');
+  hooksEditor.setValue('');
+
   return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
@@ -156,7 +169,11 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceDefinition = dataSource.definition || {};
 
     if (dataSource.definition) {
-      $('#definition').val(JSON.stringify(dataSource.definition, null, 2));
+      definitionEditor.setValue(JSON.stringify(dataSource.definition, null, 2));
+    }
+
+    if (dataSource.hooks) {
+      hooksEditor.setValue(JSON.stringify(dataSource.hooks, null, 2));
     }
   });
 }
@@ -622,8 +639,14 @@ $('#app')
     event.preventDefault();
     var name = $settings.find('#name').val();
     var bundle = !$('#bundle').is(':checked');
-    var definition = $settings.find('#definition').val();
+    var definition = definitionEditor.getValue();
+    var hooks = hooksEditor.getValue();
+
     if (!name) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid settings',
+        popupMessage: 'Name must be set'
+      });
       return;
     }
 
@@ -632,7 +655,51 @@ $('#app')
     } catch (e) {
       Fliplet.Navigate.popup({
         popupTitle: 'Invalid settings',
-        popupMessage: 'Definition MUST be a valid JSON'
+        popupMessage: 'Definition must be a valid JSON'
+      });
+      return;
+    }
+
+    try {
+      hooks = JSON.parse(hooks);
+    } catch (e) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid settings',
+        popupMessage: 'Hooks must be a valid JSON'
+      });
+      return;
+    }
+
+    if (!Array.isArray(hooks)) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid hooks',
+        popupMessage: 'Hooks must be an array'
+      });
+      return;
+    }
+
+    try {
+      hooks.forEach(function (hook) {
+        if (typeof hook.type !== 'string' || !hook.type) {
+          throw new Error('One of your hooks have an invalid "type" (must be a string).');
+        }
+
+        if (!Array.isArray(hook.runOn)) {
+          throw new Error('One of your hooks have an invalid "runOn" (must be an array).');
+        }
+
+        if (hook.payload && typeof hook.payload === 'object') {
+          throw new Error('One of your hooks have an invalid "payload" (must be an object)');
+        }
+
+        if (hook.triggers && !Array.isArray(hook.triggers)) {
+          throw new Error('One of your hooks have an invalid "triggers" (must be an array).');
+        }
+      });
+    } catch (e) {
+      Fliplet.Navigate.popup({
+        popupTitle: 'Invalid hooks',
+        popupMessage: e
       });
       return;
     }
@@ -641,7 +708,8 @@ $('#app')
         id: currentDataSourceId,
         name: name,
         bundle: bundle,
-        definition: definition
+        definition: definition,
+        hooks: hooks
       })
       .then(function() {
         // update name on ui
@@ -766,6 +834,12 @@ $('#app')
     }
   });
 
+$('#show-settings').click(function () {
+  setTimeout(function () {
+    definitionEditor.refresh();
+    hooksEditor.refresh();
+  }, 0);
+});
 
 if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists

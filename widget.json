@@ -12,6 +12,7 @@
       "jquery",
       "bootstrap",
       "tinymce",
+      "codemirror",
       "handsontable",
       "fliplet-datasources",
       "fliplet-studio-ui",
