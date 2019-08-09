@@ -688,7 +688,7 @@ $('#app')
           throw new Error('One of your hooks have an invalid "runOn" (must be an array).');
         }
 
-        if (hook.payload && typeof hook.payload === 'object') {
+        if (hook.payload && typeof hook.payload !== 'object') {
           throw new Error('One of your hooks have an invalid "payload" (must be an object)');
         }
 
