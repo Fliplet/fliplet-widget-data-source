@@ -14,6 +14,7 @@ var spreadsheet = function(options) {
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
+  var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
 
   dataStack = [];
@@ -31,7 +32,20 @@ var spreadsheet = function(options) {
   function prepareData(rows, columns) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header, index) {
-        return row.data[header];
+        var value = row.data[header];
+
+        if (Array.isArray(value)) {
+          if (arrayColumns.indexOf(header) === -1) {
+            arrayColumns.push(header);
+          }
+
+          // Add double quotes to the string if it contains a comma
+          value = value.map(function (val) {
+            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
+          }).join(', ');
+        }
+
+        return value;
       });
       dataRow.id = row.id;
       return dataRow;
@@ -53,7 +67,7 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * Style firt row. First row is the columns names
+   * Style the first row (columns headings)
    */
   function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
     var escaped = Handsontable.helper.stringify(value);
@@ -306,7 +320,6 @@ var spreadsheet = function(options) {
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
       physical = physical.filter(isNotEmpty);
-
     }
 
     // And finally we pick the id's to visual from physical
@@ -322,6 +335,18 @@ var spreadsheet = function(options) {
           headers.forEach(function(header, index) {
             entry.data[header] = visualRow[index];
             entry.order = order;
+  
+            // Cast CSV to String
+            if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+              try {
+                entry.data[header] = Papa.parse(entry.data[header]).data[0];
+                entry.data[header] = entry.data[header].map(function (val) {
+                  return typeof val === 'string' ? val.trim() : val;
+                });
+              } catch (e) {
+                // nothing
+              }
+            }
           });
 
           entries.push(entry);
