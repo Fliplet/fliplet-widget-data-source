@@ -560,21 +560,26 @@ $('#app')
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
-    var sourceName = prompt('Please type the new table name:');
+    Fliplet.Modal.prompt({
+      title: 'New data source',
+      message: 'Enter a data source name',
+    }).then(function (result) {
+      var dataSourceName = result.trim();
+      if (!dataSourceName) {
+        Fliplet.Modal.alert({ message: 'You must enter a data source name'});
+        return;
+      }
 
-    if (!sourceName) {
-      return;
-    }
-
-    Fliplet.Organizations.get().then(function(organizations) {
-      return Fliplet.DataSources.create({
-        organizationId: organizations[0].id,
-        name: sourceName
+      Fliplet.Organizations.get().then(function(organizations) {
+        return Fliplet.DataSources.create({
+          organizationId: organizations[0].id,
+          name: dataSourceName
+        });
+      }).then(function(createdDataSource) {
+        dataSources.push(createdDataSource);
+        $dataSources.append(getDataSourceRender(createdDataSource));
+        browseDataSource(createdDataSource.id);
       });
-    }).then(function(createdDataSource) {
-      dataSources.push(createdDataSource);
-      $dataSources.append(getDataSourceRender(createdDataSource));
-      browseDataSource(createdDataSource.id);
     });
   })
   .on('change', 'input[type="file"]', function(event) {
