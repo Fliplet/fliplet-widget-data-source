@@ -637,18 +637,17 @@ $('#app')
   })
   .on('submit', 'form[data-settings]', function(event) {
     event.preventDefault();
-    var name = $settings.find('#name').val();
+    var name = $settings.find('#name').val().trim();
+
+    if (!name) {
+      $settings.find('#name').parents(':eq(1)').addClass('has-error');
+      return;
+    }
+
     var bundle = !$('#bundle').is(':checked');
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
-
-    if (!name) {
-      Fliplet.Navigate.popup({
-        popupTitle: 'Invalid settings',
-        popupMessage: 'Name must be set'
-      });
-      return;
-    }
+    $settings.find('#name').parents(':eq(1)').removeClass('has-error');
 
     try {
       definition = JSON.parse(definition);
