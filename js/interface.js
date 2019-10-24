@@ -724,7 +724,7 @@ $('#app')
         $('[aria-controls="entries"]').click();
       });
   })
-  .on('keyup change paste', '.search', function() {
+  .on('input', '.search', function() {
     // Escape search
     var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
@@ -732,7 +732,7 @@ $('#app')
     $noResults.removeClass('show');
 
     var search = dataSources.filter(function(dataSource) {
-      return dataSource.name.match(term) || dataSource.id.toString().match(term)
+      return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
 
     $dataSources.html('');
