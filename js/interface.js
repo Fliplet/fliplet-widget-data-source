@@ -621,6 +621,13 @@ $('#app')
       });
     }, 100);
   })
+  .on('keyup keypress', '[data-input-name]', function(event) {
+  var keyCode = event.keyCode || event.which;
+    if (keyCode === 13) {
+      event.preventDefault();
+      return false;
+    }
+  })
   .on('click', '[data-revoke-role]', function(event) {
     event.preventDefault();
     var userId = $(this).data('revoke-role');
