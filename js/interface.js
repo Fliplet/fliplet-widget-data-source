@@ -360,6 +360,37 @@ function browseDataSource(id) {
     });
 }
 
+function createDataSource() {
+  Fliplet.Modal.prompt({
+  title: 'New data source',
+  message: 'Enter a data source name',
+  }).then(function (result) {
+    if (result === null) {
+      return;
+    }
+    var dataSourceName = result.trim();
+    if (!dataSourceName) {
+      Fliplet.Modal.alert({
+        message: 'You must enter a data source name'
+      }).then(function () {
+        createDataSource();
+        return;
+      });
+    }
+
+    Fliplet.Organizations.get().then(function(organizations) {
+      return Fliplet.DataSources.create({
+        organizationId: organizations[0].id,
+        name: dataSourceName
+      });
+    }).then(function(createdDataSource) {
+      dataSources.push(createdDataSource);
+      $dataSources.append(getDataSourceRender(createdDataSource));
+      browseDataSource(createdDataSource.id);
+    });
+  });
+}
+
 function activateFind() {
   // Returns TRUE if an action is carried out
 
@@ -560,27 +591,7 @@ $('#app')
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
-    Fliplet.Modal.prompt({
-      title: 'New data source',
-      message: 'Enter a data source name',
-    }).then(function (result) {
-      var dataSourceName = result.trim();
-      if (!dataSourceName) {
-        Fliplet.Modal.alert({ message: 'You must enter a data source name'});
-        return;
-      }
-
-      Fliplet.Organizations.get().then(function(organizations) {
-        return Fliplet.DataSources.create({
-          organizationId: organizations[0].id,
-          name: dataSourceName
-        });
-      }).then(function(createdDataSource) {
-        dataSources.push(createdDataSource);
-        $dataSources.append(getDataSourceRender(createdDataSource));
-        browseDataSource(createdDataSource.id);
-      });
-    });
+    createDataSource ();
   })
   .on('change', 'input[type="file"]', function(event) {
     var $input = $(this);
