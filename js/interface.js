@@ -536,9 +536,27 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    var confirmAlert = confirm('Are you sure you want to delete this data source? All entries will be deleted.');
+    var message = 'Are you sure you want to delete this data source? All entries will be deleted.';
+    var currentDS = _.find(dataSources, function(ds) {
+      return ds.id === currentDataSourceId;
+    });
 
-    if (confirmAlert) {
+    if (currentDS.apps.length) {
+      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
+      var appUsedIn = currentDS.apps.map(function(elem) {
+        return ' ' + elem.name;
+      });
+
+      message = 'Are you sure you want to delete this data source? The data source is used in the next ' + appPrefix + appUsedIn + '. All entries will be deleted.';
+    }
+
+    Fliplet.Modal.confirm({
+      message: message
+    }).then(function(result) {
+      if (!result) {
+        return;
+      }
+
       Fliplet.DataSources.delete(currentDataSourceId).then(function() {
         // Remove from UI
         $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
@@ -556,7 +574,7 @@ $('#app')
         // Go back
         $('[data-back]').click();
       });
-    }
+    });
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
