@@ -536,7 +536,8 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    var message = 'Are you sure you want to delete this data source? All entries will be deleted.';
+    var usedAppsText = '';
+
     var currentDS = _.find(dataSources, function(ds) {
       return ds.id === currentDataSourceId;
     });
@@ -544,11 +545,12 @@ $('#app')
     if (currentDS.apps.length) {
       var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
-        return ' ' + elem.name;
+        return elem.name;
       });
-
-      message = 'Are you sure you want to delete this data source? The data source is used in the next ' + appPrefix + appUsedIn + '. All entries will be deleted.';
+      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + appUsedIn.join(', ') + '. ';
     }
+
+    var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
 
     Fliplet.Modal.confirm({
       message: message
