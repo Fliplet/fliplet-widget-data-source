@@ -6,7 +6,7 @@ var hot,
     copyPastePlugin,
     data,
     colWidths = [],
-    s; // Stores current selection to use for toolbar
+    s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -335,7 +335,7 @@ var spreadsheet = function(options) {
           headers.forEach(function(header, index) {
             entry.data[header] = visualRow[index];
             entry.order = order;
-  
+
             // Cast CSV to String
             if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
               try {
