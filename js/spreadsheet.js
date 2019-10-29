@@ -82,6 +82,7 @@ var spreadsheet = function(options) {
     stretchH: 'all',
     manualColumnResize: true,
     manualColumnMove: true,
+    manualRowResize: true,
     manualRowMove: true,
     colWidths: 250,
     minColsNumber: 1,
@@ -107,6 +108,7 @@ var spreadsheet = function(options) {
       return cellProperties;
     },
     data: data,
+    renderer: addMaxHeightToCells,
     // Always have one empty row at the end
     minSpareRows: 40,
     // Hooks
@@ -279,6 +281,11 @@ var spreadsheet = function(options) {
     return name;
   }
 
+  function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
+    Handsontable.renderers.TextRenderer.apply(this, arguments);
+    td.innerHTML = '<div class="cell-wrapper">' + td.innerHTML + '</div>';
+  }
+
   /**
    * Check is a row is not empty. Empty means that all elements doesn't have a value
    * @param {Array} row
@@ -335,7 +342,7 @@ var spreadsheet = function(options) {
           headers.forEach(function(header, index) {
             entry.data[header] = visualRow[index];
             entry.order = order;
-  
+
             // Cast CSV to String
             if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
               try {

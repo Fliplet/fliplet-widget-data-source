@@ -210,6 +210,12 @@ a[data-back] {
   transition: all 0.25s ease;
 }
 
+.cell-wrapper {
+  max-height: 110px;
+  min-height: 100%;
+  overflow: hidden;
+}
+
 .mce-ico {
   display: inline-block;
   font: normal normal normal 14px/1 tinymce;
