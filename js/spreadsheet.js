@@ -152,6 +152,10 @@ var spreadsheet = function(options) {
       colWidths.splice(index, amount);
       onChanges();
     },
+    beforePaste: function(data, coords) {
+      removeLastEmptyColumn(data);
+      removeLastEmptyRow(data);
+    },
     beforeRemoveCol: function(index, amount) {
       // Set current widths to get them after column column is removed
       colWidths = getColWidths();
@@ -265,6 +269,40 @@ var spreadsheet = function(options) {
     : columnName;
   }
 
+  function removeLastEmptyColumn(data) {
+    var columnLength = data[0].length;
+    var lastColumnLength = columnLength;
+
+    for (var i = 0; i < columnLength; i += 1) {
+      if (!data[i][columnLength - 1]) {
+        lastColumnLength -= 1;
+      }
+    }
+
+    if (lastColumnLength === 0) {
+      data.forEach(function (elem) {
+        elem.pop();
+      });
+      removeLastEmptyColumn(data);
+    }
+  }
+
+  function removeLastEmptyRow(data) {
+    var rowLength = data[data.length - 1];
+    var lastRowLength = rowLength.length;
+
+    for (var i = 0; i < rowLength.length; i += 1) {
+      if (!rowLength[i]) {
+        lastRowLength -= 1;
+      }
+    }
+
+    if (lastRowLength === 0) {
+      data.pop();
+      removeLastEmptyRow(data);
+    }
+  }
+
   /**
    * Fixes column name for the user
    * There can't be duplicated column names
@@ -335,7 +373,7 @@ var spreadsheet = function(options) {
           headers.forEach(function(header, index) {
             entry.data[header] = visualRow[index];
             entry.order = order;
-  
+
             // Cast CSV to String
             if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
               try {
