@@ -362,8 +362,8 @@ function browseDataSource(id) {
 
 function createDataSource() {
   Fliplet.Modal.prompt({
-  title: 'New data source',
-  message: 'Enter a data source name',
+    title: 'New data source',
+    message: 'Enter a data source name',
   }).then(function (result) {
     if (result === null) {
       return;
