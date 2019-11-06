@@ -6,7 +6,7 @@ var hot,
     copyPastePlugin,
     data,
     colWidths = [],
-    s; // Stores current selection to use for toolbar
+    s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
