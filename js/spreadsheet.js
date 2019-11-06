@@ -82,6 +82,7 @@ var spreadsheet = function(options) {
     stretchH: 'all',
     manualColumnResize: true,
     manualColumnMove: true,
+    manualRowResize: true,
     manualRowMove: true,
     colWidths: 250,
     minColsNumber: 1,
@@ -107,7 +108,7 @@ var spreadsheet = function(options) {
       return cellProperties;
     },
     data: data,
-    // Always have one empty row and column at the end
+    renderer: addMaxHeightToCells,
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
@@ -336,6 +337,11 @@ var spreadsheet = function(options) {
     }
 
     return name;
+  }
+
+  function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
+    Handsontable.renderers.TextRenderer.apply(this, arguments);
+    td.innerHTML = '<div class="cell-wrapper">' + td.innerHTML + '</div>';
   }
 
   /**
