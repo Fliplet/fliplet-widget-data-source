@@ -81,6 +81,16 @@ a[data-back] {
   align-items: flex-end;
 }
 
+.data-source-text {
+  color: #00abd1;
+}
+
+.data-source-text:hover {
+  color: #23527c;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .editing-data-source-name {
   max-width: 100%;
   margin: 0;
