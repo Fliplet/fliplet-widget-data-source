@@ -107,11 +107,14 @@ var spreadsheet = function(options) {
       return cellProperties;
     },
     data: data,
-    // Always have one empty row at the end
+    // Always have one empty row and column at the end
     minSpareRows: 40,
+    minSpareCols: 10,
     // Hooks
     beforeChange: function(changes, source) {
       // Check if the change was on columns row and validate
+      // If we change row without header we put header for this row
+      // In this case user won't lose his data if he forgot to input header
       changes.forEach(function(change) {
         if (change[0] === 0) {
           if (change[3] === change[2]) {
@@ -121,6 +124,13 @@ var spreadsheet = function(options) {
             change[3] = generateColumnName();
           }
           change[3] = validateOrFixColumnName(change[3]);
+        } else {
+          var header = hot.getCell(0, change[1]).innerHTML;
+          if (!header) {
+            var newHeader = generateColumnName();
+            newHeader = validateOrFixColumnName(newHeader);
+            hot.setDataAtCell(0, change[1], newHeader);
+          }
         }
       });
 
@@ -160,8 +170,14 @@ var spreadsheet = function(options) {
       // Set current widths to get them after column column is removed
       colWidths = getColWidths();
     },
-    beforeCreateCol: function() {
+    beforeCreateCol: function(index, amount, source) {
       // Set current widths to get them after column column is created
+      // Source auto means that column was created by lib to add empty col at the end of the table
+      // If we return false/undefined column will not be created
+      if (source === 'auto') {
+        return true; 
+      }
+      
       colWidths = getColWidths();
     },
     afterColumnMove: function() {
@@ -185,6 +201,11 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterCreateCol: function(index, amount, source) {
+      // Source auto means that column was created by lib to add empty col at the end of the table
+      if (source === 'auto') {
+        return true;
+      }
+
       // Column name
       for (var i = 0; i < amount; i++) {
         var columnName = generateColumnName();
@@ -371,6 +392,10 @@ var spreadsheet = function(options) {
         if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
           headers.forEach(function(header, index) {
+            if (header === null) {
+              return;
+            }
+            
             entry.data[header] = visualRow[index];
             entry.order = order;
 

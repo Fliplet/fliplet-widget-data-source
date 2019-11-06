@@ -263,6 +263,16 @@ Fliplet.Widget.onSaveRequest(function() {
   saveCurrentData().then(Fliplet.Widget.complete);
 });
 
+/**
+ * We must remove null values of the row that we do not save padding columns
+ * @param {array} columns 
+ */
+function trimColumns(columns) {
+  return _.filter(columns, function(column) {
+    return column !== null;
+  })
+}
+
 function saveCurrentData() {
   var columns;
   $('[data-save]').addClass('hidden');
@@ -280,10 +290,10 @@ function saveCurrentData() {
       columns = [];
     }
   } else {
-    columns = table.getColumns();
+    columns = trimColumns(table.getColumns());
   }
 
-  var widths = table.getColWidths();
+  var widths = trimColumns(table.getColWidths());
 
   // Update column sizes in background
   Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
