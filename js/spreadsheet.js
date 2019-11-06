@@ -6,7 +6,7 @@ var hot,
     copyPastePlugin,
     data,
     colWidths = [],
-    s; // Stores current selection to use for toolbar
+    s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -109,11 +109,13 @@ var spreadsheet = function(options) {
     },
     data: data,
     renderer: addMaxHeightToCells,
-    // Always have one empty row at the end
     minSpareRows: 40,
+    minSpareCols: 10,
     // Hooks
     beforeChange: function(changes, source) {
       // Check if the change was on columns row and validate
+      // If we change row without header we put header for this row
+      // In this case user won't lose his data if he forgot to input header
       changes.forEach(function(change) {
         if (change[0] === 0) {
           if (change[3] === change[2]) {
@@ -123,6 +125,13 @@ var spreadsheet = function(options) {
             change[3] = generateColumnName();
           }
           change[3] = validateOrFixColumnName(change[3]);
+        } else {
+          var header = hot.getCell(0, change[1]).innerHTML;
+          if (!header) {
+            var newHeader = generateColumnName();
+            newHeader = validateOrFixColumnName(newHeader);
+            hot.setDataAtCell(0, change[1], newHeader);
+          }
         }
       });
 
@@ -154,12 +163,22 @@ var spreadsheet = function(options) {
       colWidths.splice(index, amount);
       onChanges();
     },
+    beforePaste: function(data, coords) {
+      removeLastEmptyColumn(data);
+      removeLastEmptyRow(data);
+    },
     beforeRemoveCol: function(index, amount) {
       // Set current widths to get them after column column is removed
       colWidths = getColWidths();
     },
-    beforeCreateCol: function() {
+    beforeCreateCol: function(index, amount, source) {
       // Set current widths to get them after column column is created
+      // Source auto means that column was created by lib to add empty col at the end of the table
+      // If we return false/undefined column will not be created
+      if (source === 'auto') {
+        return true; 
+      }
+      
       colWidths = getColWidths();
     },
     afterColumnMove: function() {
@@ -183,6 +202,11 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterCreateCol: function(index, amount, source) {
+      // Source auto means that column was created by lib to add empty col at the end of the table
+      if (source === 'auto') {
+        return true;
+      }
+
       // Column name
       for (var i = 0; i < amount; i++) {
         var columnName = generateColumnName();
@@ -267,6 +291,40 @@ var spreadsheet = function(options) {
     : columnName;
   }
 
+  function removeLastEmptyColumn(data) {
+    var columnLength = data[0].length;
+    var lastColumnLength = columnLength;
+
+    for (var i = 0; i < columnLength; i += 1) {
+      if (!data[i][columnLength - 1]) {
+        lastColumnLength -= 1;
+      }
+    }
+
+    if (lastColumnLength === 0) {
+      data.forEach(function (elem) {
+        elem.pop();
+      });
+      removeLastEmptyColumn(data);
+    }
+  }
+
+  function removeLastEmptyRow(data) {
+    var rowLength = data[data.length - 1];
+    var lastRowLength = rowLength.length;
+
+    for (var i = 0; i < rowLength.length; i += 1) {
+      if (!rowLength[i]) {
+        lastRowLength -= 1;
+      }
+    }
+
+    if (lastRowLength === 0) {
+      data.pop();
+      removeLastEmptyRow(data);
+    }
+  }
+
   /**
    * Fixes column name for the user
    * There can't be duplicated column names
@@ -340,6 +398,10 @@ var spreadsheet = function(options) {
         if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
           headers.forEach(function(header, index) {
+            if (header === null) {
+              return;
+            }
+            
             entry.data[header] = visualRow[index];
             entry.order = order;
 

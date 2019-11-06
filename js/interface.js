@@ -263,6 +263,16 @@ Fliplet.Widget.onSaveRequest(function() {
   saveCurrentData().then(Fliplet.Widget.complete);
 });
 
+/**
+ * We must remove null values of the row that we do not save padding columns
+ * @param {array} columns 
+ */
+function trimColumns(columns) {
+  return _.filter(columns, function(column) {
+    return column !== null;
+  })
+}
+
 function saveCurrentData() {
   var columns;
   $('[data-save]').addClass('hidden');
@@ -280,10 +290,10 @@ function saveCurrentData() {
       columns = [];
     }
   } else {
-    columns = table.getColumns();
+    columns = trimColumns(table.getColumns());
   }
 
-  var widths = table.getColWidths();
+  var widths = trimColumns(table.getColWidths());
 
   // Update column sizes in background
   Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
@@ -536,9 +546,29 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    var confirmAlert = confirm('Are you sure you want to delete this data source? All entries will be deleted.');
+    var usedAppsText = '';
 
-    if (confirmAlert) {
+    var currentDS = _.find(dataSources, function(ds) {
+      return ds.id === currentDataSourceId;
+    });
+
+    if (currentDS.apps.length) {
+      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
+      var appUsedIn = currentDS.apps.map(function(elem) {
+        return elem.name;
+      });
+      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + appUsedIn.join(', ') + '. ';
+    }
+
+    var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
+
+    Fliplet.Modal.confirm({
+      message: message
+    }).then(function(result) {
+      if (!result) {
+        return;
+      }
+
       Fliplet.DataSources.delete(currentDataSourceId).then(function() {
         // Remove from UI
         $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
@@ -556,7 +586,7 @@ $('#app')
         // Go back
         $('[data-back]').click();
       });
-    }
+    });
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
