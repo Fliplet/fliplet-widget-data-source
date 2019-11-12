@@ -368,6 +368,7 @@ function createDataSource() {
     if (result === null) {
       return;
     }
+
     var dataSourceName = result.trim();
     if (!dataSourceName) {
       Fliplet.Modal.alert({
