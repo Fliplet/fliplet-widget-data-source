@@ -370,6 +370,7 @@ function createDataSource() {
     }
 
     var dataSourceName = result.trim();
+
     if (!dataSourceName) {
       Fliplet.Modal.alert({
         message: 'You must enter a data source name'
