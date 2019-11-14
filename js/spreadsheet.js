@@ -126,7 +126,7 @@ var spreadsheet = function(options) {
           }
           change[3] = validateOrFixColumnName(change[3]);
         } else {
-          var header = hot.getCell(0, change[1]).innerHTML;
+          var header = getColumns()[change[1]];
           if (!header) {
             var newHeader = generateColumnName();
             newHeader = validateOrFixColumnName(newHeader);
