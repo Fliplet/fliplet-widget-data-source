@@ -16,6 +16,7 @@ var spreadsheet = function(options) {
   var dataLoaded = false;
   var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
+  var rendered = 0;
 
   dataStack = [];
   currentDataStackIndex = 0;
@@ -218,6 +219,22 @@ var spreadsheet = function(options) {
       hot.updateSettings({ colWidths: colWidths })
 
       onChanges();
+    },
+    afterRender: function(isForced) {
+      // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
+      // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
+      // Because we trigger afterRender event 2 times before UI show as a table it self.
+      if (isForced && rendered < 3 ) {
+        var tabs = $sourceContents.find('ul.nav.nav-tabs li');
+        tabs.each(function(index) {
+          if (!tabs[index].classList[0]) { 
+            $(tabs[index]).show();
+          }
+        });
+        $sourceContents.find('#toolbar').show();
+        $('.loading-data').hide();
+        rendered += 1;
+      }
     },
     afterLoadData: function(firstTime) {
       dataLoaded = true;

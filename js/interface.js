@@ -340,6 +340,16 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
+      // Hide nav tabs and tooltip bar
+      var tab = $sourceContents.find('ul.nav.nav-tabs li');
+      tab.each(function(index) {
+        if (!tab[index].classList[0]) { 
+          $(tab[index]).hide();
+        }
+      });
+      $sourceContents.find('#toolbar').hide();
+      $('.loading-data').show();
+      // Hide nav tabs and tooltip bar
       $sourceContents.removeClass('hidden');
       $initialSpinnerLoading.removeClass('animated');
       $('[href="#entries"]').click();
