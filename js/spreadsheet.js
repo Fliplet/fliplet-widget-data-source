@@ -176,9 +176,9 @@ var spreadsheet = function(options) {
       // Source auto means that column was created by lib to add empty col at the end of the table
       // If we return false/undefined column will not be created
       if (source === 'auto') {
-        return true; 
+        return true;
       }
-      
+
       colWidths = getColWidths();
     },
     afterColumnMove: function() {
@@ -292,10 +292,15 @@ var spreadsheet = function(options) {
   }
 
   function removeLastEmptyColumn(data) {
+    var dataLength = data.length;
     var columnLength = data[0].length;
-    var lastColumnLength = columnLength;
+    var lastColumnLength = dataLength;
 
-    for (var i = 0; i < columnLength; i += 1) {
+    if (!columnLength) {
+      return;
+    }
+
+    for (var i = 0; i < dataLength; i += 1) {
       if (!data[i][columnLength - 1]) {
         lastColumnLength -= 1;
       }
@@ -310,6 +315,10 @@ var spreadsheet = function(options) {
   }
 
   function removeLastEmptyRow(data) {
+    if (data.length <= 1) {
+      return;
+    }
+
     var rowLength = data[data.length - 1];
     var lastRowLength = rowLength.length;
 
@@ -401,7 +410,7 @@ var spreadsheet = function(options) {
             if (header === null) {
               return;
             }
-            
+
             entry.data[header] = visualRow[index];
             entry.order = order;
 
