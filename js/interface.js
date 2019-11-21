@@ -74,8 +74,10 @@ function getDataSources() {
             filteredDataSources.push(userDataSources[index]);
           }
         });
+        dataSourcesToSearch = filteredDataSources;
         dataSources = filteredDataSources;
       } else {
+        dataSourcesToSearch = userDataSources;
         dataSources = userDataSources;
       }
 
@@ -265,7 +267,7 @@ Fliplet.Widget.onSaveRequest(function() {
 
 /**
  * We must remove null values of the row that we do not save padding columns
- * @param {array} columns 
+ * @param {array} columns
  */
 function trimColumns(columns) {
   return _.filter(columns, function(column) {
@@ -530,6 +532,7 @@ $('#app')
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    dataSourcesToSearch = orderedDataSources;
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-app-source]', function() {
@@ -537,6 +540,7 @@ $('#app')
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
     var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    dataSourcesToSearch = orderedDataSources;
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-back]', function(event) {
@@ -785,7 +789,7 @@ $('#app')
     var term = new RegExp(s, "i");
     $noResults.removeClass('show');
 
-    var search = dataSources.filter(function(dataSource) {
+    var search = dataSourcesToSearch.filter(function(dataSource) {
       return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
 
