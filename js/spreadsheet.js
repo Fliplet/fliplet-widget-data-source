@@ -16,7 +16,6 @@ var spreadsheet = function(options) {
   var dataLoaded = false;
   var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
-  var lastKey;
   
   dataStack = [];
   currentDataStackIndex = 0;
@@ -228,7 +227,9 @@ var spreadsheet = function(options) {
       s = [r, c, r2, c2];
     },
     beforeKeyDown: function (event) {
-      if ((lastKey === 17 || lastKey === 91) && event.keyCode === 65 ) {
+      event = event || window.event;
+
+      if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         event.stopImmediatePropagation();
         
         var colEnd = getColumns().filter(function(column) {
@@ -240,7 +241,6 @@ var spreadsheet = function(options) {
         hot.selectCells([[0, 0, rowEnd, colEnd]], false, false);
         return false;
       }
-      lastKey = event.keyCode;
     }
   };
 
