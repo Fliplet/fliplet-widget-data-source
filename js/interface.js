@@ -330,6 +330,7 @@ function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
+  $initialSpinnerLoading.removeClass('animated');
   // Hide nav tabs and tooltip bar
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
 
@@ -554,6 +555,7 @@ $('#app')
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
+    $('[href="#entries"]').click();
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
       try{
         table.destroy();
