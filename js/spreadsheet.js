@@ -252,7 +252,7 @@ var spreadsheet = function(options) {
         var cols = getColumns().filter(function(column) {
           return column;
         }).length;
-        var colEnd = cols ? cols - 1: cols;
+        var colEnd = Math.max(cols - 1, 0);
         var rowEnd = getData().length;
 
         hot.deselectCell();
