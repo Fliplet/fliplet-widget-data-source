@@ -329,8 +329,19 @@ function windowResized() {
 function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
-  $initialSpinnerLoading.addClass('animated');
   $('.settings-btns').removeClass('active');
+  // Hide nav tabs and tooltip bar
+  var tab = $sourceContents.find('ul.nav.nav-tabs li');
+
+  tab.each(function(index) {
+    if (!tab[index].classList[0]) { 
+      $(tab[index]).hide();
+    }
+  });
+
+  $sourceContents.find('#toolbar').hide();
+  $('.loading-data').show();
+  $sourceContents.removeClass('hidden');
   $('.entries-message').html('<br>Loading data...');
 
   // Input file temporarily disabled
@@ -342,8 +353,6 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
-      $sourceContents.removeClass('hidden');
-      $initialSpinnerLoading.removeClass('animated');
       $('[href="#entries"]').click();
       windowResized();
 
