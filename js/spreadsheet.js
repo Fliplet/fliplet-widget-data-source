@@ -16,6 +16,8 @@ var spreadsheet = function(options) {
   var dataLoaded = false;
   var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
+  var rendered = 0;
+  
   dataStack = [];
   currentDataStackIndex = 0;
 
@@ -125,7 +127,7 @@ var spreadsheet = function(options) {
           }
           change[3] = validateOrFixColumnName(change[3]);
         } else {
-          var header = hot.getCell(0, change[1]).innerHTML;
+          var header = getColumns()[change[1]];
           if (!header) {
             var newHeader = generateColumnName();
             newHeader = validateOrFixColumnName(newHeader);
@@ -175,9 +177,9 @@ var spreadsheet = function(options) {
       // Source auto means that column was created by lib to add empty col at the end of the table
       // If we return false/undefined column will not be created
       if (source === 'auto') {
-        return true; 
+        return true;
       }
-      
+
       colWidths = getColWidths();
     },
     afterColumnMove: function() {
@@ -217,6 +219,22 @@ var spreadsheet = function(options) {
       hot.updateSettings({ colWidths: colWidths })
 
       onChanges();
+    },
+    afterRender: function(isForced) {
+      // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
+      // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
+      // Because we trigger afterRender event 2 times before UI show as a table it self.
+      if (isForced && rendered < 3 ) {
+        var tabs = $sourceContents.find('ul.nav.nav-tabs li');
+        tabs.each(function(index) {
+          if (!tabs[index].classList[0]) { 
+            $(tabs[index]).show();
+          }
+        });
+        $sourceContents.find('#toolbar').show();
+        $('.loading-data').hide();
+        rendered += 1;
+      }
     },
     afterLoadData: function(firstTime) {
       dataLoaded = true;
@@ -307,10 +325,15 @@ var spreadsheet = function(options) {
   }
 
   function removeLastEmptyColumn(data) {
+    var dataLength = data.length;
     var columnLength = data[0].length;
-    var lastColumnLength = columnLength;
+    var lastColumnLength = dataLength;
 
-    for (var i = 0; i < columnLength; i += 1) {
+    if (!columnLength) {
+      return;
+    }
+
+    for (var i = 0; i < dataLength; i += 1) {
       if (!data[i][columnLength - 1]) {
         lastColumnLength -= 1;
       }
@@ -325,6 +348,10 @@ var spreadsheet = function(options) {
   }
 
   function removeLastEmptyRow(data) {
+    if (data.length <= 1) {
+      return;
+    }
+
     var rowLength = data[data.length - 1];
     var lastRowLength = rowLength.length;
 
@@ -416,7 +443,7 @@ var spreadsheet = function(options) {
             if (header === null) {
               return;
             }
-            
+
             entry.data[header] = visualRow[index];
             entry.order = order;
 

@@ -74,8 +74,10 @@ function getDataSources() {
             filteredDataSources.push(userDataSources[index]);
           }
         });
+        dataSourcesToSearch = filteredDataSources;
         dataSources = filteredDataSources;
       } else {
+        dataSourcesToSearch = userDataSources;
         dataSources = userDataSources;
       }
 
@@ -265,7 +267,7 @@ Fliplet.Widget.onSaveRequest(function() {
 
 /**
  * We must remove null values of the row that we do not save padding columns
- * @param {array} columns 
+ * @param {array} columns
  */
 function trimColumns(columns) {
   return _.filter(columns, function(column) {
@@ -327,8 +329,19 @@ function windowResized() {
 function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
-  $initialSpinnerLoading.addClass('animated');
   $('.settings-btns').removeClass('active');
+  // Hide nav tabs and tooltip bar
+  var tab = $sourceContents.find('ul.nav.nav-tabs li');
+
+  tab.each(function(index) {
+    if (!tab[index].classList[0]) { 
+      $(tab[index]).hide();
+    }
+  });
+
+  $sourceContents.find('#toolbar').hide();
+  $('.loading-data').show();
+  $sourceContents.removeClass('hidden');
   $('.entries-message').html('<br>Loading data...');
 
   // Input file temporarily disabled
@@ -340,8 +353,6 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
-      $sourceContents.removeClass('hidden');
-      $initialSpinnerLoading.removeClass('animated');
       $('[href="#entries"]').click();
       windowResized();
 
@@ -530,6 +541,7 @@ $('#app')
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    dataSourcesToSearch = orderedDataSources;
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-app-source]', function() {
@@ -537,6 +549,7 @@ $('#app')
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
     var orderedDataSources = sortDataSources('updatedAt', 'desc');
+    dataSourcesToSearch = orderedDataSources;
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-back]', function(event) {
@@ -585,7 +598,7 @@ $('#app')
       return ds.id === currentDataSourceId;
     });
 
-    if (currentDS.apps.length) {
+    if (currentDS && currentDS.apps.length) {
       var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
@@ -785,7 +798,7 @@ $('#app')
     var term = new RegExp(s, "i");
     $noResults.removeClass('show');
 
-    var search = dataSources.filter(function(dataSource) {
+    var search = dataSourcesToSearch.filter(function(dataSource) {
       return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
 
