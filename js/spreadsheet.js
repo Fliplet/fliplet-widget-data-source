@@ -16,7 +16,6 @@ var spreadsheet = function(options) {
   var dataLoaded = false;
   var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
-  
   dataStack = [];
   currentDataStackIndex = 0;
 
