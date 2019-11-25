@@ -249,9 +249,10 @@ var spreadsheet = function(options) {
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         event.stopImmediatePropagation();
         
-        var colEnd = getColumns().filter(function(column) {
+        var cols = getColumns().filter(function(column) {
           return column;
-        }).length - 1;
+        }).length
+        var colEnd = cols ? cols - 1: cols;
         var rowEnd = getData().length;
 
         hot.deselectCell();
