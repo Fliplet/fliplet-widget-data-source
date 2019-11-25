@@ -251,7 +251,7 @@ var spreadsheet = function(options) {
         
         var cols = getColumns().filter(function(column) {
           return column;
-        }).length
+        }).length;
         var colEnd = cols ? cols - 1: cols;
         var rowEnd = getData().length;
 
