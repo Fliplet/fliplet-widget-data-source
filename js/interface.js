@@ -1,4 +1,4 @@
-var $initialSpinnerLoading = $('.spinner-holder.inital-state');
+var $initialSpinnerLoading = $('.loading-data');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
@@ -34,7 +34,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 // Fetch all data sources
 function getDataSources() {
-  $initialSpinnerLoading.addClass('animated');
+  $initialSpinnerLoading.show();
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('hidden');
@@ -114,7 +114,7 @@ function renderDataSources(dataSources) {
   });
 
   $dataSources.html(html.join(''));
-  $initialSpinnerLoading.removeClass('animated');
+  $initialSpinnerLoading.hide();
   $contents.removeClass('hidden');
 }
 
@@ -330,7 +330,6 @@ function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
-  $initialSpinnerLoading.removeClass('animated');
   // Hide nav tabs and tooltip bar
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
 
