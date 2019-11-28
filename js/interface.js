@@ -339,10 +339,10 @@ function browseDataSource(id) {
     }
   });
 
+  $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
   $('.loading-data').show();
   $sourceContents.removeClass('hidden');
-  $('.entries-message').html('<br>Loading data...');
 
   // Input file temporarily disabled
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
@@ -353,7 +353,6 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
-      $('[href="#entries"]').click();
       windowResized();
 
       if (copyData.context === 'overlay') {
@@ -875,7 +874,10 @@ $('#app')
         } catch(e) {}
       }
     } else {
-      hot.render();
+      if (hot.container !== null) {
+        hot.render();
+      }
+
       $('.save-btn').removeClass('hidden');
       $('.back-name-holder').removeClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings data-roles');
