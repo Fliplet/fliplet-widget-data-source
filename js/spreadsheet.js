@@ -17,6 +17,7 @@ var spreadsheet = function(options) {
   var arrayColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
+  var isEditing = false;
 
   dataStack = [];
   currentDataStackIndex = 0;
@@ -244,6 +245,10 @@ var spreadsheet = function(options) {
       s = [r, c, r2, c2];
     },
     beforeKeyDown: function (event) {
+      if (hot.getActiveEditor()._opened){
+        return;
+      }
+
       event = event || window.event;
 
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
