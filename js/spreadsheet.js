@@ -242,6 +242,27 @@ var spreadsheet = function(options) {
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
+    },
+    beforeKeyDown: function (event) {
+      if (hot.getActiveEditor()._opened){
+        return;
+      }
+
+      event = event || window.event;
+
+      if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
+        event.stopImmediatePropagation();
+        
+        var cols = getColumns().filter(function(column) {
+          return column;
+        }).length;
+        var colEnd = Math.max(cols - 1, 0);
+        var rowEnd = getData().length;
+
+        hot.deselectCell();
+        hot.selectCells([[0, 0, rowEnd, colEnd]], false, false);
+        return false;
+      }
     }
   };
 
