@@ -1,4 +1,4 @@
-var $initialSpinnerLoading = $('.spinner-holder.inital-state');
+var $initialSpinnerLoading = $('.loading-data');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
@@ -34,7 +34,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 // Fetch all data sources
 function getDataSources() {
-  $initialSpinnerLoading.addClass('animated');
+  $initialSpinnerLoading.show();
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('hidden');
@@ -114,7 +114,7 @@ function renderDataSources(dataSources) {
   });
 
   $dataSources.html(html.join(''));
-  $initialSpinnerLoading.removeClass('animated');
+  $initialSpinnerLoading.hide();
   $contents.removeClass('hidden');
 }
 
@@ -339,10 +339,10 @@ function browseDataSource(id) {
     }
   });
 
+  $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
   $('.loading-data').show();
   $sourceContents.removeClass('hidden');
-  $('.entries-message').html('<br>Loading data...');
 
   // Input file temporarily disabled
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
@@ -353,7 +353,6 @@ function browseDataSource(id) {
       fetchCurrentDataSourceDetails()
     ])
     .then(function() {
-      $('[href="#entries"]').click();
       windowResized();
 
       if (copyData.context === 'overlay') {
@@ -554,6 +553,7 @@ $('#app')
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
+    $('[href="#entries"]').click();
     if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
       try{
         table.destroy();
@@ -874,7 +874,10 @@ $('#app')
         } catch(e) {}
       }
     } else {
-      hot.render();
+      if (hot.container !== null) {
+        hot.render();
+      }
+
       $('.save-btn').removeClass('hidden');
       $('.back-name-holder').removeClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings data-roles');
