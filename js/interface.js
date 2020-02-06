@@ -334,7 +334,7 @@ function browseDataSource(id) {
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
 
   tab.each(function(index) {
-    if (!tab[index].classList[0]) { 
+    if (!tab[index].classList[0]) {
       $(tab[index]).hide();
     }
   });
@@ -580,7 +580,17 @@ $('#app')
       }
 
       $('.data-save-updated').html('All changes saved!');
-    })
+    }).catch(function (err) {
+      Fliplet.Modal.alert({
+        message: Fliplet.parseError(err)
+      });
+
+      dataSourceEntriesHasChanged = true;
+
+      $('[data-save]').removeClass('hidden');
+      $('.data-save-updated').addClass('hidden').html('');
+      $('.name-wrapper').removeClass('saved');
+    });
   })
   .on('click', '[save-settings]', function() {
     $('form[data-settings]').submit();
