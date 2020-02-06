@@ -582,6 +582,7 @@ $('#app')
       $('.data-save-updated').html('All changes saved!');
     }).catch(function (err) {
       Fliplet.Modal.alert({
+        title: 'Error saving data source',
         message: Fliplet.parseError(err)
       });
 
