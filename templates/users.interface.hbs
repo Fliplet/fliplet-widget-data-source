@@ -1,20 +1,20 @@
 <table class="table">
-    <thead>
-      <th>Full name</th>
-      <th>Email</th>
-      <th>Permissions</th>
-      <th>Actions</th>
-    </thead>
-    <tbody>
-      {{#each users}}
-        <tr>
-          <td>{{fullName}}</td>
-          <td>{{email}}</td>
-          <td><code>{{dataSourceRole.permissions}}</code></td>
-          <td>
-            <button class="btn btn-danger" data-revoke-role="{{dataSourceRole.userId}}">Delete permission</button>
-          </td>
-        </tr>
-      {{/each}}
-    </tbody>
+  <thead>
+    <th>Full name</th>
+    <th>Email</th>
+    <th>Permissions</th>
+    <th>Actions</th>
+  </thead>
+  <tbody>
+    {{#each users}}
+      <tr>
+        <td>{{fullName}}</td>
+        <td>{{email}}</td>
+        <td><code>{{dataSourceRole.permissions}}</code></td>
+        <td>
+          <button class="btn btn-danger" data-revoke-role="{{dataSourceRole.userId}}">Delete permission</button>
+        </td>
+      </tr>
+    {{/each}}
+  </tbody>
 </table>
