@@ -237,6 +237,8 @@ function fetchCurrentDataSourceEntries(entries) {
         }];
         columns = ['Column 1', 'Column 2'];
       } else {
+        $('#show-versions').show();
+
         // Let's make sure we get all the columns checking all rows
         // and add any missing column to the datasource columns
         rows.forEach(function addMissingColumns(row) {
@@ -413,41 +415,40 @@ function browseDataSource(id) {
   // Input file temporarily disabled
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
-  Promise.all([
+  return Promise.all([
     fetchCurrentDataSourceEntries(),
     fetchCurrentDataSourceDetails()
   ]).then(function() {
-      windowResized();
+    windowResized();
 
-      if (copyData.context === 'overlay') {
-        Fliplet.DataSources.get({
-            roles: 'publisher,editor',
-            type: null
-          }, {
-            cache: false
-          })
-          .then(function(updatedDataSources) {
-            var html = [];
-            dataSources = updatedDataSources;
-            dataSources.forEach(function (dataSource) {
-              html.push(getDataSourceRender(dataSource));
-            });
-            $dataSources.html(html.join(''));
+    if (copyData.context === 'overlay') {
+      Fliplet.DataSources.get({
+          roles: 'publisher,editor',
+          type: null
+        }, {
+          cache: false
+        })
+        .then(function(updatedDataSources) {
+          var html = [];
+          dataSources = updatedDataSources;
+          dataSources.forEach(function (dataSource) {
+            html.push(getDataSourceRender(dataSource));
           });
-      }
-    })
-    .catch(function() {
-      // Something went wrong
-      // EG: User try to edit an already deleted data source
-      // TODO: Show some error message
-      getDataSources();
-    });
+          $dataSources.html(html.join(''));
+        });
+    }
+  })
+  .catch(function() {
+    // Something went wrong
+    // EG: User try to edit an already deleted data source
+    // TODO: Show some error message
+    getDataSources();
+  });
 }
 
 function createDataSource() {
-  Fliplet.Modal.prompt({
-    title: 'New data source',
-    message: 'Enter a data source name',
+  return Fliplet.Modal.prompt({
+    title: 'Enter the name of your new Data Source',
   }).then(function (result) {
     if (result === null) {
       return;
@@ -456,15 +457,14 @@ function createDataSource() {
     var dataSourceName = result.trim();
 
     if (!dataSourceName) {
-      Fliplet.Modal.alert({
+      return Fliplet.Modal.alert({
         message: 'You must enter a data source name'
       }).then(function () {
-        createDataSource();
-        return;
+        return createDataSource();
       });
     }
 
-    Fliplet.Organizations.get().then(function(organizations) {
+    return Fliplet.Organizations.get().then(function(organizations) {
       return Fliplet.DataSources.create({
         organizationId: organizations[0].id,
         name: dataSourceName
@@ -472,7 +472,7 @@ function createDataSource() {
     }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
-      browseDataSource(createdDataSource.id);
+      return browseDataSource(createdDataSource.id);
     });
   });
 }
@@ -933,22 +933,44 @@ $('#app')
     e.preventDefault();
     var id = $(this).data('version-preview');
     var version = _.find(currentDataSourceVersions, { id: id });
-
-    console.log(version)
   })
   .on('click', '[data-version-restore]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-restore');
     var version = _.find(currentDataSourceVersions, { id: id });
-
-    console.log(version)
   })
   .on('click', '[data-version-copy]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-copy');
     var version = _.find(currentDataSourceVersions, { id: id });
 
-    console.log(version)
+    // Read entries in the version
+    Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/versions/' + id + '/data').then(function(result) {
+      return createDataSource().then(function () {
+        $('body').css('opacity', 0.5);
+
+        var columns = [];
+        var entries = result.entries.map(function (entry) {
+          _.keys(entry.data).forEach(function (key) {
+            if (columns.indexOf(key) === -1) {
+              columns.push(key);
+            }
+          });
+
+          return entry;
+        });
+
+        console.log('creating entries', entries)
+
+        return currentDataSource.commit(entries, columns);
+      });
+    }).then(function () {
+      return fetchCurrentDataSourceEntries();
+    }).then(function () {
+      $('body').css('opacity', 1);
+    }).catch(function (err) {
+      console.error(err);
+    });
   })
   .on('shown.bs.tab', function (e) {
     var confirmData;
