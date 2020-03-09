@@ -21,11 +21,13 @@
         <td>{{entriesCount}}</td>
       <td>{{columnsCount}}</td>
         <td>
-          <ul>
-            <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
-            <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
-            <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
-          </ul>
+          {{#if hasEntries}}
+            <ul>
+              <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
+              <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
+              <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
+            </ul>
+          {{/if}}
         </td>
       </tr>
     {{/each}}

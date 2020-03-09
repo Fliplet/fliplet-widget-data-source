@@ -195,15 +195,18 @@
             </div>
             <div role="tabpanel" class="tab-pane" id="versions">
               <br />
-              <div class="callout callout-primary">
-                <p>When changes are made to the data source, Fliplet will store a version of every change. Fliplet stores:</p>
-                <ul>
-                  <li>The most recent 100 versions; then</li>
-                  <li>Every 5 minutes for up to 3 hours; then</li>
-                  <li>Every hour for up to 300 versions</li>
-                </ul>
+              <div id="versions-details">
+                <div class="callout callout-primary">
+                  <p>When changes are made to the data source, Fliplet will store a version of every change. Fliplet stores:</p>
+                  <ul>
+                    <li>The most recent 100 versions; then</li>
+                    <li>Every 5 minutes for up to 3 hours; then</li>
+                    <li>Every hour for up to 300 versions</li>
+                  </ul>
+                </div>
+                <div id="versions-list"></div>
               </div>
-              <div id="versions-list"></div>
+              <div id="version-preview" class="hidden"></div>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
 var $usersContents = $('#users');
 var $versionsContents = $('#versions-list');
+var $versionContents = $('#version-preview');
 var $tableContents;
 var $settings = $('form[data-settings]');
 var $noResults = $('.no-results-found');
@@ -257,6 +258,8 @@ function fetchCurrentDataSourceEntries(entries) {
 
       table = spreadsheet({ columns: columns, rows: rows });
       $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
     })
     .catch(function onFetchError(error) {
       var message = error;
@@ -272,6 +275,28 @@ function fetchCurrentDataSourceEntries(entries) {
       }
       $('.entries-message').html('<br>' + message);
     });
+}
+
+function previewVersion(version) {
+  $('#versions-details').addClass('hidden');
+
+  // Read entries in the version
+  Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/versions/' + version.id + '/data').then(function(result) {
+    var entries = result.entries.map(function (entry) {
+      return version.data.columns.map(function (column) {
+        return entry.data[column];
+      });
+    });
+
+    var tpl = Fliplet.Widget.Templates['templates.version'];
+    var html = tpl({
+      version: version,
+      columns: version.data.columns,
+      entries: entries
+    });
+
+    $versionContents.html(html).removeClass('hidden');
+  }).catch(console.error);
 }
 
 function getVersionActionDescription(version) {
@@ -293,6 +318,8 @@ function getVersionActionDescription(version) {
 }
 
 function fetchCurrentDataSourceVersions() {
+  $versionContents.addClass('hidden').html('');
+
   Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/versions')
     .then(function(result) {
       currentDataSourceVersions = result.versions;
@@ -301,6 +328,7 @@ function fetchCurrentDataSourceVersions() {
         version.createdAt = moment(version.createdAt).fromNow();
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
+        version.hasEntries = version.data.entries.count > 0;
         version.columnsCount = version.data.columns.length;
         return version;
       });
@@ -929,26 +957,59 @@ $('#app')
   .on('click', '.find-icon', function() {
     $('.filter-form .form-control').trigger('focus');
   })
+  .on('click', '[data-back-to-versions]', function (e) {
+    e.preventDefault();
+
+    $versionContents.addClass('hidden').html('');
+    $('#versions-details').removeClass('hidden');
+  })
   .on('click', '[data-version-preview]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-preview');
     var version = _.find(currentDataSourceVersions, { id: id });
+
+    previewVersion(version);
   })
   .on('click', '[data-version-restore]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-restore');
-    var version = _.find(currentDataSourceVersions, { id: id });
+
+    return Fliplet.Modal.confirm({
+      message: 'Are you sure you want to restore this version on your Data Source? This will replace its entire contents.'
+    }).then(function (result) {
+      if (!result) {
+        return;
+      }
+
+      $('#versions').addClass('hidden');
+      $('#versions-details').removeClass('hidden');
+
+      return Fliplet.API.request({
+        url: 'v1/data-sources/' + currentDataSourceId + '/versions/' + id + '/restore',
+        method: 'POST'
+      }).then(function () {
+        return fetchCurrentDataSourceEntries();
+      }).then(function () {
+        $('#show-entries').click();
+
+        Fliplet.Modal.alert({
+          title: 'Version restored',
+          message: 'The version has been restored to your Data Source.'
+        });
+      });
+    });
   })
   .on('click', '[data-version-copy]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-copy');
+    var dataSourceId = currentDataSourceId;
     var version = _.find(currentDataSourceVersions, { id: id });
 
-    // Read entries in the version
-    Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/versions/' + id + '/data').then(function(result) {
-      return createDataSource().then(function () {
-        $('body').css('opacity', 0.5);
+    return createDataSource().then(function () {
+      $('#versions').addClass('hidden');
 
+      // Read entries in the version
+      return Fliplet.API.request('v1/data-sources/' + dataSourceId + '/versions/' + id + '/data').then(function(result) {
         var columns = [];
         var entries = result.entries.map(function (entry) {
           _.keys(entry.data).forEach(function (key) {
@@ -960,16 +1021,15 @@ $('#app')
           return entry;
         });
 
-        console.log('creating entries', entries)
-
         return currentDataSource.commit(entries, columns);
       });
     }).then(function () {
       return fetchCurrentDataSourceEntries();
     }).then(function () {
-      $('body').css('opacity', 1);
+      $('#versions').removeClass('hidden');
     }).catch(function (err) {
       console.error(err);
+      $('#versions').removeClass('hidden');
     });
   })
   .on('shown.bs.tab', function (e) {

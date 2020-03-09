@@ -1,0 +1,22 @@
+<a href="#" data-back-to-versions class="btn btn-primary">Back to versions list</a>
+<a href="#" data-version-restore="{{version.id}}" class="btn btn-secondary">Restore</a>
+<a href="#" data-version-copy="{{version.id}}" class="btn btn-secondary">Copy to new data source</a>
+<br />
+
+<h3>Version preview</h3>
+<table class="table">
+  <thead>
+    {{#each columns}}
+      <th>{{this}}</th>
+    {{/each}}
+  </thead>
+  <tbody>
+    {{#each entries}}
+      <tr>
+          {{#each this}}
+            <td>{{this}}</td>
+          {{/each}}
+      </tr>
+    {{/each}}
+  </tbody>
+</table>
