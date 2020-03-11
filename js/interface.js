@@ -713,7 +713,7 @@ $('#app')
             });
           }).then(fetchCurrentDataSourceUsers, function(err) {
             _this.removeClass('disabled').text('Add new user');
-            Fliplet.Modal.alert({ message: err.responseJSON.message});
+            Fliplet.Modal.alert({ message: err.responseJSON.message });
           });
         });
       });
