@@ -70,6 +70,10 @@ function getDataSources() {
             return dataSource.appId === copyData.appId || app.id === copyData.appId;
           });
 
+          if (dataSource.appId === copyData.appId && !dataSource.apps.length) {
+            matchedApp = true;
+          }
+
           if (matchedApp) {
             filteredDataSources.push(userDataSources[index]);
           }
@@ -401,10 +405,21 @@ function createDataSource() {
     }
 
     Fliplet.Organizations.get().then(function(organizations) {
-      return Fliplet.DataSources.create({
-        organizationId: organizations[0].id,
-        name: dataSourceName
-      });
+      var createOptions;
+
+      if (copyData.appId) {
+        createOptions = {
+          appId: copyData.appId,
+          name: dataSourceName
+        };
+      } else {
+        createOptions = {
+          organizationId: organizations[0].id,
+          name: dataSourceName
+        }
+      }
+
+      return Fliplet.DataSources.create(createOptions);
     }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
