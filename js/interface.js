@@ -638,7 +638,7 @@ $('#app')
       return ds.id === currentDataSourceId;
     });
 
-    if (currentDS && currentDS.apps.length) {
+    if (currentDS && currentDS.apps && currentDS.apps.length) {
       var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
