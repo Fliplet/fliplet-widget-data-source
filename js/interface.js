@@ -1053,6 +1053,11 @@ $('#app')
         dataSourceId: currentDataSourceId,
         id: id
       }
+    }).then(function () {
+      Fliplet.Modal.alert({
+        title: 'Version copied successfully',
+        message: 'The version has been restored to your newly created data source.'
+      });
     });
   })
   .on('shown.bs.tab', function (e) {
