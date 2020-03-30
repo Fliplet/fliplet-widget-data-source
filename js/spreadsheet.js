@@ -67,6 +67,17 @@ var spreadsheet = function(options) {
     }
   }
 
+  function getNearestCells(cellPosition) {
+    var leftShift = cellPosition[1] - 1;
+    var topShift = cellPosition[0] - 1;
+    var left = [cellPosition[0], leftShift < 0 ? cellPosition[1] : leftShift];
+    var right = [cellPosition[0], cellPosition[1] + 1];
+    var top = [topShift < 0 ? cellPosition[0] : topShift, cellPosition[1]];
+    var bottom = [cellPosition[0] + 1, cellPosition[1]];
+
+    return [left, right, top, bottom];
+  }
+
   /**
    * The function that surfs through the table data for detecting closest cells with data from the selected cell
    * 
@@ -86,7 +97,7 @@ var spreadsheet = function(options) {
     cellsGroup.push(cellPosition);
 
     cellsGroup.forEach(function(cell) {
-      var hasData = tableData[cell[0]][cell[1]] !== null 
+      var hasData = tableData[cell[0]][cell[1]] !== null;
       var processedRow = processedCells[cell[0]];
 
       if (!processedRow) {
@@ -132,17 +143,6 @@ var spreadsheet = function(options) {
     var lastCol = Math.max.apply(null, colIndexes);
 
     return [[firstRow, firstCol, lastRow, lastCol]];
-  }
-
-  function getNearestCells(cellPosition) {
-    var leftShift = cellPosition[1] - 1;
-    var topShift = cellPosition[0] - 1;
-    var left = [cellPosition[0], leftShift < 0 ? cellPosition[1] : leftShift];
-    var right = [cellPosition[0], cellPosition[1] + 1];
-    var top = [topShift < 0 ? cellPosition[0] : topShift, cellPosition[1]];
-    var bottom = [cellPosition[0] + 1, cellPosition[1]];
-
-    return [left, right, top, bottom];
   }
 
   /**
