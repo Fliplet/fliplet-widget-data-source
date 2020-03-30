@@ -68,247 +68,108 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * We user this method to determine where is closest data is lokated from the selected cell
+   * The function that surfs through the table data for detecting closest cells with data from the selected cell
    * 
-   * @param {Array} selectedCell - array of the coordinat of the selected cell reacived throw the hot.getSelected() method
-   * 
-   * @returns {Object} - object of the directions where data is placed occording to the selected cell
+   * @param {array} tableData - an array of table data received from the hot.getData()
+   * @param {array} cellPosition - an array of the cell coordinates
+   * @param {array} processedCells - an array of the cells we have already checked
+   * @returns {array} returns array of the scaned cells example array[rowIndex][cellIndex] = hasData true/false
    */
-  function closestData(selectedCell) {
-    selectedCell = selectedCell[0];
-    if (!Array.isArray(selectedCell)) {
-      console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
-        'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
-        'Value that was passed - ',
-        selectedCell);
-      return false;
+  function getDataCoordinates(tableData, cellPosition, processedCells) {
+    if (!processedCells) {
+      processedCells = [];
+      processedCells[cellPosition[0]] = [];
+      processedCells[cellPosition[0]][cellPosition[1]] = true;
     }
 
-    var col = selectedCell[1];
-    var row = selectedCell[0];
-    var selectedCellData = hot.getDataAtCell(row, col)
-    // At this block we getting an index of the nearest cells from the selected cell
-    // If we selected first row it ID is 0 already and if we - 1 from it we will reacive an error in the hot.getDataAtCell() method
-    var top = row ? row - 1 : row;
-    var bottom = row + 1;
-    // Same as in top variable
-    var left = col ? col - 1 : col;
-    var right = col + 1;
-    // At this block we reacive the nearest cells value from the selected cell
-    var leftValue = hot.getDataAtCell(row, left);
-    var rightValue = hot.getDataAtCell(row, right);
-    var topValue = hot.getDataAtCell(top, col);
-    var bottomValue = hot.getDataAtCell(bottom, col);
-    var dataAt = {
-      left: false,
-      right: false,
-      top: false,
-      bottom: false,
-      all: false,
-      hasData: false
-    };
+    var cellsGroup = getNearestCells(cellPosition);
+    cellsGroup.push(cellPosition);
 
-    // If there is a data in the selected cell we should select data releated to this cell
-    if (selectedCellData !== null) {
-      dataAt.hasData = true;
-      return dataAt;
-    }
+    cellsGroup.forEach(function(cell) {
+      var hasData = tableData[cell[0]][cell[1]] !== null 
+      var processedRow = processedCells[cell[0]];
 
-    // If no value near the selected cell we should select all table, also fires when we just load data source
-    // and clicked ctrl+a combination
-    if (leftValue === null && rightValue === null && topValue === null && bottomValue === null) {
-      dataAt.all = true;
-      return dataAt;
-    }
+      if (!processedRow) {
+        processedCells[cell[0]] = [];
+      }
 
-    // Showing where is data position from the selected cell
-    dataAt.left = leftValue !== null;
-    dataAt.right = rightValue !== null;
-    dataAt.top = topValue !== null;
-    dataAt.bottom = bottomValue !== null;
+      var processedCell = processedCells[cell[0]][cell[1]];
 
-    return dataAt;
+      if (!processedCell) {
+        processedCells[cell[0]][cell[1]] = false;
+      }
+
+      if (hasData && (!processedRow || !processedCell)) {
+        processedCells[cell[0]][cell[1]] = true;
+        getDataCoordinates(tableData, cell, processedCells);
+      }
+    });
+
+    return processedCells;
   }
 
   /**
-   * Method to get a coordinats which we need to select
+   * The method that returns us a range that we should select in the table
    * 
-   * @param {Array} startAt - array of the selected coordinats 
-   * @param {Object} moveTo - object that returned from closestData() function
-   * 
-   * @returns {Array} - coordinats that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
+   * @param {array} processedCells array processed by getDataCoordinates function
    */
-  function coordinatsToSelect(startAt, moveTo) {
-    var firstCol, lastCol, firstRow, lastRow, allData;
+  function getSelectionCoordinates(processedCells) {
+    var rowIndexes = [];
+    var colIndexes = [];
 
-    // Returns array of the data from the table with handsontable API
-    allData = hot.getData();
-    startAt = startAt[0];
-
-    if (moveTo.left) {
-      // When data located on the left of the selected cell
-      lastCol = startAt[1];
-
-      // Looking for first col in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = lastCol - 1; i >= 0; i--) {
-        if (allData[startAt[0]][i] === null) {
-          firstCol = i;
-          break;
+    processedCells.forEach(function(row, rowIndex) {
+      row.forEach(function(cell, colIndex) {
+        if (cell) {
+          rowIndexes.push(rowIndex);
+          colIndexes.push(colIndex);
         }
-      }
+      });
+    });
 
-      firstCol = firstCol || 0;
+    var firstRow = Math.min.apply(null, rowIndexes);
+    var firstCol = Math.min.apply(null, colIndexes);
+    var lastRow = Math.max.apply(null, rowIndexes);
+    var lastCol = Math.max.apply(null, colIndexes);
 
-      // Looking for the first row in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = startAt[0]; i >= 0; i--) {
-        if (allData[i][firstCol] === null) {
-          firstRow = i;
-          break;
+    return [[firstRow, firstCol, lastRow, lastCol]];
+  }
+
+  function getNearestCells(cellPosition) {
+    var leftShift = cellPosition[1] - 1;
+    var topShift = cellPosition[0] - 1;
+    var left = [cellPosition[0], leftShift < 0 ? cellPosition[1] : leftShift];
+    var right = [cellPosition[0], cellPosition[1] + 1];
+    var top = [topShift < 0 ? cellPosition[0] : topShift, cellPosition[1]];
+    var bottom = [cellPosition[0] + 1, cellPosition[1]];
+
+    return [left, right, top, bottom];
+  }
+
+  /**
+   * The method that decides do we need to select a range or select all data
+   * 
+   * @param {array} selectionPosition - an array of the selected cell coordinates received from hot.getSelected()
+   * @returns {array} range of the data that we need to select
+   */
+  function getSelectionRange(selectionPosition) {
+    var dataCoordinates = getDataCoordinates(hot.getData(), selectionPosition[0]);
+    var selectedCells = 0;
+
+    dataCoordinates.forEach(function(row) {
+      row.forEach(function(cell) {
+        if (cell) {
+          selectedCells++;
         }
-      }
+      });
+    });
 
-      firstRow = firstRow || 0;
-
-      // Looking for the last row in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
-          lastRow = i;
-          break;
-        }
-      }
-
-      lastRow = _.max([lastRow - 1, 0]);
-    } else if (moveTo.right) {
-      // When data located on the right of the selected cell
-      firstCol = startAt[1];
-
-      for (var i = firstCol + 1; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-
-      for (var i = startAt[0]; i > 0; i--) {
-        if (allData[i][lastCol] === null) {
-          firstRow = i ? i - 1 : i;
-        }
-      }
-
-      firstRow = firstRow || 0;
-
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][lastCol] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.top) {
-      // When data located on the top of the selected cell
-      lastRow = startAt[0];
-
-      for (var i = lastRow - 1; i > 0; i--) {
-        if (allData[i][startAt[1]] === null) {
-          firstRow = i;
-          break;
-        }
-      }
-
-      firstRow = firstRow || 0;
-
-      for (var i = startAt[1]; i > 0; i--) {
-        if (allData[firstRow][i] === null) {
-          firstCol = i ? i + 1 : i;
-          break;
-        }
-      }
-
-      firstCol = firstCol || 0;
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[firstRow][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.bottom) {
-      // When data located on the bottom of the selected cell
-      firstRow = startAt[0];
-
-      for (var i = firstRow + 1; i < allData.length; i++) {
-        if (allData[i][startAt[1]] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-
-      for (var i = startAt[1]; i > 0; i--) {
-        if (allData[lastRow][i] === null) {
-          firstCol = i + 1;
-          break;
-        }
-      }
-
-      firstCol = firstCol || 0;
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[lastRow][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.hasData) {
-      // When selected cell has data in it
-      if (startAt[1] === 0) {
-        firstCol = 0;
-      } else {
-        for (var i = startAt[1]; i > 0; i--) {
-          if (allData[startAt[0]][i] === null) {
-            firstCol = i + 1;
-            break;
-          }
-        }
-
-        firstCol = firstCol || 0;
-      }
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-
-      if (startAt[0] === 0) {
-        firstRow = startAt[0];
-      } else {
-        for (var i = startAt[0]; i > 0; i--) {
-          if (allData[i][firstCol] === null) {
-            firstRow = i + 1;
-            break;
-          }
-        }
-
-        firstRow = firstRow || 0;
-      }
-
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.all) {
-      // When selected cell doesn't have a data in it and no data in cells around it
+    if (selectedCells <= 1) {
       return false;
     }
 
-    return [
-      [firstRow, firstCol, lastRow, lastCol]
-    ];
+    var selectionCoords = getSelectionCoordinates(dataCoordinates);
+
+    return selectionCoords;
   }
 
   /**
@@ -496,17 +357,13 @@ var spreadsheet = function(options) {
 
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         var selectedCell = hot.getSelected();
-        var whereToLook = closestData(selectedCell);
-        var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+        var selectedRange = getSelectionRange(selectedCell);
+
         if (!selectedRange) {
           return;
         }
-        event.stopImmediatePropagation();
-        
-        var cols = getColumns().filter(function(column) {
-          return column;
-        }).length;
 
+        event.stopImmediatePropagation();
         hot.deselectCell();
         hot.selectCells(selectedRange, false, false);
         return false;
