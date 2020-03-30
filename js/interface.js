@@ -76,6 +76,10 @@ function getDataSources() {
             return dataSource.appId === copyData.appId || app.id === copyData.appId;
           });
 
+          if (dataSource.appId === copyData.appId && !dataSource.apps.length) {
+            matchedApp = true;
+          }
+
           if (matchedApp) {
             filteredDataSources.push(userDataSources[index]);
           }
@@ -474,7 +478,9 @@ function browseDataSource(id) {
   });
 }
 
-function createDataSource() {
+function createDataSource(createOptions) {
+  createOptions = createOptions || {};
+
   return Fliplet.Modal.prompt({
     title: 'Enter the name of your new Data Source',
   }).then(function (result) {
@@ -492,11 +498,22 @@ function createDataSource() {
       });
     }
 
-    return Fliplet.Organizations.get().then(function(organizations) {
-      return Fliplet.DataSources.create({
-        organizationId: organizations[0].id,
-        name: dataSourceName
-      });
+    Fliplet.Organizations.get().then(function(organizations) {
+      var createOptions;
+
+      if (copyData.appId) {
+        _.extend(createOptions, {
+          appId: copyData.appId,
+          name: dataSourceName
+        });
+      } else {
+        _.extend(createOptions, {
+          organizationId: organizations[0].id,
+          name: dataSourceName
+        });
+      }
+
+      return Fliplet.DataSources.create(createOptions);
     }).then(function(createdDataSource) {
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
@@ -646,12 +663,26 @@ $('#app')
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
     $('[href="#entries"]').click();
-    if (!dataSourceEntriesHasChanged || confirm('Are you sure? Changes that you made may not be saved.')) {
-      try{
-        table.destroy();
-      } catch(e) {
-      }
-      dataSourceEntriesHasChanged = false;
+
+    if (dataSourceEntriesHasChanged) {
+      Fliplet.Modal.confirm({
+        message: 'Are you sure? Changes that you made may not be saved.'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        try {
+          table.destroy();
+        } catch(e) {}
+
+        dataSourceEntriesHasChanged = false;
+        $('.data-save-updated').addClass('hidden');
+        $('.name-wrapper').removeClass('saved');
+        $('[data-order-date]').removeClass('asc').addClass('desc');
+        getDataSources();
+      });
+    } else {
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
@@ -702,7 +733,7 @@ $('#app')
       return ds.id === currentDataSourceId;
     });
 
-    if (currentDS && currentDS.apps.length) {
+    if (currentDS && currentDS.apps && currentDS.apps.length) {
       var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
@@ -763,26 +794,38 @@ $('#app')
     _this.addClass('disabled').text('Adding user...');
 
     setTimeout(function() {
-      userId = prompt('Enter the user ID');
+      Fliplet.Modal.prompt({
+        title: 'Enter the user ID'
+      }).then(function(result) {
+        if (result === null || !result.trim()) {
+          _this.removeClass('disabled').text('Add new user');
+          return;
+        }
 
-      if (userId) {
-        permissions = prompt('Set the permissions', 'crudq');
-      }
+        userId = result;
 
-      if (!userId || !permissions) {
-        _this.removeClass('disabled').text('Add new user');
-        return;
-      }
+        Fliplet.Modal.prompt({
+          title: 'Set the permissions',
+          value: 'crudq'
+        }).then(function(result) {
+          if (result === null || !result.trim()) {
+            _this.removeClass('disabled').text('Add new user');
+            return;
+          }
 
-      Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-        _this.removeClass('disabled').text('Add new user');
-        return source.addUserRole({
-          userId: userId,
-          permissions: permissions
+          permissions = result;
+
+          Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+            _this.removeClass('disabled').text('Add new user');
+            return source.addUserRole({
+              userId: userId,
+              permissions: permissions
+            });
+          }).then(fetchCurrentDataSourceUsers, function(err) {
+            _this.removeClass('disabled').text('Add new user');
+            Fliplet.Modal.alert({ message: err.responseJSON.message });
+          });
         });
-      }).then(fetchCurrentDataSourceUsers, function(err) {
-        _this.removeClass('disabled').text('Add new user');
-        alert(err.responseJSON.message);
       });
     }, 100);
   })
@@ -797,14 +840,18 @@ $('#app')
     event.preventDefault();
     var userId = $(this).data('revoke-role');
 
-    if (!confirm('Are you sure you want to revoke this role?')) {
-      return;
-    }
+    Fliplet.Modal.confirm({
+      message: 'Are you sure you want to revoke this role?'
+    }).then(function(result) {
+      if (!result) {
+        return;
+      }
 
-    Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-      return source.removeUserRole(userId);
-    }).then(function() {
-      fetchCurrentDataSourceUsers();
+      Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+        return source.removeUserRole(userId);
+      }).then(function() {
+        fetchCurrentDataSourceUsers();
+      });
     });
   })
   .on('submit', 'form[data-settings]', function(event) {
@@ -1002,34 +1049,12 @@ $('#app')
   .on('click', '[data-version-copy]', function (e) {
     e.preventDefault();
     var id = $(this).data('version-copy');
-    var dataSourceId = currentDataSourceId;
-    var version = _.find(currentDataSourceVersions, { id: id });
 
-    return createDataSource().then(function () {
-      $('#versions').addClass('hidden');
-
-      // Read entries in the version
-      return Fliplet.API.request('v1/data-sources/' + dataSourceId + '/versions/' + id + '/data').then(function(result) {
-        var columns = [];
-        var entries = result.entries.map(function (entry) {
-          _.keys(entry.data).forEach(function (key) {
-            if (columns.indexOf(key) === -1) {
-              columns.push(key);
-            }
-          });
-
-          return entry;
-        });
-
-        return currentDataSource.commit(entries, columns);
-      });
-    }).then(function () {
-      return fetchCurrentDataSourceEntries();
-    }).then(function () {
-      $('#versions').removeClass('hidden');
-    }).catch(function (err) {
-      console.error(err);
-      $('#versions').removeClass('hidden');
+    return createDataSource({
+      version: {
+        dataSourceId: currentDataSourceId,
+        id: id
+      }
     });
   })
   .on('shown.bs.tab', function (e) {
@@ -1037,20 +1062,23 @@ $('#app')
 
     if ($(e.target).attr('aria-controls') !== 'entries') {
       if (dataSourceEntriesHasChanged) {
-        confirmData = confirm('Are you sure? Changes that you made may not be saved.');
-        if (!confirmData) {
-          $('[aria-controls="entries"]').click();
-          return;
-        }
+        Fliplet.Modal.confirm({
+          message: 'Are you sure? Changes that you made may not be saved.'
+        }).then(function (result) {
+          if (!result) {
+            $('[aria-controls="entries"]').click();
+            return;
+          }
 
-        dataSourceEntriesHasChanged = false;
-        $('[data-save]').addClass('hidden');
-        $('.data-save-updated').removeClass('hidden');
-        $('.name-wrapper').addClass('saved');
-        try{
-          table.destroy();
-          fetchCurrentDataSourceEntries();
-        } catch(e) {}
+          dataSourceEntriesHasChanged = false;
+          $('[data-save]').addClass('hidden');
+          $('.data-save-updated').removeClass('hidden');
+          $('.name-wrapper').addClass('saved');
+          try {
+            table.destroy();
+            fetchCurrentDataSourceEntries();
+          } catch(e) {}
+        });
       }
     } else {
       if (hot.container !== null) {
