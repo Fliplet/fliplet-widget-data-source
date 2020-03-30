@@ -499,8 +499,6 @@ function createDataSource(createOptions) {
     }
 
     Fliplet.Organizations.get().then(function(organizations) {
-      var createOptions;
-
       if (copyData.appId) {
         _.extend(createOptions, {
           appId: copyData.appId,
@@ -1058,8 +1056,6 @@ $('#app')
     });
   })
   .on('shown.bs.tab', function (e) {
-    var confirmData;
-
     if ($(e.target).attr('aria-controls') !== 'entries') {
       if (dataSourceEntriesHasChanged) {
         Fliplet.Modal.confirm({
