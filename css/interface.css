@@ -485,3 +485,8 @@ a[data-back] {
   padding: 0.6em 0.8em 0.7em;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
+
+.menu-right {
+  left: auto;
+  right: 0;
+}

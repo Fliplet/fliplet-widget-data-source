@@ -63,13 +63,16 @@
           <!-- Nav tabs -->
           <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" class="active">
-              <a href="#entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
+              <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#roles" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
+              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
+            </li>
+            <li role="presentation" class="hidden">
+              <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version history</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -189,6 +192,21 @@
                   </div>
                 </form>
               </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="versions">
+              <br />
+              <div id="versions-details">
+                <div class="callout callout-primary">
+                  <p>When changes are made to the data source, Fliplet will store a version of every change. Fliplet stores:</p>
+                  <ul>
+                    <li>The most recent 100 versions; then</li>
+                    <li>Every 5 minutes for up to 3 hours; then</li>
+                    <li>Every hour for up to 300 versions</li>
+                  </ul>
+                </div>
+                <div id="versions-list"></div>
+              </div>
+              <div id="version-preview" class="hidden"></div>
             </div>
           </div>
         </div>

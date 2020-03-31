@@ -1,0 +1,41 @@
+<table class="table">
+  <thead>
+    <th>Version</th>
+    <th>Modified by</th>
+    <th>Entries</th>
+    <th>Columns</th>
+    <th>Actions</th>
+  </thead>
+  <tbody>
+    <tr class="success">
+      <td><span class="label label-success">Current</span> modified {{updatedAt}}</td>
+      <td>{{action}}</td>
+      <td>{{entriesCount}}</td>
+      <td>{{columnsCount}}</td>
+      <td>-</td>
+    </tr>
+    {{#each versions}}
+      <tr>
+        <td><span class="label label-default">Version {{ id }}</span> saved {{ createdAt }}</td>
+        <td>{{action}}</td>
+        <td>{{entriesCount}}</td>
+      <td>{{columnsCount}}</td>
+        <td>
+          {{#if hasEntries}}
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Actions
+                <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu menu-right">
+                <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
+                <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
+                <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
+              </ul>
+            </div>
+          {{/if}}
+        </td>
+      </tr>
+    {{/each}}
+  </tbody>
+</table>
