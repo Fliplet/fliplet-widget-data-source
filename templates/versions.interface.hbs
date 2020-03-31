@@ -22,11 +22,17 @@
       <td>{{columnsCount}}</td>
         <td>
           {{#if hasEntries}}
-            <ul>
-              <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
-              <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
-              <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
-            </ul>
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Actions
+                <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu">
+                <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
+                <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
+                <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
+              </ul>
+            </div>
           {{/if}}
         </td>
       </tr>
