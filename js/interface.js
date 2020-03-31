@@ -484,7 +484,7 @@ function createDataSource(createOptions, options) {
 
   return Fliplet.Modal.prompt({
     title: 'Enter the name of your new Data Source',
-    value: _.get(options, 'value', '')
+    value: _.get(options, 'name', '')
   }).then(function (result) {
     if (result === null) {
       return;
@@ -1079,7 +1079,7 @@ $('#app')
         id: id
       }
     }, {
-      value: 'Copy of ' + $sourceContents.find('.editing-data-source-name').text()
+      name: 'Copy of ' + $sourceContents.find('.editing-data-source-name').text()
     });
   })
   .on('shown.bs.tab', function (e) {
