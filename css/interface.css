@@ -486,10 +486,6 @@ a[data-back] {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-.group-relative {
-  position: relative;
-}
-
 .menu-right {
   left: auto;
   right: 0;

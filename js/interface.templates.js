@@ -99,7 +99,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.versions"] = Handlebars.templa
 },"2":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "            <div class=\"btn-group group-relative\" role=\"group\">\n              <button type=\"button\" class=\"btn btn-default dropdown-toggle\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                Actions\n                <span class=\"caret\"></span>\n              </button>\n              <ul class=\"dropdown-menu menu-right\">\n                <li><a href=\"#\" data-version-preview=\""
+  return "            <div class=\"btn-group\" role=\"group\">\n              <button type=\"button\" class=\"btn btn-default dropdown-toggle\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                Actions\n                <span class=\"caret\"></span>\n              </button>\n              <ul class=\"dropdown-menu menu-right\">\n                <li><a href=\"#\" data-version-preview=\""
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
     + "\">Preview data</a></li>\n                <li><a href=\"#\" data-version-restore=\""
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
