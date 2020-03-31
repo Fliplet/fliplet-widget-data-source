@@ -478,11 +478,13 @@ function browseDataSource(id) {
   });
 }
 
-function createDataSource(createOptions) {
+function createDataSource(createOptions, options) {
   createOptions = createOptions || {};
+  options = options || {};
 
   return Fliplet.Modal.prompt({
     title: 'Enter the name of your new Data Source',
+    value: _.get(options, 'value', '')
   }).then(function (result) {
     if (result === null) {
       return;
@@ -494,8 +496,23 @@ function createDataSource(createOptions) {
       return Fliplet.Modal.alert({
         message: 'You must enter a data source name'
       }).then(function () {
-        return createDataSource();
+        return createDataSource(createOptions, options);
       });
+    }
+
+    // Simulate going back to the "all datasources" list
+    if (createOptions.version) {
+      $('#show-entries').click();
+
+      try {
+        table.destroy();
+      } catch(e) {}
+
+      dataSourceEntriesHasChanged = false;
+
+      $('.data-save-updated').addClass('hidden');
+      $('.name-wrapper').removeClass('saved');
+      $('[data-order-date]').removeClass('asc').addClass('desc');
     }
 
     Fliplet.Organizations.get().then(function(organizations) {
@@ -513,6 +530,14 @@ function createDataSource(createOptions) {
 
       return Fliplet.DataSources.create(createOptions);
     }).then(function(createdDataSource) {
+
+      if (createOptions.version) {
+        Fliplet.Modal.alert({
+          title: 'Version copied successfully',
+          message: 'The version has been restored to your newly created data source.'
+        });
+      }
+
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
       return browseDataSource(createdDataSource.id);
@@ -769,7 +794,7 @@ $('#app')
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
-    createDataSource ();
+    createDataSource();
   })
   .on('change', 'input[type="file"]', function(event) {
     var $input = $(this);
@@ -1053,11 +1078,8 @@ $('#app')
         dataSourceId: currentDataSourceId,
         id: id
       }
-    }).then(function () {
-      Fliplet.Modal.alert({
-        title: 'Version copied successfully',
-        message: 'The version has been restored to your newly created data source.'
-      });
+    }, {
+      value: 'Copy of ' + $sourceContents.find('.editing-data-source-name').text()
     });
   })
   .on('shown.bs.tab', function (e) {
