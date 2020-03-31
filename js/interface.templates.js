@@ -109,7 +109,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.versions"] = Handlebars.templa
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "<table class=\"table\">\n  <thead>\n    <th>Version</th>\n    <th>Modified by</th>\n    <th>Entries</th>\n    <th>Columns</th>\n    <th>Actions</th>\n  </thead>\n  <tbody>\n    <tr class=\"success\">\n      <td><span class=\"label label-success\">Current</span> modified "
+  return "<table class=\"table\">\n  <thead>\n    <th>Version</th>\n    <th>Modified by</th>\n    <th>Entries</th>\n    <th>Columns</th>\n    <th style=\"width:230px\">Actions</th>\n  </thead>\n  <tbody>\n    <tr class=\"success\">\n      <td><span class=\"label label-success\">Current</span> modified "
     + alias4(((helper = (helper = helpers.updatedAt || (depth0 != null ? depth0.updatedAt : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"updatedAt","hash":{},"data":data}) : helper)))
     + "</td>\n      <td>"
     + alias4(((helper = (helper = helpers.action || (depth0 != null ? depth0.action : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"action","hash":{},"data":data}) : helper)))
