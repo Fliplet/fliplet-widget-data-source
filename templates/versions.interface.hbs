@@ -4,7 +4,7 @@
     <th>Modified by</th>
     <th>Entries</th>
     <th>Columns</th>
-    <th style="width:230px">Actions</th>
+    <th>Actions</th>
   </thead>
   <tbody>
     <tr class="success">
@@ -22,12 +22,12 @@
       <td>{{columnsCount}}</td>
         <td>
           {{#if hasEntries}}
-            <div class="btn-group" role="group">
+            <div class="btn-group group-relative" role="group">
               <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 Actions
                 <span class="caret"></span>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu menu-right">
                 <li><a href="#" data-version-preview="{{id}}">Preview data</a></li>
                 <li><a href="#" data-version-restore="{{id}}">Restore</a></li>
                 <li><a href="#" data-version-copy="{{id}}">Copy to new data source</a></li>
