@@ -94,6 +94,7 @@ var spreadsheet = function(options) {
     }
 
     var cellsGroup = getNearestCells(cellPosition);
+
     cellsGroup.push(cellPosition);
 
     cellsGroup.forEach(function(cell) {
