@@ -322,7 +322,7 @@ function getVersionActionDescription(version) {
 }
 
 function fetchCurrentDataSourceVersions() {
-  $versionContents.addClass('hidden').html('');
+  $versionContents.html('Please wait while versions are loaded...');
 
   Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/versions')
     .then(function(result) {
@@ -439,6 +439,7 @@ function browseDataSource(id) {
     }
   });
 
+  $versionContents.html('');
   $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
   $('.loading-data').show();
