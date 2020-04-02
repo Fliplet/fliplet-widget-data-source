@@ -338,7 +338,7 @@ var spreadsheet = function(options) {
           }
         });
         $sourceContents.find('#toolbar').show();
-        $('.loading-data').hide();
+        $initialSpinnerLoading.removeClass('animated');
         rendered += 1;
       }
     },

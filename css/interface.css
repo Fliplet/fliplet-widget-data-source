@@ -476,12 +476,11 @@ a[data-back] {
   }
 }
 
-.loading-data {
+.loader-holder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: fixed;
   top: 90px;
   left: 50%;
-  transform: translate(-50%, 0);
-  font-size: 0.9em;
-  padding: 0.6em 0.8em 0.7em;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }

@@ -1,4 +1,4 @@
-var $initialSpinnerLoading = $('.loading-data');
+var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
@@ -34,7 +34,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 // Fetch all data sources
 function getDataSources() {
-  $initialSpinnerLoading.show();
+  $initialSpinnerLoading.addClass('animated');
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('hidden');
@@ -118,7 +118,7 @@ function renderDataSources(dataSources) {
   });
 
   $dataSources.html(html.join(''));
-  $initialSpinnerLoading.hide();
+  $initialSpinnerLoading.removeClass('animated');
   $contents.removeClass('hidden');
 }
 
@@ -345,7 +345,7 @@ function browseDataSource(id) {
 
   $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
-  $('.loading-data').show();
+  $initialSpinnerLoading.addClass('animated');
   $sourceContents.removeClass('hidden');
 
   // Input file temporarily disabled
