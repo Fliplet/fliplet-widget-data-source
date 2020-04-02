@@ -405,6 +405,8 @@ function saveCurrentData() {
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
+  currentDataSourceUpdatedAt = moment().fromNow();
+
   return currentDataSource.commit(entries, columns);
 }
 
