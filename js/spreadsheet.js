@@ -68,54 +68,71 @@ var spreadsheet = function(options) {
   }
 
   function getNearestCells(cellPosition) {
-    var leftShift = cellPosition[1] - 1;
-    var topShift = cellPosition[0] - 1;
-    var left = [cellPosition[0], leftShift < 0 ? cellPosition[1] : leftShift];
-    var right = [cellPosition[0], cellPosition[1] + 1];
-    var top = [topShift < 0 ? cellPosition[0] : topShift, cellPosition[1]];
-    var bottom = [cellPosition[0] + 1, cellPosition[1]];
+    var leftShift = cellPosition.y - 1;
+    var topShift = cellPosition.x - 1;
+    var left = {
+      x: cellPosition.x,
+      y: leftShift < 0 ? cellPosition.y : leftShift
+    };
+    var right = {
+      x: cellPosition.x,
+      y: cellPosition.y + 1
+    };
+    var top = {
+      x: topShift < 0 ? cellPosition.x : topShift,
+      y: cellPosition.y
+    };
+    var bottom = {
+      x: cellPosition.x + 1,
+      y: cellPosition.y
+    };
 
-    return [left, right, top, bottom];
+    return {
+      left: left,
+      right: right,
+      top: top,
+      bottom: bottom 
+    };
   }
 
   /**
    * The function that surfs through the table data for detecting closest cells with data from the selected cell
    * 
    * @param {array} tableData - an array of table data received from the hot.getData()
-   * @param {array} cellPosition - an array of the cell coordinates
+   * @param {object} cellPosition - an object of the cell coordinates with x and y keys
    * @param {array} processedCells - an array of the cells we have already checked
    * @returns {array} returns array of the scaned cells example array[rowIndex][cellIndex] = hasData true/false
    */
   function getDataCoordinates(tableData, cellPosition, processedCells) {
     if (!processedCells) {
       processedCells = [];
-      processedCells[cellPosition[0]] = [];
-      processedCells[cellPosition[0]][cellPosition[1]] = true;
+      processedCells[cellPosition.x] = [];
+      processedCells[cellPosition.x][cellPosition.y] = true;
     }
 
     var cellsGroup = getNearestCells(cellPosition);
 
-    cellsGroup.push(cellPosition);
+    cellsGroup['currentCell'] = cellPosition;
 
-    cellsGroup.forEach(function(cell) {
-      var hasData = tableData[cell[0]][cell[1]] !== null;
-      var processedRow = processedCells[cell[0]];
+    for (var cell in cellsGroup) {
+      var hasData = tableData[cellsGroup[cell].x][cellsGroup[cell].y] !== null;
+      var processedRow = processedCells[cellsGroup[cell].x];
 
       if (!processedRow) {
-        processedCells[cell[0]] = [];
+        processedCells[cellsGroup[cell].x] = [];
       }
 
-      var processedCell = processedCells[cell[0]][cell[1]];
+      var processedCell = processedCells[cellsGroup[cell].x][cellsGroup[cell].y];
 
       if (!processedCell) {
-        processedCells[cell[0]][cell[1]] = false;
+        processedCells[cellsGroup[cell].x][cellsGroup[cell].y] = false;
       }
 
       if (hasData && (!processedRow || !processedCell)) {
-        processedCells[cell[0]][cell[1]] = true;
-        getDataCoordinates(tableData, cell, processedCells);
-      }
-    });
+        processedCells[cellsGroup[cell].x][cellsGroup[cell].y] = true;
+        getDataCoordinates(tableData, cellsGroup[cell], processedCells);
+      }      
+    }
 
     return processedCells;
   }
@@ -153,7 +170,11 @@ var spreadsheet = function(options) {
    * @returns {array} range of the data that we need to select
    */
   function getSelectionRange(selectionPosition) {
-    var dataCoordinates = getDataCoordinates(hot.getData(), selectionPosition[0]);
+    var selectedPosition = {
+      x: selectionPosition[0][0],
+      y: selectionPosition[0][1]
+    };
+    var dataCoordinates = getDataCoordinates(hot.getData(), selectedPosition);
     var selectedCells = 0;
 
     dataCoordinates.forEach(function(row) {
