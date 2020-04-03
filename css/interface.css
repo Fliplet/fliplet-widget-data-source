@@ -484,3 +484,8 @@ a[data-back] {
   top: 90px;
   left: 50%;
 }
+
+.menu-right {
+  left: auto;
+  right: 0;
+}
