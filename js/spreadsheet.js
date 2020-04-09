@@ -68,243 +68,195 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * We user this method to determine where is closest data is lokated from the selected cell
+   * Function to check is there any data in the nearest cells
    * 
-   * @param {Array} selectedCell - array of the coordinat of the selected cell reacived throw the hot.getSelected() method
+   * @param {object} selectedCell - object with keys row and col which contains selected cell coordinates
+   * @param {array} tableData - an array of the table data from Handsontable library
    * 
-   * @returns {Object} - object of the directions where data is placed occording to the selected cell
+   * @returns {object} - possible keys: right, left, top, bottom - shows which closest cells have data
    */
-  function closestData(selectedCell) {
-    selectedCell = selectedCell[0];
-    if (!Array.isArray(selectedCell)) {
-      console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
-        'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
-        'Value that was passed - ',
-        selectedCell);
-      return false;
-    }
-
-    var col = selectedCell[1];
-    var row = selectedCell[0];
-    var selectedCellData = hot.getDataAtCell(row, col)
-    // At this block we getting an index of the nearest cells from the selected cell
-    // If we selected first row it ID is 0 already and if we - 1 from it we will reacive an error in the hot.getDataAtCell() method
-    var top = row ? row - 1 : row;
-    var bottom = row + 1;
-    // Same as in top variable
-    var left = col ? col - 1 : col;
-    var right = col + 1;
-    // At this block we reacive the nearest cells value from the selected cell
-    var leftValue = hot.getDataAtCell(row, left);
-    var rightValue = hot.getDataAtCell(row, right);
-    var topValue = hot.getDataAtCell(top, col);
-    var bottomValue = hot.getDataAtCell(bottom, col);
-    var dataAt = {
-      left: false,
-      right: false,
-      top: false,
-      bottom: false,
-      all: false,
-      hasData: false
+  function nearestCellsWithData(selectedCell, tableData) {
+    var cellsWithData = {
+      right: tableData[selectedCell.row][selectedCell.col + 1] !== null,
+      left: tableData[selectedCell.row][selectedCell.col - 1] !== null,
+      top: tableData[selectedCell.row - 1][selectedCell.col] !== null,
+      bottom: tableData[selectedCell.row + 1][selectedCell.col] !== null,
     };
+    var countCellsWithData = 0;
 
-    // If there is a data in the selected cell we should select data releated to this cell
-    if (selectedCellData !== null) {
-      dataAt.hasData = true;
-      return dataAt;
+    for (var key in cellsWithData) {
+      if (cellsWithData[key]) {
+        countCellsWithData++;
+      }
+    }
+    
+    // If there is no true value in cellsWithData object we should select all table
+    if (countCellsWithData === 0) {
+      return {selectAll: true};
     }
 
-    // If no value near the selected cell we should select all table, also fires when we just load data source
-    // and clicked ctrl+a combination
-    if (leftValue === null && rightValue === null && topValue === null && bottomValue === null) {
-      dataAt.all = true;
-      return dataAt;
+    if (tableData[selectedCell.row][selectedCell.col] !== null) {
+      return {cellWithData: true};
     }
-
-    // Showing where is data position from the selected cell
-    dataAt.left = leftValue !== null;
-    dataAt.right = rightValue !== null;
-    dataAt.top = topValue !== null;
-    dataAt.bottom = bottomValue !== null;
-
-    return dataAt;
+    
+    return cellsWithData;
   }
 
   /**
-   * Method to get a coordinats which we need to select
+   * The function that helps us to find start index for further selection
    * 
-   * @param {Array} startAt - array of the selected coordinats 
-   * @param {Object} moveTo - object that returned from closestData() function
-   * 
-   * @returns {Array} - coordinats that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
+   * @param {array} tableData - an array of data from the Handsontable library
+   * @param {int} startSearchFrom - index of the row/col from what we should start a search
+   * @param {int} colIndex - a not necessary option that tells us what we need to look, a row index or column index
+   * @returns {int} - index of the row or column
    */
-  function coordinatsToSelect(startAt, moveTo) {
-    var firstCol, lastCol, firstRow, lastRow, allData;
+  function getStartIndex(tableData, startSearchFrom, colIndex) {
+    var currentIndex = startSearchFrom;
 
-    // Returns array of the data from the table with handsontable API
-    allData = hot.getData();
-    startAt = startAt[0];
-
-    if (moveTo.left) {
-      // When data located on the left of the selected cell
-      lastCol = startAt[1];
-
-      // Looking for first col in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = lastCol - 1; i >= 0; i--) {
-        if (allData[startAt[0]][i] === null) {
-          firstCol = i;
+    if (colIndex) {
+      for (currentIndex; currentIndex >= 0; currentIndex--) {
+        if (tableData[currentIndex][colIndex] === null) {
           break;
         }
       }
-
-      firstCol = firstCol || 0;
-
-      // Looking for the first row in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = startAt[0]; i >= 0; i--) {
-        if (allData[i][firstCol] === null) {
-          firstRow = i;
+    } else {
+      for (currentIndex; currentIndex >= 0; currentIndex--) {
+        if (tableData[currentIndex] === null) {
           break;
         }
       }
+    }
 
-      firstRow = firstRow || 0;
+    return currentIndex < 0 ? 0: currentIndex;
+  }
 
-      // Looking for the last row in the array of allData
-      // When we got a null value in the cell it means that we reached the range borders
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
-          lastRow = i;
+  /**
+   * The function that helps us to find end index for further selection
+   * 
+   * @param {array} tableData - an array of data from the Handsontable library
+   * @param {int} startSearchFrom - index of the row/col from what we should start a search
+   * @param {int} colIndex - a not necessary option that tells us what we need to look, a row index or column index
+   * @returns {int} - index of the row or column
+   * 
+   */
+  function getEndIndex(tableData, startSearchFrom, colIndex) {
+    var currentIndex = startSearchFrom;
+
+    if (currentIndex || currentIndex === 0) {
+      for (currentIndex; currentIndex < tableData.length; currentIndex++) {
+        if (tableData[currentIndex][colIndex] === null) {
           break;
         }
       }
-
-      lastRow = _.max([lastRow - 1, 0]);
-    } else if (moveTo.right) {
-      // When data located on the right of the selected cell
-      firstCol = startAt[1];
-
-      for (var i = firstCol + 1; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
-          lastCol = i - 1;
+    } else {
+      for (currentIndex; currentIndex < tableData.length; currentIndex++) {
+        if (tableData[currentIndex] === null) {
           break;
         }
       }
+    }
 
-      for (var i = startAt[0]; i > 0; i--) {
-        if (allData[i][lastCol] === null) {
-          firstRow = i ? i - 1 : i;
-        }
-      }
+    return currentIndex;
+  }
 
-      firstRow = firstRow || 0;
+  /**
+   * Function to get coordinates which we need to select
+   * 
+   * @param {Array} cellPosition - an array of the selected coordinates
+   * 
+   * @returns {Array/Boolean} - coordinates that need to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
+   */
+  function coordinatesToSelect(cellPosition) {
+    var firstCol, lastCol, firstRow, lastRow, tableData;
 
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][lastCol] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.top) {
-      // When data located on the top of the selected cell
-      lastRow = startAt[0];
+    // Returns array of the data from the table with Handsontable API
+    tableData = hot.getData();
+    selectedCellPosition = {
+      row: cellPosition[0][0],
+      col: cellPosition[0][1]
+    };
 
-      for (var i = lastRow - 1; i > 0; i--) {
-        if (allData[i][startAt[1]] === null) {
-          firstRow = i;
-          break;
-        }
-      }
+    var nearestDataAt = nearestCellsWithData(selectedCellPosition, tableData);
 
-      firstRow = firstRow || 0;
-
-      for (var i = startAt[1]; i > 0; i--) {
-        if (allData[firstRow][i] === null) {
-          firstCol = i ? i + 1 : i;
-          break;
-        }
-      }
-
-      firstCol = firstCol || 0;
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[firstRow][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.bottom) {
-      // When data located on the bottom of the selected cell
-      firstRow = startAt[0];
-
-      for (var i = firstRow + 1; i < allData.length; i++) {
-        if (allData[i][startAt[1]] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-
-      for (var i = startAt[1]; i > 0; i--) {
-        if (allData[lastRow][i] === null) {
-          firstCol = i + 1;
-          break;
-        }
-      }
-
-      firstCol = firstCol || 0;
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[lastRow][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.hasData) {
-      // When selected cell has data in it
-      if (startAt[1] === 0) {
-        firstCol = 0;
-      } else {
-        for (var i = startAt[1]; i > 0; i--) {
-          if (allData[startAt[0]][i] === null) {
-            firstCol = i + 1;
-            break;
-          }
-        }
-
-        firstCol = firstCol || 0;
-      }
-
-      for (var i = firstCol; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
-          lastCol = i - 1;
-          break;
-        }
-      }
-
-      if (startAt[0] === 0) {
-        firstRow = startAt[0];
-      } else {
-        for (var i = startAt[0]; i > 0; i--) {
-          if (allData[i][firstCol] === null) {
-            firstRow = i + 1;
-            break;
-          }
-        }
-
-        firstRow = firstRow || 0;
-      }
-
-      for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
-          lastRow = i - 1;
-          break;
-        }
-      }
-    } else if (moveTo.all) {
-      // When selected cell doesn't have a data in it and no data in cells around it
+    // Return false in the case when we need to select all table data
+    if (nearestDataAt.selectAll) {
       return false;
     }
+
+    if (nearestDataAt.left) {
+      var col = selectedCellPosition.col - 1;
+
+      firstCol = getStartIndex(tableData[selectedCellPosition.row], col);
+
+      // If column index is not 0 it means that data what we need to select is in the next column
+      firstCol = firstCol === 0 ? firstCol : firstCol + 1;
+
+      firstRow = getStartIndex(tableData, selectedCellPosition.row, firstCol);
+
+      // If row index is not 0 it means that data what we need to select is in the next row
+      firstRow = firstRow === 0 ? firstRow : firstRow + 1;
+
+      lastCol = getEndIndex(tableData[firstRow], firstCol);
+      lastCol = lastCol < selectedCellPosition.col ? selectedCellPosition.col : lastCol;
+
+      lastRow = getEndIndex(tableData, firstRow, firstCol);
+    } else if (nearestDataAt.top) {
+      var row = selectedCellPosition.row - 1;
+
+      firstRow = getStartIndex(tableData, row, selectedCellPosition.col);
+
+      // If row index is not 0 it means that data what we need to select is in the next row
+      firstRow = firstRow === 0 ? firstRow : firstRow + 1;
+
+      firstCol = getStartIndex(tableData[firstRow], selectedCellPosition.col);
+
+      // If column index is not 0 it means that data what we need to select is in the next column
+      firstCol = firstCol === 0 ? firstCol : firstCol + 1;
+
+      lastRow = getEndIndex(tableData, firstRow, firstCol);
+      lastCol = getEndIndex(tableData[firstRow], firstCol);
+    } else if (nearestDataAt.right) {
+      firstCol = selectedCellPosition.col + 1;
+
+      firstRow = getStartIndex(tableData, selectedCellPosition.row, firstCol);
+
+      // If row index is not 0 it means that data what we need to select is in the next row
+      firstRow = firstRow === 0 ? firstRow : firstRow + 1;
+
+      lastCol = getEndIndex(tableData[firstRow], firstCol);
+      lastRow = getEndIndex(tableData, firstRow, firstCol);
+
+      // Ensure that we get a selected cell as well
+      firstCol = selectedCellPosition.col;
+    } else if (nearestDataAt.bottom) {
+      firstRow = selectedCellPosition.row + 1;
+
+      firstCol = getStartIndex(tableData[firstRow], selectedCellPosition.col);
+
+      // If column index is not 0 it means that data what we need to select is in the next column
+      firstCol = firstCol === 0 ? firstCol : firstCol + 1;
+
+      lastCol = getEndIndex(tableData[firstRow], firstCol);
+      lastRow = getEndIndex(tableData, firstRow, firstCol);
+
+      firstRow = selectedCellPosition.row;
+    } else if (nearestDataAt.cellWithData) {
+      firstCol = getStartIndex(tableData[selectedCellPosition.row], selectedCellPosition.col);
+
+      // If column index is not 0 it means that data what we need to select is in the next column
+      firstCol = firstCol === 0 ? firstCol : firstCol + 1;
+
+      firstRow = getStartIndex(tableData, selectedCellPosition.row, firstCol)
+
+      // If row index is not 0 it means that data what we need to select is in the next row
+      firstRow = firstRow === 0 ? firstRow : firstRow + 1;
+
+      lastCol = getEndIndex(tableData[firstRow], firstCol);
+      lastRow = getEndIndex(tableData, firstRow, firstCol);
+    }
+
+    lastRow = lastRow === selectedCellPosition.row ? lastRow : lastRow - 1;
+    lastCol = lastCol === selectedCellPosition.col ? lastCol : lastCol - 1;
 
     return [
       [firstRow, firstCol, lastRow, lastCol]
@@ -496,16 +448,11 @@ var spreadsheet = function(options) {
 
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         var selectedCell = hot.getSelected();
-        var whereToLook = closestData(selectedCell);
-        var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+        var selectedRange = coordinatesToSelect(selectedCell);
         if (!selectedRange) {
           return;
         }
         event.stopImmediatePropagation();
-        
-        var cols = getColumns().filter(function(column) {
-          return column;
-        }).length;
 
         hot.deselectCell();
         hot.selectCells(selectedRange, false, false);
