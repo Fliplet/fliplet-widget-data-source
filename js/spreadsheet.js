@@ -404,8 +404,9 @@ var spreadsheet = function(options) {
     },
     afterRemoveCol: function(index, amount) {
       // Remove columns widths from the widths array
-      //
       colWidths.splice(index, amount);
+
+      hot.updateSettings({ colWidths: colWidths })
       onChanges();
     },
     beforePaste: function(data, coords) {
