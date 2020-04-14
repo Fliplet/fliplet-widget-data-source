@@ -580,12 +580,12 @@ function sortDataSources(key, order) {
       case 'updatedAt':
         return new Date(ds[key]).getTime();
       case 'name':
-        var tempData = ds[key].toUpperCase();
+        var dataSourceName = ds[key].toUpperCase();
 
         // Show data source which starts on the letter first
-        return /[A-Za-z]/.test(tempData[0])
-          ? tempData
-          : '{' + tempData;
+        return /[A-Za-z]/.test(dataSourceName[0])
+          ? dataSourceName
+          : '{' + dataSourceName;
     }
   }, [order]);
 
