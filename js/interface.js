@@ -575,18 +575,18 @@ function sortDataSources(key, order) {
     toBeOrderedDataSources = allDataSources;
   }
 
-  // Order by updatedAt
   var orderedDataSources = _.orderBy(toBeOrderedDataSources, function(ds) {
-    var date = new Date(ds[key]);
-    if (Object.prototype.toString.call(date) === "[object Date]" && !isNaN(date)) {
-      return new Date(ds[key]).getTime();
-    }
+    switch (key) {
+      case 'updatedAt':
+        return new Date(ds[key]).getTime();
+      case 'name':
+        var dataSourceName = ds[key].toUpperCase();
 
-    var tempData = ds[key].toString().toUpperCase();
-    tempData = tempData.match(/[A-Za-z]/)
-      ? tempData
-      : '{' + tempData;
-    return tempData;
+        // Show data source which starts on the letter first
+        return /[A-Za-z]/.test(dataSourceName[0])
+          ? dataSourceName
+          : '{' + dataSourceName;
+    }
   }, [order]);
 
   return orderedDataSources;
