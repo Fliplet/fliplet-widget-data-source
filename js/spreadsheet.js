@@ -406,7 +406,10 @@ var spreadsheet = function(options) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
+      hot.getSettings().manualColumnResize = false;
       hot.updateSettings({ colWidths: colWidths })
+      hot.getSettings().manualColumnResize = true;
+      hot.updateSettings({});
       onChanges();
     },
     beforePaste: function(data, coords) {
