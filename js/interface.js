@@ -487,7 +487,8 @@ function createDataSource(createOptions, options) {
 
   return Fliplet.Modal.prompt({
     title: 'Enter the name of your new Data Source',
-    value: _.get(options, 'name', '')
+    value: _.get(options, 'name', ''),
+    maxlength: 255
   }).then(function (result) {
     if (result === null) {
       return;
@@ -544,6 +545,14 @@ function createDataSource(createOptions, options) {
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
       return browseDataSource(createdDataSource.id);
+    })
+    .catch(function(error) {
+      return Fliplet.Modal.alert({
+        message: Fliplet.parseError(error)
+      })
+      .then(function() {
+        return createDataSource(createOptions, options);
+      })
     });
   });
 }
