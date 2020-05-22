@@ -501,6 +501,10 @@ a[data-back] {
   display: inline-block;
 }
 
+#access-rules-list tbody {
+  background: #FFF;
+}
+
 td.align-middle {
   vertical-align: middle;
 }

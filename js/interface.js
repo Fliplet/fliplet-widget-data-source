@@ -1192,10 +1192,6 @@ $('#show-access-rules').click(function () {
   }
 
   Fliplet.Apps.get().then(function (apps) {
-    console.log('apps', apps);
-
-    console.log('>>', currentDataSourceRules)
-
     currentDataSourceRules.forEach(function (rule) {
       var tpl = Fliplet.Widget.Templates['templates.accessRule'];
 
