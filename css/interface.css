@@ -508,10 +508,20 @@ td.align-middle {
 #configure-rule h5 {
   font-weight: bold;
   font-size: 16px;
+  color: #474974;
 }
 
 #configure-rule .row {
   display: flex;
+}
+
+#configure-rule p {
+  color: rgba(141, 142, 165, 0.8);
+}
+
+#configure-rule hr {
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 #configure-rule .side {
@@ -528,6 +538,20 @@ td.align-middle {
   margin-bottom: 10px;
 }
 
+#configure-rule form .btn {
+  border: 0;
+  margin-left: 10px;
+  color: #787993;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#configure-rule form .btn.selected {
+  background-color: #474974;
+  color: #FFF;
+}
+
 .modal-footer {
   display: flex;
   align-items: center;
@@ -539,4 +563,10 @@ td.align-middle {
   color: #777;
   font-size: 12px;
   text-align: left;
+}
+
+@media (min-width: 640px) {
+  .modal-dialog {
+    width: 760px;
+  }
 }
