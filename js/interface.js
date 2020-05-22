@@ -5,6 +5,7 @@ var $dataSources = $('#data-sources > tbody');
 var $usersContents = $('#users');
 var $versionsContents = $('#versions-list');
 var $versionContents = $('#version-preview');
+var $accessRulesList = $('#access-rules-list');
 var $tableContents;
 var $settings = $('form[data-settings]');
 var $noResults = $('.no-results-found');
@@ -17,12 +18,20 @@ var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
+var currentDataSourceRules;
 var currentEditor;
 var dataSources;
 var allDataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
+
+var defaultAccessRules = [
+  { type: ['select'], allow: 'all' },
+  { type: ['insert'], allow: 'all' },
+  { type: ['update'], allow: 'all' },
+  { type: ['delete'], allow: 'all' }
+];
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
@@ -178,6 +187,7 @@ function fetchCurrentDataSourceDetails() {
       $('#bundle').prop('checked', true);
     }
 
+    currentDataSourceRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
     if (dataSource.definition) {
@@ -1159,6 +1169,86 @@ $('#show-users').click(function () {
 
 $('#show-versions').click(function () {
   fetchCurrentDataSourceVersions();
+});
+
+$('#show-access-rules').click(function () {
+  var $tbody = $accessRulesList.find('tbody');
+
+  $tbody.html('');
+  $accessRulesList.css('opacity', 0.5);
+
+  if (!currentDataSourceRules) {
+    currentDataSourceRules = defaultAccessRules;
+  }
+
+  Fliplet.Apps.get().then(function (apps) {
+    console.log('apps', apps);
+
+    console.log('>>', currentDataSourceRules)
+
+    currentDataSourceRules.forEach(function (rule) {
+      var tpl = Fliplet.Widget.Templates['templates.accessRule'];
+
+      if (typeof rule.type === 'string') {
+        rule.type = [rule.type];
+      }
+
+      $tbody.append(tpl({
+        type: rule.type.map(function (type) {
+          var description;
+
+          switch (type) {
+            case 'select':
+              description = 'Read';
+              break;
+            case 'insert':
+              description = 'Insert';
+              break;
+            case 'update':
+              description = 'Update';
+              break;
+            case 'delete':
+              description = 'Delete';
+              break;
+          }
+
+          return description;
+        }).join(', '),
+        allow: (function () {
+          if (typeof rule.allow === 'object') {
+            if (typeof rule.allow.user !== 'object') {
+              return;
+            }
+
+            return _.map(Object.keys(rule.allow.user), function (key) {
+              return '<code>' + key + ' = ' + rule.allow.user[key] + '</code>';
+            }).join('<br />');
+          }
+
+          switch (rule.allow) {
+            case 'loggedIn':
+              return 'Logged in users';
+            default:
+              return 'All users';
+          }
+        })(),
+        apps: _.compact((rule.appId || []).map(function (appId) {
+          var app = _.find(apps, { id: appId });
+          return app && app.name;
+        })).join(', '),
+        require: (rule.require || []).map(function (require) {
+          if (typeof require === 'string') {
+            return '<code>' + require + '</code>'
+          }
+
+          var key = _.first(Object.keys(require));
+          return '<code>' + key + ' = ' + require[key] + '</code>';
+        }).join('<br />')
+      }));
+    });
+
+    $accessRulesList.css('opacity', 1);
+  });
 });
 
 if (copyData.context === 'overlay') {

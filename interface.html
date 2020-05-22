@@ -71,13 +71,16 @@
               <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
+              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab">Security rules</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
             </li>
             <li role="presentation" class="hidden">
               <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version history</a>
+            </li>
+            <li role="presentation">
+              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio users permissions</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -212,6 +215,24 @@
                 <div id="versions-list"></div>
               </div>
               <div id="version-preview" class="hidden"></div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="access-rules">
+              <br />
+              <a href="#" class="btn btn-primary">Add new rule</a>
+              <br />
+              <br />
+              <div id="access-rules-list">
+                <table class="table-hover">
+                  <thead>
+                    <th>Allow</th>
+                    <th>Users can</th>
+                    <th>Data requires</th>
+                    <th>Applies to</th>
+                    <th>Actions</th>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
