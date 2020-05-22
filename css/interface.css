@@ -489,3 +489,18 @@ a[data-back] {
   left: auto;
   right: 0;
 }
+
+#access-rules-list .btn {
+  line-height: 34px;
+}
+
+#access-rules-list code {
+  background-color: #f3f6fa;
+  color: #567482;
+  margin: 3px 0px;
+  display: inline-block;
+}
+
+td.align-middle {
+  vertical-align: middle;
+}
