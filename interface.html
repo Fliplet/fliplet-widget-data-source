@@ -289,11 +289,9 @@
               <p>Specify what users are affected by this rule.</p>
             </div>
             <div class="col-md-8 side">
-              <div>
-                <button type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
-                <button type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
-                <button type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
-              </div>
+              <button type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+              <button type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+              <button type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
             </div>
           </div>
           <hr />
@@ -302,8 +300,19 @@
               <h5>Applies to</h5>
               <p>Select what apps are affected by this rule.</p>
             </div>
-            <div class="col-md-8 side">
-
+            <div class="col-md-8">
+              <div>
+                <button type="button" class="btn btn-default"><i class="fa fa-globe fa-fw"></i> All apps</button>
+                <button type="button" class="btn btn-default selected"><i class="fa fa-lock fa-fw"></i> Specific apps</button>
+              </div>
+              <div class="apps-list">
+                <div class="checkbox">
+                  <label>
+                    <input id="type-read" name="type" type="checkbox", value="read" />
+                    My app
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </form>
