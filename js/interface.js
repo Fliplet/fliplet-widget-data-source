@@ -1171,6 +1171,16 @@ $('#show-versions').click(function () {
   fetchCurrentDataSourceVersions();
 });
 
+$('#add-rule').click(function (event) {
+  event.preventDefault();
+
+  var $modal = $('#configure-rule');
+
+  $modal.find('.modal-title').text('Add new security rule');
+
+  $modal.modal();
+});
+
 $('#show-access-rules').click(function () {
   var $tbody = $accessRulesList.find('tbody');
 

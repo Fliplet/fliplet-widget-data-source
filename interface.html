@@ -218,7 +218,7 @@
             </div>
             <div role="tabpanel" class="tab-pane" id="access-rules">
               <br />
-              <a href="#" class="btn btn-primary">Add new rule</a>
+              <a href="#" id="add-rule" class="btn btn-primary">Add new rule</a>
               <br />
               <br />
               <div id="access-rules-list">
@@ -240,3 +240,54 @@
     </div>
   </div>
 </div>
+
+<div id="configure-rule" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title"></h4>
+      </div>
+      <div class="modal-body">
+        <form class="form">
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Allow</h5>
+              <p>Select what operations this rule will allow.</p>
+            </div>
+            <div class="col-md-8 side">
+              <div class="checkbox">
+                <label>
+                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  Read
+                </label>
+              </div>
+              <div class="checkbox">
+                <label>
+                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  Write
+                </label>
+              </div>
+              <div class="checkbox">
+                <label>
+                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  Update
+                </label>
+              </div>
+              <div class="checkbox">
+                <label>
+                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  Delete
+                </label>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" disabled>Save & Apply</button>
+        <p>Please note that your rule will be immediately applied to all affected apps.</p>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->

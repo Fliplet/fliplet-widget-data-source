@@ -504,3 +504,39 @@ a[data-back] {
 td.align-middle {
   vertical-align: middle;
 }
+
+#configure-rule h5 {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+#configure-rule .row {
+  display: flex;
+}
+
+#configure-rule .side {
+  align-items: center;
+  display: flex;
+}
+
+#configure-rule .side .checkbox {
+  margin-right: 22px;
+}
+
+#configure-rule .side .checkbox + .checkbox {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+}
+
+.modal-footer p {
+  flex: 1;
+  margin: 0 0 0 10px;
+  color: #777;
+  font-size: 12px;
+  text-align: left;
+}
