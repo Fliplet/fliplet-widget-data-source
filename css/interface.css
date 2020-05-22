@@ -560,6 +560,10 @@ td.align-middle {
   display: block;
 }
 
+#configure-rule .apps-list {
+  margin-top: 10px;
+}
+
 .modal-footer {
   display: flex;
   align-items: center;
