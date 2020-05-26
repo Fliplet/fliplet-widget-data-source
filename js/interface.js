@@ -1238,18 +1238,22 @@ $('#show-access-rules').click(function () {
               return 'All users';
           }
         })(),
-        apps: _.compact((rule.appId || []).map(function (appId) {
-          var app = _.find(apps, { id: appId });
-          return app && app.name;
-        })).join(', '),
-        require: (rule.require || []).map(function (require) {
-          if (typeof require === 'string') {
-            return '<code>' + require + '</code>'
-          }
+        apps: rule.appId
+          ? _.compact(rule.appId.map(function (appId) {
+            var app = _.find(apps, { id: appId });
+            return app && app.name;
+          })).join(', ')
+          : 'All apps',
+        require: rule.require
+          ? rule.require.map(function (require) {
+            if (typeof require === 'string') {
+              return '<code>' + require + '</code>'
+            }
 
-          var key = _.first(Object.keys(require));
-          return '<code>' + key + ' = ' + require[key] + '</code>';
-        }).join('<br />')
+            var key = _.first(Object.keys(require));
+            return '<code>' + key + ' = ' + require[key] + '</code>';
+          }).join('<br />')
+          : '—'
       }));
     });
 
