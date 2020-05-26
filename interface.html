@@ -258,25 +258,25 @@
             <div class="col-md-8 side">
               <div class="checkbox">
                 <label>
-                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  <input name="type" type="checkbox", value="select" />
                   Read
                 </label>
               </div>
               <div class="checkbox">
                 <label>
-                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  <input name="type" type="checkbox", value="insert" />
                   Write
                 </label>
               </div>
               <div class="checkbox">
                 <label>
-                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  <input name="type" type="checkbox", value="update" />
                   Update
                 </label>
               </div>
               <div class="checkbox">
                 <label>
-                  <input id="type-read" name="type" type="checkbox", value="read" />
+                  <input name="type" type="checkbox", value="delete" />
                   Delete
                 </label>
               </div>
@@ -289,9 +289,9 @@
               <p>Specify what users are affected by this rule.</p>
             </div>
             <div class="col-md-8 side">
-              <button type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
-              <button type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
-              <button type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+              <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+              <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+              <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
             </div>
           </div>
           <hr />
@@ -302,23 +302,16 @@
             </div>
             <div class="col-md-8">
               <div>
-                <button type="button" class="btn btn-default">All apps</button>
-                <button type="button" class="btn btn-default selected"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
+                <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
+                <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
               </div>
-              <div class="apps-list">
-                <div class="checkbox">
-                  <label>
-                    <input id="type-read" name="type" type="checkbox", value="read" />
-                    My app
-                  </label>
-                </div>
-              </div>
+              <div class="apps-list"></div>
             </div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary" disabled>Save & Apply</button>
+        <button data-save-rule type="button" class="btn btn-primary" disabled>Save & Apply</button>
         <p>Please note that your rule will be immediately applied to all affected apps.</p>
       </div>
     </div><!-- /.modal-content -->

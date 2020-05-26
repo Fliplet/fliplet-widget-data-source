@@ -9,6 +9,9 @@ var $accessRulesList = $('#access-rules-list');
 var $tableContents;
 var $settings = $('form[data-settings]');
 var $noResults = $('.no-results-found');
+var $appsBtnFilter = $('button[data-apps]');
+var $allowBtnFilter = $('button[data-allow]');
+var $typeCheckbox = $('input[name="type"]');
 
 var organizationId = Fliplet.Env.get('organizationId');
 var currentDataSource;
@@ -32,6 +35,8 @@ var defaultAccessRules = [
   { type: ['update'], allow: 'all' },
   { type: ['delete'], allow: 'all' }
 ];
+
+var getApps = Fliplet.Apps.get();
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
@@ -1178,7 +1183,72 @@ $('#add-rule').click(function (event) {
 
   $modal.find('.modal-title').text('Add new security rule');
 
+  configureAddRuleUI();
+
   $modal.modal();
+});
+
+function configureAddRuleUI() {
+  var $apps = $('.apps-list');
+
+  // Cleanup
+  $appsBtnFilter.removeClass('selected');
+  $apps.html('').hide();
+
+  // Setup
+  updateSaveRuleValidation();
+
+  getApps.then(function (apps) {
+    var tpl = Fliplet.Widget.Templates['templates.allowApp'];
+
+    apps.forEach(function (app) {
+      $apps.append(tpl({
+        id: app.id,
+        name: app.name,
+        checked: '' // or "checked"
+      }));
+    });
+  });
+}
+
+function updateSaveRuleValidation() {
+  var types = $typeCheckbox.filter(':checked').map(function () {
+    return $(this).val()
+  });
+
+  if (types.length) {
+    $('[data-save-rule]').removeAttr('disabled');
+  } else {
+    $('[data-save-rule]').attr('disabled', true);
+  }
+}
+
+$typeCheckbox.click(updateSaveRuleValidation);
+
+$allowBtnFilter.click(function (event) {
+  event.preventDefault();
+
+  var $usersFilter = $('.users-filter');
+
+  $allowBtnFilter.removeClass('selected');
+  $(this).addClass('selected');
+
+  $usersFilter.toggle($(this).data('allow') === 'filter');
+});
+
+$appsBtnFilter.click(function (event) {
+  event.preventDefault();
+
+  var $apps = $('.apps-list');
+
+  $appsBtnFilter.removeClass('selected');
+  $(this).addClass('selected');
+
+  if ($(this).data('apps') === 'all') {
+    $apps.hide();
+  } else {
+    $apps.show();
+  }
 });
 
 $('#show-access-rules').click(function () {
@@ -1191,7 +1261,7 @@ $('#show-access-rules').click(function () {
     currentDataSourceRules = defaultAccessRules;
   }
 
-  Fliplet.Apps.get().then(function (apps) {
+  getApps.then(function (apps) {
     currentDataSourceRules.forEach(function (rule) {
       var tpl = Fliplet.Widget.Templates['templates.accessRule'];
 
