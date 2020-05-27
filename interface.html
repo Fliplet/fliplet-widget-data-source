@@ -256,28 +256,28 @@
               <p>Select what operations this rule will allow.</p>
             </div>
             <div class="col-md-8 side">
-              <div class="checkbox">
-                <label>
-                  <input name="type" type="checkbox", value="select" />
-                  Read
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-select" value="select">
+                <label for="chk-select">
+                  <span class="check"><i class="fa fa-check"></i></span> Read
                 </label>
               </div>
-              <div class="checkbox">
-                <label>
-                  <input name="type" type="checkbox", value="insert" />
-                  Write
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-insert" value="insert">
+                <label for="chk-insert">
+                  <span class="check"><i class="fa fa-check"></i></span> Write
                 </label>
               </div>
-              <div class="checkbox">
-                <label>
-                  <input name="type" type="checkbox", value="update" />
-                  Update
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-update" value="update">
+                <label for="chk-update">
+                  <span class="check"><i class="fa fa-check"></i></span> Update
                 </label>
               </div>
-              <div class="checkbox">
-                <label>
-                  <input name="type" type="checkbox", value="delete" />
-                  Delete
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-delete" value="delete">
+                <label for="chk-delete">
+                  <span class="check"><i class="fa fa-check"></i></span> Delete
                 </label>
               </div>
             </div>
@@ -300,7 +300,7 @@
               <h5>Applies to</h5>
               <p>Select what apps are affected by this rule.</p>
             </div>
-            <div class="col-md-8">
+            <div class="col-md-8 side vertical">
               <div>
                 <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
                 <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
@@ -308,10 +308,21 @@
               <div class="apps-list"></div>
             </div>
           </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Required fields</h5>
+              <p>Define what fields or values must be provided for this rule to pass.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div class="required-fields"></div>
+              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add required field</button>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button data-save-rule type="button" class="btn btn-primary" disabled>Save & Apply</button>
+        <button data-save-rule type="button" class="btn btn-primary">Save & Apply</button>
         <p>Please note that your rule will be immediately applied to all affected apps.</p>
       </div>
     </div><!-- /.modal-content -->

@@ -1188,32 +1188,60 @@ $('#add-rule').click(function (event) {
   $modal.modal();
 });
 
-function configureAddRuleUI() {
+$('body').on('click', '[data-remove-field]', function (event) {
+  event.preventDefault();
+  $(this).closest('.required-field').remove();
+});
+
+$('body').on('change', 'select[name="required-field-type"]', function (event) {
+  event.preventDefault();
+  var value = $(this).val();
+
+  $(this).closest('.required-field').find('[name="value"]').toggleClass('hidden', value === 'required');
+});
+
+function configureAddRuleUI(rule) {
+  rule = rule || {
+    type: ['select']
+  };
+
+  var selectedAppType = rule.appId ? 'filter' : 'all';
   var $apps = $('.apps-list');
 
   // Cleanup
   $appsBtnFilter.removeClass('selected');
   $apps.html('').hide();
+  $('.required-fields').html('');
+
+  rule.type.forEach(function (type) {
+    $('input[name="type"][value="' + type + '"]').attr('checked', true);
+  });
 
   // Setup
   updateSaveRuleValidation();
 
+  $appsBtnFilter.filter('[data-apps="' + selectedAppType + '"]').click();
+
   getApps.then(function (apps) {
-    var tpl = Fliplet.Widget.Templates['templates.allowApp'];
+    var tpl = Fliplet.Widget.Templates['templates.checkbox'];
 
     apps.forEach(function (app) {
-      $apps.append(tpl({
+      var checkbox = tpl({
         id: app.id,
         name: app.name,
-        checked: '' // or "checked"
-      }));
+        checked: rule.appId && rule.appId.indexOf(app.id) !== -1 ? 'checked' : ''
+      });
+
+      $apps.append('<div class="app">' + checkbox + '</div>');
     });
   });
 }
 
 function updateSaveRuleValidation() {
-  var types = $typeCheckbox.filter(':checked').map(function () {
-    return $(this).val()
+  var types = [];
+
+  $typeCheckbox.filter(':checked').each(function () {
+    types.push($(this).val());
   });
 
   if (types.length) {
@@ -1249,6 +1277,14 @@ $appsBtnFilter.click(function (event) {
   } else {
     $apps.show();
   }
+});
+
+$('[data-add-filter]').click(function (event) {
+  event.preventDefault();
+
+  var tpl = Fliplet.Widget.Templates['templates.requiredField'];
+
+  $('.required-fields').append(tpl());
 });
 
 $('#show-access-rules').click(function () {

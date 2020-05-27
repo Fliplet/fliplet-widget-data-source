@@ -533,6 +533,13 @@ td.align-middle {
   display: flex;
 }
 
+#configure-rule .side.vertical {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+}
+
 #configure-rule .side .checkbox {
   margin-right: 22px;
 }
@@ -557,11 +564,9 @@ td.align-middle {
 }
 
 #configure-rule .apps-list {
-  display: block;
-}
-
-#configure-rule .apps-list {
   margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .modal-footer {
@@ -577,8 +582,27 @@ td.align-middle {
   text-align: left;
 }
 
+.required-fields {
+  width: 100%;
+}
+
+.required-field {
+  display: flex;
+  margin: 10px 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.required-field input, .required-field .select-proxy-display {
+  margin-right: 10px;
+}
+
+.required-field .select-proxy-display select {
+  top: 0;
+}
+
 @media (min-width: 640px) {
   .modal-dialog {
-    width: 760px;
+    width: 880px;
   }
 }

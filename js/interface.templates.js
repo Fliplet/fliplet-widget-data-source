@@ -18,14 +18,16 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
     + "</td>\r\n    <td class=\"align-middle\">\r\n      <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n      <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n    </td>\r\n</tr>";
 },"useData":true});
 
-this["Fliplet"]["Widget"]["Templates"]["templates.allowApp"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+this["Fliplet"]["Widget"]["Templates"]["templates.checkbox"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "<div class=\"checkbox\">\r\n  <label>\r\n    <input id=\"type-read\" name=\"app\" type=\"checkbox\" value=\""
+  return "<div class=\"checkbox checkbox-icon\">\r\n  <input type=\"checkbox\" id=\"chk-"
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
     + "\" "
     + alias4(((helper = (helper = helpers.checked || (depth0 != null ? depth0.checked : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"checked","hash":{},"data":data}) : helper)))
-    + " />\r\n    "
+    + ">\r\n  <label for=\"chk-"
+    + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
+    + "\">\r\n    <span class=\"check\"><i class=\"fa fa-check\"></i></span> "
     + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
     + "\r\n  </label>\r\n</div>";
 },"useData":true});
@@ -58,6 +60,10 @@ this["Fliplet"]["Widget"]["Templates"]["templates.dataSource"] = Handlebars.temp
 
 this["Fliplet"]["Widget"]["Templates"]["templates.overlay"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     return "<p>These actions are unavailable, but you can still use:</p>\r\n<div class=\"shortcut-holder\">\r\n  <div class=\"shortcut\">\r\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + C</p>\r\n    <p>for copy</p>\r\n  </div>\r\n  <div class=\"shortcut\">\r\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + X</p>\r\n    <p>for cut</p>\r\n  </div>\r\n  <div class=\"shortcut\">\r\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + V</p>\r\n    <p>for paste</p>\r\n  </div>\r\n</div>";
+},"useData":true});
+
+this["Fliplet"]["Widget"]["Templates"]["templates.requiredField"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    return "<div class=\"required-field\">\r\n  <input class=\"form-control\" type=\"text\" placeholder=\"Name\"/>\r\n  <label class=\"select-proxy-display\">\r\n    <select class=\"hidden-select form-control\" name=\"required-field-type\">\r\n      <option value=\"required\">Is required</option>\r\n      <option value=\"equals\">Equals to</option>\r\n    </select>\r\n    <span class=\"icon fa fa-chevron-down\"></span>\r\n  </label>\r\n  <input name=\"value\" class=\"form-control hidden\" type=\"text\" placeholder=\"\"/>\r\n  <button class=\"btn\" data-remove-field><i class=\"fa fa-trash fa-fw fa-lg\"></i></button>\r\n</div>";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.users"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
