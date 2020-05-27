@@ -1213,6 +1213,8 @@ function configureAddRuleUI(rule) {
   $apps.html('').hide();
   $('.required-fields').html('');
   $('.users-filter').addClass('hidden').find('.filters').html('');
+  $('button.selected').removeClass('selected');
+  $('input[name="type"]').attr('checked', false);
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
@@ -1226,20 +1228,24 @@ function configureAddRuleUI(rule) {
       $('[data-allow="filter"]').click();
 
       _.forIn(rule.allow.user, function (value, column) {
-        var $field = $('.required-field').last();
+        var $field = $('.filters .required-field').last();
 
         $field.find('[name="column"]').val(column);
         $field.find('[name="value"]').val(value);
         $('[data-add-user-filter]').click();
       });
 
-      $('.required-field').last().remove();
+      $('.filters .required-field').last().remove();
     }
+  } else {
+    $('[data-allow="all"]').click();
   }
 
   if (rule.require) {
     rule.require.forEach(function (field) {
       $('[data-add-filter]').click();
+
+      var $field = $('.required-fields .required-field').last();
 
       if (typeof field === 'string') {
         $field.find('[name="field"]').val(field);
