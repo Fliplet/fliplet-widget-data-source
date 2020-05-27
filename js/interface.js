@@ -1202,7 +1202,7 @@ $('body').on('change', 'select[name="required-field-type"]', function (event) {
 
 function configureAddRuleUI(rule) {
   rule = rule || {
-    type: ['select']
+    type: []
   };
 
   var selectedAppType = rule.appId ? 'filter' : 'all';
@@ -1214,7 +1214,7 @@ function configureAddRuleUI(rule) {
   $('.required-fields').html('');
   $('.users-filter').addClass('hidden').find('.filters').html('');
   $('button.selected').removeClass('selected');
-  $('input[name="type"]').attr('checked', false);
+  $('input[name="type"]').removeAttr('checked');
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
