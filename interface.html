@@ -222,6 +222,9 @@
               <br />
               <br />
               <div id="access-rules-list">
+                <div class="empty-data-source-rules callout callout-primary hidden">
+                  <p>You have not defined any security rule to access this Data Source. Apps won't be able to access the data unless you define a security rule.</p>
+                </div>
                 <table class="table-hover">
                   <thead>
                     <th>Allow</th>
@@ -288,10 +291,16 @@
               <h5>Allow</h5>
               <p>Specify what users are affected by this rule.</p>
             </div>
-            <div class="col-md-8 side">
-              <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
-              <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
-              <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+              </div>
+              <div class="users-filter hidden">
+                <div class="filters"></div>
+                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+              </div>
             </div>
           </div>
           <hr />

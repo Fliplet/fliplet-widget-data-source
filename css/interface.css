@@ -601,6 +601,11 @@ td.align-middle {
   top: 0;
 }
 
+.users-filter {
+  margin-top: 10px;
+  width: 100%;
+}
+
 @media (min-width: 640px) {
   .modal-dialog {
     width: 880px;

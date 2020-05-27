@@ -22,6 +22,7 @@ var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
 var currentDataSourceRules;
+var currentDataSourceRuleIndex;
 var currentEditor;
 var dataSources;
 var allDataSources;
@@ -1180,7 +1181,6 @@ $('#add-rule').click(function (event) {
   event.preventDefault();
 
   var $modal = $('#configure-rule');
-
   $modal.find('.modal-title').text('Add new security rule');
 
   configureAddRuleUI();
@@ -1212,10 +1212,47 @@ function configureAddRuleUI(rule) {
   $appsBtnFilter.removeClass('selected');
   $apps.html('').hide();
   $('.required-fields').html('');
+  $('.users-filter').addClass('hidden').find('.filters').html('');
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
   });
+
+  if (rule.allow) {
+    if (typeof rule.allow === 'string') {
+      $('[data-allow="' + rule.allow + '"]').click();
+    } else {
+      $('.filters').html('');
+      $('[data-allow="filter"]').click();
+
+      _.forIn(rule.allow.user, function (value, column) {
+        var $field = $('.required-field').last();
+
+        $field.find('[name="column"]').val(column);
+        $field.find('[name="value"]').val(value);
+        $('[data-add-user-filter]').click();
+      });
+
+      $('.required-field').last().remove();
+    }
+  }
+
+  if (rule.require) {
+    rule.require.forEach(function (field) {
+      $('[data-add-filter]').click();
+
+      if (typeof field === 'string') {
+        $field.find('[name="field"]').val(field);
+      } else {
+        var column = Object.keys(field)[0];
+        var value = field[column];
+
+        $field.find('[name="field"]').val(column);
+        $field.find('select').val('equals');
+        $field.find('[name="value"]').val(value);
+      }
+    });
+  }
 
   // Setup
   updateSaveRuleValidation();
@@ -1257,11 +1294,17 @@ $allowBtnFilter.click(function (event) {
   event.preventDefault();
 
   var $usersFilter = $('.users-filter');
+  var value = $(this).data('allow');
 
   $allowBtnFilter.removeClass('selected');
   $(this).addClass('selected');
 
-  $usersFilter.toggle($(this).data('allow') === 'filter');
+  $usersFilter.toggleClass('hidden', value !== 'filter');
+
+  // Add first filter automatically
+  if (value === 'filter' && !$usersFilter.find('.filters').html().trim()) {
+    $('[data-add-user-filter]').click();
+  }
 });
 
 $appsBtnFilter.click(function (event) {
@@ -1277,6 +1320,14 @@ $appsBtnFilter.click(function (event) {
   } else {
     $apps.show();
   }
+});
+
+$('[data-add-user-filter]').click(function (event) {
+  event.preventDefault();
+
+  var tpl = Fliplet.Widget.Templates['templates.userMatch'];
+
+  $('.users-filter .filters').append(tpl());
 });
 
 $('[data-add-filter]').click(function (event) {
@@ -1297,8 +1348,10 @@ $('#show-access-rules').click(function () {
     currentDataSourceRules = defaultAccessRules;
   }
 
+  $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
+
   getApps.then(function (apps) {
-    currentDataSourceRules.forEach(function (rule) {
+    currentDataSourceRules.forEach(function (rule, index) {
       var tpl = Fliplet.Widget.Templates['templates.accessRule'];
 
       if (typeof rule.type === 'string') {
@@ -1306,6 +1359,7 @@ $('#show-access-rules').click(function () {
       }
 
       $tbody.append(tpl({
+        index: index,
         type: rule.type.map(function (type) {
           var description;
 
@@ -1366,6 +1420,122 @@ $('#show-access-rules').click(function () {
     $accessRulesList.css('opacity', 1);
   });
 });
+
+$('[data-save-rule]').click(function (event) {
+  event.preventDefault();
+
+  var rule = {
+    type: [],
+  };
+
+  $typeCheckbox.filter(':checked').each(function () {
+    rule.type.push($(this).val());
+  });
+
+  var $allow = $('.selected[data-allow]');
+
+  if ($allow.data('allow') === 'filter') {
+    var user = {};
+
+    $('.users-filter .required-field').each(function () {
+      var column = $(this).find('[name="column"]').val();
+      var value = $(this).find('[name="value"]').val();
+
+      if (column && value) {
+        user[column] = value;
+      }
+    });
+
+    rule.allow = { user: user };
+  } else {
+    rule.allow = $allow.data('allow');
+  }
+
+  var $apps = $('.selected[data-apps]');
+
+  if ($apps.data('apps') === 'filter') {
+    var appId = [];
+
+    $('.apps-list .app input[type="checkbox"]:checked').each(function () {
+      appId.push(parseInt($(this).val(), 10));
+    });
+
+    if (appId.length) {
+      rule.appId = appId;
+    }
+  }
+
+  var requiredFields = [];
+
+  $('.required-fields .required-field').each(function () {
+    var column = $(this).find('[name="field"]').val();
+    var value = $(this).find('[name="value"]').val();
+
+    if (!column) {
+      return;
+    }
+
+    if (!value) {
+      return requiredFields.push(column);
+    }
+
+    var field = {};
+    field[column] = value;
+
+    requiredFields.push(field);
+  });
+
+  if (requiredFields.length) {
+    rule.require = requiredFields;
+  }
+
+  $('[data-dismiss="modal"]').click();
+
+  if (currentDataSourceRuleIndex === undefined) {
+    currentDataSourceRules.push(rule);
+  } else {
+    currentDataSourceRules[currentDataSourceRuleIndex] = rule;
+    currentDataSourceRuleIndex = undefined;
+  }
+
+  updateDataSourceRules();
+});
+
+$('body').on('click', '[data-rule-delete]', function (event) {
+  event.preventDefault();
+
+  var index = parseInt($(this).closest('tr').data('rule-index'), 10);
+
+  currentDataSourceRules.splice(index, 1);
+  updateDataSourceRules();
+});
+
+$('body').on('click', '[data-rule-edit]', function (event) {
+  event.preventDefault();
+
+  currentDataSourceRuleIndex = parseInt($(this).closest('tr').data('rule-index'), 10);
+
+  var rule = currentDataSourceRules[currentDataSourceRuleIndex];
+  var $modal = $('#configure-rule');
+
+  $modal.find('.modal-title').text('Edit security rule');
+
+  configureAddRuleUI(rule);
+
+  $modal.modal();
+});
+
+function updateDataSourceRules() {
+  $initialSpinnerLoading.addClass('animated');
+
+  return Fliplet.DataSources.update(currentDataSourceId, {
+    accessRules: currentDataSourceRules
+  }).then(function () {
+    // Refresh UI
+    $('#show-access-rules').click();
+    $initialSpinnerLoading.removeClass('animated');
+  });
+}
 
 if (copyData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
