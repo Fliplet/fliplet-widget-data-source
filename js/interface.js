@@ -1336,6 +1336,9 @@ $('[data-add-user-filter]').click(function (event) {
   var tpl = Fliplet.Widget.Templates['templates.userMatch'];
 
   $('.users-filter .filters').append(tpl());
+  $('[data-toggle="tooltip"]').tooltip({
+    html: true
+  });
 });
 
 $('[data-add-filter]').click(function (event) {
@@ -1344,6 +1347,9 @@ $('[data-add-filter]').click(function (event) {
   var tpl = Fliplet.Widget.Templates['templates.requiredField'];
 
   $('.required-fields').append(tpl());
+  $('[data-toggle="tooltip"]').tooltip({
+    html: true
+  });
 });
 
 $('#show-access-rules').click(function () {
@@ -1443,6 +1449,8 @@ $('[data-save-rule]').click(function (event) {
 
   var $allow = $('.selected[data-allow]');
 
+  var error;
+
   if ($allow.data('allow') === 'filter') {
     var user = {};
 
@@ -1451,6 +1459,12 @@ $('[data-save-rule]').click(function (event) {
       var value = $(this).find('[name="value"]').val();
 
       if (column && value) {
+        try {
+          Handlebars.compile(value)();
+        } catch (err) {
+          error = 'The value for the field "' + column + '" is not a valid Handlebars code.';
+        }
+
         user[column] = value;
       }
     });
@@ -1488,6 +1502,12 @@ $('[data-save-rule]').click(function (event) {
       return requiredFields.push(column);
     }
 
+    try {
+      Handlebars.compile(value)();
+    } catch (err) {
+      error = 'The value for the required field "' + column + '" is not a valid Handlebars code.';
+    }
+
     var field = {};
     field[column] = value;
 
@@ -1496,6 +1516,10 @@ $('[data-save-rule]').click(function (event) {
 
   if (requiredFields.length) {
     rule.require = requiredFields;
+  }
+
+  if (error) {
+    return Fliplet.Modal.alert({ message: error });
   }
 
   $('[data-dismiss="modal"]').click();

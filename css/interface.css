@@ -589,8 +589,11 @@ td.align-baseline {
 .required-field {
   display: flex;
   margin: 10px 0;
-  border-bottom: 1px solid #eee;
   padding-bottom: 10px;
+}
+
+.required-field:last-of-type {
+  border-bottom: 1px solid #eee;
 }
 
 .required-field input, .required-field .select-proxy-display {
