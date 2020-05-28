@@ -1355,6 +1355,7 @@ $('#show-access-rules').click(function () {
   }
 
   $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
+  $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
 
   getApps.then(function (apps) {
     currentDataSourceRules.forEach(function (rule, index) {
@@ -1392,7 +1393,7 @@ $('#show-access-rules').click(function () {
               return;
             }
 
-            return _.map(Object.keys(rule.allow.user), function (key) {
+            return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function (key) {
               return '<code>' + key + ' = ' + rule.allow.user[key] + '</code>';
             }).join('<br />');
           }

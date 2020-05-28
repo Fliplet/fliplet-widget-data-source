@@ -80,7 +80,7 @@
               <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version history</a>
             </li>
             <li role="presentation">
-              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio users permissions</a>
+              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio user permissions</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -223,7 +223,8 @@
               <br />
               <div id="access-rules-list">
                 <div class="empty-data-source-rules callout callout-primary hidden">
-                  <p>You have not defined any security rule to access this Data Source. Apps won't be able to access the data unless you define a security rule.</p>
+                  <h4>No security rules found</h4>
+                  <p>Apps will not be able to access this data source until security rules are added.</p>
                 </div>
                 <table class="table-hover">
                   <thead>
@@ -255,8 +256,26 @@
         <form class="form">
           <div class="row">
             <div class="col-md-4">
+              <h5>Allow</h5>
+              <p>Specify users affected by this rule.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+              </div>
+              <div class="users-filter hidden">
+                <div class="filters"></div>
+                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+              </div>
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
               <h5>Users can</h5>
-              <p>Select what operations this rule will allow.</p>
+              <p>Select operations the specified users can perform</p>
             </div>
             <div class="col-md-8 side">
               <div class="checkbox checkbox-icon">
@@ -288,26 +307,8 @@
           <hr />
           <div class="row">
             <div class="col-md-4">
-              <h5>Allow</h5>
-              <p>Specify what users are affected by this rule.</p>
-            </div>
-            <div class="col-md-8 side vertical">
-              <div>
-                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
-                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
-                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
-              </div>
-              <div class="users-filter hidden">
-                <div class="filters"></div>
-                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
-              </div>
-            </div>
-          </div>
-          <hr />
-          <div class="row">
-            <div class="col-md-4">
               <h5>Applies to</h5>
-              <p>Select what apps are affected by this rule.</p>
+              <p>Select apps affected by this rule.</p>
             </div>
             <div class="col-md-8 side vertical">
               <div>
@@ -320,12 +321,12 @@
           <hr />
           <div class="row">
             <div class="col-md-4">
-              <h5>Required fields</h5>
-              <p>Define what fields or values must be provided for this rule to pass.</p>
+              <h5>Data requires</h5>
+              <p>Specify rules that data must follow.</p>
             </div>
             <div class="col-md-8 side vertical">
               <div class="required-fields"></div>
-              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add required field</button>
+              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data requirement</button>
             </div>
           </div>
         </form>
