@@ -1257,6 +1257,8 @@ function configureAddRuleUI(rule) {
         $field.find('select').val('equals');
         $field.find('[name="value"]').val(value);
       }
+
+      $field.find('select').trigger('change');
     });
   }
 
