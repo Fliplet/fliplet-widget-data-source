@@ -7,15 +7,15 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
 
   return "<tr data-rule-index=\""
     + alias4(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
-    + "\">\r\n    <td class=\"align-middle\">"
+    + "\">\r\n    <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.allow || (depth0 != null ? depth0.allow : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"allow","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\r\n    <td class=\"align-middle\">"
+    + "</td>\r\n    <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.type || (depth0 != null ? depth0.type : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"type","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\r\n    <td class=\"align-middle\">"
+    + "</td>\r\n    <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\r\n    <td class=\"align-middle\">"
+    + "</td>\r\n    <td class=\"align-baseline\">"
     + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
-    + "</td>\r\n    <td class=\"align-middle\">\r\n      <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n      <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n    </td>\r\n</tr>";
+    + "</td>\r\n    <td class=\"align-baseline\">\r\n      <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n      <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n    </td>\r\n</tr>";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.checkbox"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
@@ -69,7 +69,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.requiredField"] = Handlebars.t
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.userMatch"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    return "<div class=\"required-field\">\r\n  <button class=\"btn\" data-remove-field><i class=\"fa fa-minus fa-fw fa-lg\"></i></button>\r\n  <input name=\"column\" class=\"form-control\" type=\"text\" placeholder=\"Name\"/>\r\n  <label class=\"select-proxy-display\">\r\n    <select class=\"hidden-select form-control\" name=\"required-field-type\">\r\n      <option value=\"equals\">Equals</option>\r\n    </select>\r\n    <span class=\"icon fa fa-chevron-down\"></span>\r\n  </label>\r\n  <input name=\"value\" class=\"form-control\" type=\"text\" placeholder=\"\"/>\r\n</div>";
+    return "<div class=\"required-field\">\r\n  <button class=\"btn\" data-remove-field><i class=\"fa fa-minus fa-fw fa-lg\"></i></button>\r\n  <input name=\"column\" class=\"form-control\" type=\"text\" placeholder=\"Name\"/>\r\n  <label class=\"select-proxy-display\">\r\n    <select class=\"hidden-select form-control\" name=\"required-field-type\">\r\n      <option value=\"equals\">Equals</option>\r\n    </select>\r\n    <span class=\"icon fa fa-chevron-down\"></span>\r\n  </label>\r\n  <input name=\"value\" class=\"form-control\" type=\"text\" placeholder=\"Value\"/>\r\n</div>";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.users"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {

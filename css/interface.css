@@ -505,8 +505,8 @@ a[data-back] {
   background: #FFF;
 }
 
-td.align-middle {
-  vertical-align: middle;
+td.align-baseline {
+  vertical-align: baseline;
 }
 
 #configure-rule h5 {
@@ -594,7 +594,8 @@ td.align-middle {
 }
 
 .required-field input, .required-field .select-proxy-display {
-  margin-right: 10px;
+  margin: 0 10px 0 0;
+  width: 150px;
 }
 
 .required-field .select-proxy-display select {
