@@ -1462,7 +1462,7 @@ $('[data-save-rule]').click(function (event) {
         try {
           Handlebars.compile(value)();
         } catch (err) {
-          error = 'The value for the field "' + column + '" is not a valid Handlebars code.';
+          error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
         }
 
         user[column] = value;
@@ -1505,7 +1505,7 @@ $('[data-save-rule]').click(function (event) {
     try {
       Handlebars.compile(value)();
     } catch (err) {
-      error = 'The value for the required field "' + column + '" is not a valid Handlebars code.';
+      error = 'The value for the required field "' + column + '" is not a valid Handlebars expression.';
     }
 
     var field = {};
