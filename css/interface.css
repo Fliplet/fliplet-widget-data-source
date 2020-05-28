@@ -290,6 +290,10 @@ a[data-back] {
   right: 0;
 }
 
+#toolbar .btn {
+  border-radius: 0;
+}
+
 #toolbar .filter-wrapper {
   margin-bottom: 5px;
   display: flex;
@@ -488,4 +492,126 @@ a[data-back] {
 .menu-right {
   left: auto;
   right: 0;
+}
+
+#access-rules-list code {
+  background-color: #f3f6fa;
+  color: #567482;
+  margin: 3px 0px;
+  display: inline-block;
+}
+
+#access-rules-list tbody {
+  background: #FFF;
+}
+
+td.align-baseline {
+  vertical-align: baseline;
+}
+
+#configure-rule h5 {
+  font-weight: bold;
+  font-size: 16px;
+  color: #474974;
+}
+
+#configure-rule .row {
+  display: flex;
+}
+
+#configure-rule p {
+  color: rgba(141, 142, 165, 0.8);
+}
+
+#configure-rule hr {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#configure-rule .side {
+  align-items: center;
+  display: flex;
+}
+
+#configure-rule .side.vertical {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#configure-rule .side .checkbox {
+  margin-right: 22px;
+}
+
+#configure-rule .side .checkbox + .checkbox {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#configure-rule form .btn {
+  border: 0;
+  margin-right: 10px;
+  color: #787993;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#configure-rule form .btn.selected {
+  background-color: #474974;
+  color: #FFF;
+}
+
+#configure-rule .apps-list {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+}
+
+.modal-footer p {
+  flex: 1;
+  margin: 0 0 0 10px;
+  color: #777;
+  font-size: 12px;
+  text-align: left;
+}
+
+.required-fields {
+  width: 100%;
+}
+
+.required-field {
+  display: flex;
+  margin: 10px 0;
+  padding-bottom: 10px;
+}
+
+.required-field:last-of-type {
+  border-bottom: 1px solid #eee;
+}
+
+.required-field input, .required-field .select-proxy-display {
+  margin: 0 10px 0 0;
+  width: 150px;
+}
+
+.required-field .select-proxy-display select {
+  top: 0;
+}
+
+.users-filter {
+  margin-top: 10px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .modal-dialog {
+    width: 880px;
+  }
 }

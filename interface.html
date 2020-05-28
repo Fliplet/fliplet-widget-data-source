@@ -71,13 +71,16 @@
               <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">User permissions</a>
+              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab">Security rules</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
             </li>
             <li role="presentation" class="hidden">
               <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version history</a>
+            </li>
+            <li role="presentation">
+              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio user permissions</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -213,9 +216,125 @@
               </div>
               <div id="version-preview" class="hidden"></div>
             </div>
+            <div role="tabpanel" class="tab-pane" id="access-rules">
+              <br />
+              <a href="#" id="add-rule" class="btn btn-primary">Add new rule</a>
+              <br />
+              <br />
+              <div id="access-rules-list">
+                <div class="empty-data-source-rules callout callout-primary hidden">
+                  <h4>No security rules found</h4>
+                  <p>Apps will not be able to access this data source until security rules are added.</p>
+                </div>
+                <table class="table-hover">
+                  <thead>
+                    <th>Allow</th>
+                    <th>Users can</th>
+                    <th>Data requires</th>
+                    <th>Applies to</th>
+                    <th>Actions</th>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<div id="configure-rule" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title"></h4>
+      </div>
+      <div class="modal-body">
+        <form class="form">
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Allow</h5>
+              <p>Specify users affected by this rule.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+              </div>
+              <div class="users-filter hidden">
+                <div class="filters"></div>
+                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+              </div>
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Users can</h5>
+              <p>Select operations the specified users can perform.</p>
+            </div>
+            <div class="col-md-8 side">
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-select" value="select">
+                <label for="chk-select">
+                  <span class="check"><i class="fa fa-check"></i></span> Read
+                </label>
+              </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-insert" value="insert">
+                <label for="chk-insert">
+                  <span class="check"><i class="fa fa-check"></i></span> Write
+                </label>
+              </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-update" value="update">
+                <label for="chk-update">
+                  <span class="check"><i class="fa fa-check"></i></span> Update
+                </label>
+              </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-delete" value="delete">
+                <label for="chk-delete">
+                  <span class="check"><i class="fa fa-check"></i></span> Delete
+                </label>
+              </div>
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Applies to</h5>
+              <p>Select apps affected by this rule.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
+                <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
+              </div>
+              <div class="apps-list"></div>
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Data requires</h5>
+              <p>Specify rules that data must follow.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div class="required-fields"></div>
+              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data requirement</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button data-save-rule type="button" class="btn btn-primary" disabled>Save & Apply</button>
+        <p>Please note that your rule will be immediately applied to all affected apps.</p>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->

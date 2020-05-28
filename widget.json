@@ -37,6 +37,7 @@
       "vendor/tinymce-fonts.css",
       "vendor/overlay.css",
       "css/interface.css",
+      "css/buttons.css",
       "js/interface.templates.js"
     ]
   },

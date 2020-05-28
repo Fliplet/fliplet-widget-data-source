@@ -1,0 +1,109 @@
+.btn {
+  border-radius: 100px;
+  line-height: inherit;
+  padding: 10px 16px;
+  font-weight: 700;
+}
+
+.btn-circle {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  margin-top: 2px;
+  margin-left: 2px;
+  padding: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 50%;
+}
+
+.btn-default {
+  color: #474974;
+  background-color: #eae9ec;
+  border: 1px solid #eae9ec;
+}
+
+.btn-default:hover,
+.btn-default :focus {
+  color: #2a2b45;
+  background-color: #c3c0c9;
+  border: 1px solid #c3c0c9;
+}
+
+.btn-default:active {
+  color: #030305;
+  background-color: #8f8999;
+  border: 1px solid #8f8999;
+}
+
+.btn-sm,
+.btn-group-sm>.btn {
+  line-height: inherit;
+  padding: 6px 10px;
+  font-weight: 400;
+}
+
+.btn-xs,
+.btn-group-xs>.btn {
+  line-height: inherit;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 400;
+}
+
+.tab-selection {
+  text-align: center;
+}
+
+.tab-selection .tab {
+  text-transform: uppercase;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px 16px;
+  background-color: #eae9ec;
+  color: #787993;
+  border-color: #eae9ec;
+  margin-left: 10px;
+  margin-bottom: 20px;
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tab-selection .tab:first-child {
+  margin-left: 0;
+}
+
+.tab-selection .tab.active {
+  border-color: transparent;
+  background-color: #474974;
+  color: #fff;
+}
+
+.tab-selection .tab.disabled {
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.tab-selection .tab.not-allowed {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.tab-selection .tab.tab-checked {
+  padding-left: 34px;
+}
+
+.tab-selection .tab.tab-checked.active {
+  padding-left: 15px;
+}
+
+.tab-selection .tab.tab-checked.active:before {
+  content: "\f00c";
+  display: inline-block;
+  margin-right: 5px;
+  font-family: "FontAwesome";
+}
