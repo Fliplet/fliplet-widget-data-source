@@ -1227,11 +1227,20 @@ function configureAddRuleUI(rule) {
       $('.filters').html('');
       $('[data-allow="filter"]').click();
 
-      _.forIn(rule.allow.user, function (value, column) {
+      _.forIn(rule.allow.user, function (operation, column) {
         var $field = $('.filters .required-field').last();
 
+        if (typeof operation === 'string') {
+          operation = { $iLike: operation };
+        }
+
+        var operationType = Object.keys(operation)[0];
+        var value = operation[operationType];
+
         $field.find('[name="column"]').val(column);
+        $field.find('select').val(operationType);
         $field.find('[name="value"]').val(value);
+
         $('[data-add-user-filter]').click();
       });
 
@@ -1249,12 +1258,20 @@ function configureAddRuleUI(rule) {
 
       if (typeof field === 'string') {
         $field.find('[name="field"]').val(field);
+        $field.find('select').val('required');
       } else {
         var column = Object.keys(field)[0];
-        var value = field[column];
+        var operation = field[column];
+
+        if (typeof operation === 'string') {
+          operation = { $iLike: operation };
+        }
+
+        var operationType = Object.keys(operation)[0];
+        var value = operation[operationType];
 
         $field.find('[name="field"]').val(column);
-        $field.find('select').val('equals');
+        $field.find('select').val(operationType);
         $field.find('[name="value"]').val(value);
       }
 
@@ -1365,6 +1382,15 @@ $('#show-access-rules').click(function () {
   $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
   $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
 
+  function operatorDescription(operation) {
+    switch(operation) {
+      case '$iLike':
+        return '=';
+      case '$ne':
+        return '!=';
+    }
+  }
+
   getApps.then(function (apps) {
     currentDataSourceRules.forEach(function (rule, index) {
       var tpl = Fliplet.Widget.Templates['templates.accessRule'];
@@ -1402,7 +1428,16 @@ $('#show-access-rules').click(function () {
             }
 
             return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function (key) {
-              return '<code>' + key + ' = ' + rule.allow.user[key] + '</code>';
+              var operation = rule.allow.user[key];
+
+              if (typeof operation === 'string') {
+                operation = { $iLike: operation };
+              }
+
+              var operationType = Object.keys(operation)[0];
+              var operator = operatorDescription(operationType);
+
+              return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
             }).join('<br />');
           }
 
@@ -1422,11 +1457,15 @@ $('#show-access-rules').click(function () {
         require: rule.require
           ? rule.require.map(function (require) {
             if (typeof require === 'string') {
-              return '<code>' + require + '</code>'
+              return '<code>' + require + '</code>';
             }
 
-            var key = _.first(Object.keys(require));
-            return '<code>' + key + ' = ' + require[key] + '</code>';
+            var field = Object.keys(require)[0];
+
+            var operationType = Object.keys(require[field])[0];
+            var operator = operatorDescription(operationType);
+
+            return '<code>' + field + ' ' + operator + ' ' + require[field][operationType] + '</code>';
           }).join('<br />')
           : '—'
       }));
@@ -1457,6 +1496,7 @@ $('[data-save-rule]').click(function (event) {
     $('.users-filter .required-field').each(function () {
       var column = $(this).find('[name="column"]').val();
       var value = $(this).find('[name="value"]').val();
+      var operationType = $(this).find('select').val();
 
       if (column && value) {
         try {
@@ -1465,7 +1505,10 @@ $('[data-save-rule]').click(function (event) {
           error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
         }
 
-        user[column] = value;
+        var query = {};
+
+        query[operationType] = value;
+        user[column] = query;
       }
     });
 
@@ -1493,13 +1536,18 @@ $('[data-save-rule]').click(function (event) {
   $('.required-fields .required-field').each(function () {
     var column = $(this).find('[name="field"]').val();
     var value = $(this).find('[name="value"]').val();
+    var operationType = $(this).find('select').val();
 
     if (!column) {
       return;
     }
 
-    if (!value) {
+    if (operationType === 'required') {
       return requiredFields.push(column);
+    }
+
+    if (!value) {
+      return;
     }
 
     try {
@@ -1509,7 +1557,10 @@ $('[data-save-rule]').click(function (event) {
     }
 
     var field = {};
-    field[column] = value;
+    var query = {};
+
+    query[operationType] = value;
+    field[column] = query;
 
     requiredFields.push(field);
   });
