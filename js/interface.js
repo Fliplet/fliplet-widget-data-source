@@ -1383,13 +1383,15 @@ $('#show-access-rules').click(function () {
   $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
 
   function operatorDescription(operation) {
-    switch(operation) {
+    switch (operation) {
       case 'equals':
         return 'equals to';
       case 'notequals':
         return 'does not equals to';
       case 'contains':
         return 'contains';
+      default:
+        return operation;
     }
   }
 
