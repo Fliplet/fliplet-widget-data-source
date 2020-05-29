@@ -1229,11 +1229,6 @@ function configureAddRuleUI(rule) {
 
       _.forIn(rule.allow.user, function (operation, column) {
         var $field = $('.filters .required-field').last();
-
-        if (typeof operation === 'string') {
-          operation = { $iLike: operation };
-        }
-
         var operationType = Object.keys(operation)[0];
         var value = operation[operationType];
 
@@ -1262,11 +1257,6 @@ function configureAddRuleUI(rule) {
       } else {
         var column = Object.keys(field)[0];
         var operation = field[column];
-
-        if (typeof operation === 'string') {
-          operation = { $iLike: operation };
-        }
-
         var operationType = Object.keys(operation)[0];
         var value = operation[operationType];
 
@@ -1433,10 +1423,6 @@ $('#show-access-rules').click(function () {
 
             return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function (key) {
               var operation = rule.allow.user[key];
-
-              if (typeof operation === 'string') {
-                operation = { $iLike: operation };
-              }
 
               var operationType = Object.keys(operation)[0];
               var operator = operatorDescription(operationType);
