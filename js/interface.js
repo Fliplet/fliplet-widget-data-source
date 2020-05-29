@@ -1385,9 +1385,9 @@ $('#show-access-rules').click(function () {
   function operatorDescription(operation) {
     switch(operation) {
       case '$iLike':
-        return '=';
+        return 'equals';
       case '$ne':
-        return '!=';
+        return 'not equals';
     }
   }
 
