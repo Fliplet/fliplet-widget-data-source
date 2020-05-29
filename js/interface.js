@@ -1546,10 +1546,6 @@ $('[data-save-rule]').click(function (event) {
       return requiredFields.push(column);
     }
 
-    if (!value) {
-      return;
-    }
-
     try {
       Handlebars.compile(value)();
     } catch (err) {
