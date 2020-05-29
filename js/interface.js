@@ -1384,10 +1384,12 @@ $('#show-access-rules').click(function () {
 
   function operatorDescription(operation) {
     switch(operation) {
-      case '$iLike':
-        return 'equals';
-      case '$ne':
-        return 'not equals';
+      case 'equals':
+        return 'equals to';
+      case 'notequals':
+        return 'does not equals to';
+      case 'contains':
+        return 'contains';
     }
   }
 
@@ -1457,7 +1459,7 @@ $('#show-access-rules').click(function () {
         require: rule.require
           ? rule.require.map(function (require) {
             if (typeof require === 'string') {
-              return '<code>' + require + '</code>';
+              return '<code>' + require + ' is required</code>';
             }
 
             var field = Object.keys(require)[0];
