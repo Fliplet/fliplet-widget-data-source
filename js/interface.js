@@ -397,6 +397,7 @@ function saveCurrentData() {
   $('.data-save-updated').removeClass('hidden').html('Saving...');
   $('.name-wrapper').addClass('saved');
   var entries = table.getData();
+
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
   // This way next load will load demo data
@@ -448,6 +449,7 @@ function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
+
   // Hide nav tabs and tooltip bar
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
 
@@ -669,8 +671,10 @@ $('#app')
 
     if ($(this).hasClass('asc')) {
       $(this).removeClass('asc').addClass('desc');
+
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('updatedAt', 'desc');
+
       // Start rendering process
       renderDataSources(orderedDataSources);
       return;
@@ -679,8 +683,10 @@ $('#app')
   .on('click', '[data-order-name]', function() {
     if ($(this).hasClass('desc')) {
       $(this).removeClass('desc').addClass('asc');
+
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'asc');
+
       // Start rendering process
       renderDataSources(orderedDataSources);
       return;
@@ -688,8 +694,10 @@ $('#app')
 
     if ($(this).hasClass('asc')) {
       $(this).removeClass('asc').addClass('desc');
+
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'desc');
+
       // Start rendering process
       renderDataSources(orderedDataSources);
       return;
@@ -815,6 +823,7 @@ $('#app')
           Fliplet.Studio.emit('close-overlay');
           return;
         }
+
         // Go back
         $('[data-back]').click();
       });
@@ -981,7 +990,7 @@ $('#app')
         hooks: hooks
       })
       .then(function() {
-        // update name on ui
+        // Update name on UI
         $('.editing-data-source-name').html(name);
 
         // Return to parent widget if in overlay
@@ -989,15 +998,16 @@ $('#app')
           Fliplet.Studio.emit('close-overlay');
           return;
         }
-        // go to entries
+
+        // Go to entries
         $('[aria-controls="entries"]').click();
       });
   })
   .on('input', '.search', function() {
     // Escape search
     var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-
     var term = new RegExp(s, "i");
+
     $noResults.removeClass('show');
 
     var search = dataSourcesToSearch.filter(function(dataSource) {
@@ -1005,19 +1015,24 @@ $('#app')
     });
 
     $dataSources.html('');
+
     if (search.length === 0 && dataSources.length) {
       $noResults.addClass('show');
     }
 
     var html = [];
+
     search.forEach(function (dataSource) {
       html.push(getDataSourceRender(dataSource));
     });
+
     $dataSources.html(html.join(''));
   })
   .on('click', '#get-backdoor', function(event) {
     event.preventDefault();
+
     $(this).addClass('disabled').text('Getting code...');
+
     Fliplet.API.request('v1/data-sources/' + currentDataSourceId + '/validation-code')
       .then(function(result) {
         if (result.code) {
