@@ -1403,7 +1403,7 @@ $('#show-access-rules').click(function () {
               description = 'Read';
               break;
             case 'insert':
-              description = 'Insert';
+              description = 'Write';
               break;
             case 'update':
               description = 'Update';
