@@ -505,6 +505,18 @@ a[data-back] {
   background: #FFF;
 }
 
+#access-rules-list tr.disabled {
+  opacity: 0.5;
+}
+
+#access-rules-list tr.disabled a[data-toggle-status] {
+  color: #000;
+}
+
+a[data-toggle-status]:hover {
+  text-decoration: none;
+}
+
 td.align-baseline {
   vertical-align: baseline;
 }
