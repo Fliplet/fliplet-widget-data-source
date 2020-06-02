@@ -1611,7 +1611,7 @@ $('body').on('click', '[data-toggle-status]', function (event) {
 
   // Briefly show a UI feedback as the rule enables/disables
   $(this).find('i')
-    .addClass('fa-spinner fa-animated fa-pulse')
+    .addClass('fa-spinner fa-pulse')
     .removeClass('fa-toggle-on fa-toggle-off');
 
   updateDataSourceRules();
