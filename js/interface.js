@@ -1384,6 +1384,11 @@ $('#show-access-rules').click(function () {
     currentDataSourceRules = defaultAccessRules;
   }
 
+  currentDataSourceRules.forEach(function (rule) {
+    // Rules are enabled by default
+    rule.enabled = rule.enabled === false ? false : true;
+  });
+
   $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
   $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
 
@@ -1410,6 +1415,7 @@ $('#show-access-rules').click(function () {
 
       $tbody.append(tpl({
         index: index,
+        enabled: rule.enabled,
         type: rule.type.map(function (type) {
           var description;
 
@@ -1592,6 +1598,22 @@ $('body').on('click', '[data-rule-delete]', function (event) {
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
   currentDataSourceRules.splice(index, 1);
+  updateDataSourceRules();
+});
+
+$('body').on('click', '[data-toggle-status]', function (event) {
+  event.preventDefault();
+
+  var index = parseInt($(this).closest('tr').data('rule-index'), 10);
+  var rule = currentDataSourceRules[index];
+
+  rule.enabled = !rule.enabled;
+
+  // Briefly show a UI feedback as the rule enables/disables
+  $(this).find('i')
+    .addClass('fa-spinner fa-pulse')
+    .removeClass('fa-toggle-on fa-toggle-off');
+
   updateDataSourceRules();
 });
 
