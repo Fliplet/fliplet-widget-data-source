@@ -1633,14 +1633,12 @@ $('body').on('click', '[data-rule-edit]', function (event) {
 });
 
 function updateDataSourceRules() {
-  $initialSpinnerLoading.addClass('animated');
 
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function () {
     // Refresh UI
     $('#show-access-rules').click();
-    $initialSpinnerLoading.removeClass('animated');
   });
 }
 
