@@ -9,13 +9,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
 },"5":function(container,depth0,helpers,partials,data) {
     return "          <input class=\"switch-input\" type=\"checkbox\" checked />\n          <label class=\"toggle\"></label>\n          <label class=\"switch-label\">Enabled</label>\n";
 },"7":function(container,depth0,helpers,partials,data) {
-    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
-
-  return "          <input class=\"switch-input\" type=\"checkbox\" />\n          <label class=\"toggle\" for=\"toggle-"
-    + alias4(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
-    + "\"></label>\n          <label class=\"switch-label\" for=\"toggle-"
-    + alias4(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
-    + "\">Disabled</label>\n";
+    return "          <input class=\"switch-input\" type=\"checkbox\" />\n          <label class=\"toggle\"></label>\n          <label class=\"switch-label\">Disabled</label>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
