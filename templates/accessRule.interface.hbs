@@ -1,11 +1,17 @@
 <tr data-rule-index="{{index}}" class="{{#if enabled}}enabled{{else}}disabled{{/if}}">
   <td class="align-baseline">
     <a href="#" data-toggle-status>
-      {{#if enabled}}
-        <i class="fa fa-toggle-on"></i> Enabled
-      {{else}}
-        <i class="fa fa-toggle-off"></i> Disabled
-      {{/if}}
+        <div class="toggle-switch toggle-switch-sm">
+        {{#if enabled}}
+          <input class="switch-input" type="checkbox" checked />
+          <label class="toggle"></label>
+          <label class="switch-label">Enabled</label>
+        {{else}}
+          <input class="switch-input" type="checkbox" />
+          <label class="toggle" for="toggle-{{index}}"></label>
+          <label class="switch-label" for="toggle-{{index}}">Disabled</label>
+        {{/if}}
+        </div>
     </a>
   </td>
   <td class="align-baseline">{{{allow}}}</td>
