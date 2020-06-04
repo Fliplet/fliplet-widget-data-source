@@ -1553,6 +1553,17 @@ $('[data-save-rule]').click(function (event) {
       return;
     }
 
+    // Ensure multiple fields for the same column name are skipped
+    if (_.find(requiredFields, function (field) {
+      if (typeof field === 'string') {
+        return field === column;
+      }
+
+      return Object.keys(field)[0] === column;
+    })) {
+      return;
+    }
+
     if (operationType === 'required') {
       return requiredFields.push(column);
     }
