@@ -37,7 +37,11 @@ var defaultAccessRules = [
   { type: ['delete'], allow: 'all' }
 ];
 
-var getApps = Fliplet.Apps.get();
+var getApps = Fliplet.Apps.get().then(function (apps) {
+  return _.sortBy(apps, function (app) {
+    return app.name.toLowerCase();
+  });
+});
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
@@ -1197,6 +1201,7 @@ $('#add-rule').click(function (event) {
 
   var $modal = $('#configure-rule');
   $modal.find('.modal-title').text('Add new security rule');
+  $modal.find('[data-save-rule]').text('Add rule');
 
   configureAddRuleUI();
 
@@ -1600,6 +1605,11 @@ $('[data-save-rule]').click(function (event) {
     currentDataSourceRuleIndex = undefined;
   }
 
+  markDataSourceRulesUIWithChanges();
+});
+
+$('body').on('click', '#save-rules', function (event) {
+  event.preventDefault();
   updateDataSourceRules();
 });
 
@@ -1609,7 +1619,7 @@ $('body').on('click', '[data-rule-delete]', function (event) {
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
   currentDataSourceRules.splice(index, 1);
-  updateDataSourceRules();
+  markDataSourceRulesUIWithChanges();
 });
 
 $('body').on('click', '[data-toggle-status]', function (event) {
@@ -1625,7 +1635,7 @@ $('body').on('click', '[data-toggle-status]', function (event) {
     .addClass('fa-spinner fa-pulse')
     .removeClass('fa-toggle-on fa-toggle-off');
 
-  updateDataSourceRules();
+  markDataSourceRulesUIWithChanges();
 });
 
 $('body').on('click', '[data-rule-edit]', function (event) {
@@ -1637,19 +1647,29 @@ $('body').on('click', '[data-rule-edit]', function (event) {
   var $modal = $('#configure-rule');
 
   $modal.find('.modal-title').text('Edit security rule');
+  $modal.find('[data-save-rule]').text('Confirm');
 
   configureAddRuleUI(rule);
 
   $modal.modal();
 });
 
+function markDataSourceRulesUIWithChanges() {
+  $('#save-rules').removeClass('hidden');
+
+  // Refresh UI
+  $('#show-access-rules').click();
+}
+
 function updateDataSourceRules() {
+  $('#save-rules').addClass('hidden');
 
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function () {
-    // Refresh UI
-    $('#show-access-rules').click();
+    Fliplet.Modal.alert({
+      message: 'Your changes have been applied to all affected apps.'
+    });
   });
 }
 

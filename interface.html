@@ -219,6 +219,7 @@
             <div role="tabpanel" class="tab-pane" id="access-rules">
               <br />
               <a href="#" id="add-rule" class="btn btn-primary">Add new rule</a>
+              <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
               <br />
               <br />
               <div id="access-rules-list">
@@ -231,7 +232,7 @@
                     <th>Status</th>
                     <th>Allow</th>
                     <th>Users can</th>
-                    <th>Data requires</th>
+                    <th>Request data requirements</th>
                     <th>Applies to</th>
                     <th>Actions</th>
                   </thead>
@@ -322,7 +323,7 @@
           <hr />
           <div class="row">
             <div class="col-md-4">
-              <h5>Data requires</h5>
+              <h5>Request data requirements</h5>
               <p>Specify rules that data must follow.</p>
             </div>
             <div class="col-md-8 side vertical">
@@ -333,8 +334,7 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button data-save-rule type="button" class="btn btn-primary" disabled>Save & Apply</button>
-        <p>Please note that your rule will be immediately applied to all affected apps.</p>
+        <button data-save-rule type="button" class="btn btn-primary" disabled>Confirm</button>
       </div>
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
