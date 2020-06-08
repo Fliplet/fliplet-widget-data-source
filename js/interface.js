@@ -37,7 +37,9 @@ var defaultAccessRules = [
   { type: ['delete'], allow: 'all' }
 ];
 
-var getApps = Fliplet.Apps.get();
+var getApps = Fliplet.Apps.get().then(function (apps) {
+  return _.sortBy(apps, 'name');
+});
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var data = Fliplet.Widget.getData(widgetId) || {};
