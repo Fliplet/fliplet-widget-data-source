@@ -38,7 +38,9 @@ var defaultAccessRules = [
 ];
 
 var getApps = Fliplet.Apps.get().then(function (apps) {
-  return _.sortBy(apps, 'name');
+  return _.sortBy(apps, function (app) {
+    return app.name.toLowerCase();
+  });
 });
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
