@@ -1664,6 +1664,10 @@ function updateDataSourceRules() {
 
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
+  }).then(function () {
+    Fliplet.Modal.alert({
+      message: 'Your changes have been applied to all affected apps.'
+    });
   });
 }
 
