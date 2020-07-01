@@ -1235,8 +1235,6 @@ function configureAddRuleUI(rule) {
   $('button.selected').removeClass('selected');
   $('input[name="type"]').removeAttr('checked');
 
-  $('input[name="exclude"]').val(rule.exclude ? rule.exclude.join(',') : '');
-
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
       source: _.compact(columns) || [],
@@ -1244,6 +1242,8 @@ function configureAddRuleUI(rule) {
     },
     showAutocompleteOnFocus: true
   });
+
+  $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
