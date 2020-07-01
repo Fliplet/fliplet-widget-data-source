@@ -632,8 +632,12 @@ td.align-baseline {
   width: 100%;
 }
 
+.token-input {
+  width: 300px !important; /* overwrite value from autocomplete */
+}
+
 .ui-autocomplete {
-  z-index: 9999;
+  z-index: 9999; /* goes above modal */
 }
 
 @media (min-width: 640px) {

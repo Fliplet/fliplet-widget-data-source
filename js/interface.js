@@ -1194,11 +1194,7 @@ $('#add-rule').click(function (event) {
   $modal.find('[data-save-rule]').text('Add rule');
 
   configureAddRuleUI();
-
-  $modal.modal();
-
-  // Refresh UI elements size (e.g. typeahead placeholder)
-  $(window).resize();
+  showModal($modal);
 });
 
 $('input[name="exclude"]').on('tokenfield:createtoken', function (event) {
@@ -1240,6 +1236,14 @@ function configureAddRuleUI(rule) {
   $('input[name="type"]').removeAttr('checked');
 
   $('input[name="exclude"]').val(rule.exclude ? rule.exclude.join(',') : '');
+
+  $('input[name="exclude"]').tokenfield({
+    autocomplete: {
+      source: _.compact(columns) || [],
+      delay: 100
+    },
+    showAutocompleteOnFocus: true
+  });
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
@@ -1666,12 +1670,12 @@ $('body').on('click', '[data-rule-edit]', function (event) {
   $modal.find('[data-save-rule]').text('Confirm');
 
   configureAddRuleUI(rule);
-
-  $modal.modal();
-
-  // Refresh UI elements size (e.g. typeahead placeholder)
-  $(window).resize();
+  showModal($modal);
 });
+
+function showModal($modal) {
+  $modal.modal();
+}
 
 function markDataSourceRulesUIWithChanges() {
   $('#save-rules').removeClass('hidden');
