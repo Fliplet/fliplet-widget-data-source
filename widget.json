@@ -38,6 +38,7 @@
       "js/spreadsheet.js",
       "js/interface.js",
 
+      "vendor/jquery-ui.min.css",
       "vendor/tinymce-fonts.css",
       "vendor/overlay.css",
       "vendor/bootstrap-tokenfield.min.css",
