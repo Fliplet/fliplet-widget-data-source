@@ -622,6 +622,16 @@ td.align-baseline {
   width: 100%;
 }
 
+.tokenfield-ui {
+  width: 60%;
+}
+
+.tokenfield {
+  border-radius: 6px;
+  padding: 13px 10px 7px;
+  width: 100%;
+}
+
 @media (min-width: 640px) {
   .modal-dialog {
     width: 880px;

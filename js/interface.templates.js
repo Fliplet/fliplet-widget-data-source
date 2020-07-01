@@ -26,6 +26,8 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
     + "</td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
+    + ((stack1 = ((helper = (helper = helpers.exclude || (depth0 != null ? depth0.exclude : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"exclude","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + "</td>\r\n  <td class=\"align-baseline\">"
     + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
     + "</td>\r\n  <td class=\"align-baseline\">\r\n    <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n    <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n  </td>\r\n</tr>";
 },"useData":true});

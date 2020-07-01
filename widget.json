@@ -10,6 +10,7 @@
       "handlebars",
       "lodash",
       "jquery",
+      "jquery-ui",
       "bootstrap",
       "tinymce",
       "codemirror",
@@ -31,11 +32,17 @@
       "vendor/fonts/tinymce.ttf",
       "vendor/fonts/tinymce.woff",
       "vendor/overlay.js",
+      "vendor/bootstrap-tokenfield.min.js",
+
       "js/undo-redo.js",
       "js/spreadsheet.js",
       "js/interface.js",
+
       "vendor/tinymce-fonts.css",
       "vendor/overlay.css",
+      "vendor/bootstrap-tokenfield.min.css",
+      "vendor/tokenfield-typeahead.min.css",
+
       "css/interface.css",
       "css/buttons.css",
       "js/interface.templates.js"
