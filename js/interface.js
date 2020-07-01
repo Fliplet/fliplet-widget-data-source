@@ -29,12 +29,10 @@ var allDataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
+var columns;
 
 var defaultAccessRules = [
-  { type: ['select'], allow: 'all' },
-  { type: ['insert'], allow: 'all' },
-  { type: ['update'], allow: 'all' },
-  { type: ['delete'], allow: 'all' }
+  { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
 ];
 
 var getApps = Fliplet.Apps.get().then(function (apps) {
@@ -65,14 +63,6 @@ function getDataSources() {
   $('[data-save]').addClass('hidden');
   $('.search').val(''); // Reset search
   $('#search-field').val(''); // Reset filter
-
-  // COMMENTED BECASUE WE SHOULD ALWAYS UPDATE THE LIST OF DATA SOURCES
-  // If we already have data sources no need to go further.
-  /*if (dataSources) {
-    $initialSpinnerLoading.removeClass('animated');
-    $contents.removeClass('hidden');
-    return;
-  }*/
 
   return Fliplet.DataSources.get({
     roles: 'publisher,editor',
@@ -223,7 +213,7 @@ function fetchCurrentDataSourceUsers() {
 }
 
 function fetchCurrentDataSourceEntries(entries) {
-  var columns;
+  columns;
 
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
       currentDataSource = source;
@@ -1204,8 +1194,17 @@ $('#add-rule').click(function (event) {
   $modal.find('[data-save-rule]').text('Add rule');
 
   configureAddRuleUI();
+  showModal($modal);
+});
 
-  $modal.modal();
+$('input[name="exclude"]').on('tokenfield:createtoken', function (event) {
+  var existingTokens = $(this).tokenfield('getTokens');
+
+	$.each(existingTokens, function(index, token) {
+		if (token.value === event.attrs.value) {
+      event.preventDefault();
+    }
+	});
 });
 
 $('body').on('click', '[data-remove-field]', function (event) {
@@ -1235,6 +1234,16 @@ function configureAddRuleUI(rule) {
   $('.users-filter').addClass('hidden').find('.filters').html('');
   $('button.selected').removeClass('selected');
   $('input[name="type"]').removeAttr('checked');
+
+  $('input[name="exclude"]').val(rule.exclude ? rule.exclude.join(',') : '');
+
+  $('input[name="exclude"]').tokenfield({
+    autocomplete: {
+      source: _.compact(columns) || [],
+      delay: 100
+    },
+    showAutocompleteOnFocus: true
+  });
 
   rule.type.forEach(function (type) {
     $('input[name="type"][value="' + type + '"]').attr('checked', true);
@@ -1464,6 +1473,11 @@ $('#show-access-rules').click(function () {
               return 'All users';
           }
         })(),
+        exclude: rule.exclude
+        ? rule.exclude.map(function (exclude) {
+          return '<code>' + exclude + '</code>';
+        }).join('<br />')
+        : '—',
         apps: rule.appId
           ? _.compact(rule.appId.map(function (appId) {
             var app = _.find(apps, { id: appId });
@@ -1592,6 +1606,12 @@ $('[data-save-rule]').click(function (event) {
     rule.require = requiredFields;
   }
 
+  var exclude = _.compact($('input[name="exclude"]').val().split(','));
+
+  if (exclude.length) {
+    rule.exclude = exclude;
+  }
+
   if (error) {
     return Fliplet.Modal.alert({ message: error });
   }
@@ -1650,9 +1670,12 @@ $('body').on('click', '[data-rule-edit]', function (event) {
   $modal.find('[data-save-rule]').text('Confirm');
 
   configureAddRuleUI(rule);
-
-  $modal.modal();
+  showModal($modal);
 });
+
+function showModal($modal) {
+  $modal.modal();
+}
 
 function markDataSourceRulesUIWithChanges() {
   $('#save-rules').removeClass('hidden');

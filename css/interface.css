@@ -622,6 +622,24 @@ td.align-baseline {
   width: 100%;
 }
 
+.tokenfield-ui {
+  width: 60%;
+}
+
+.tokenfield {
+  border-radius: 6px;
+  padding: 13px 10px 7px;
+  width: 100%;
+}
+
+.token-input {
+  width: 300px !important; /* overwrite value from autocomplete */
+}
+
+.ui-autocomplete {
+  z-index: 9999; /* goes above modal */
+}
+
 @media (min-width: 640px) {
   .modal-dialog {
     width: 880px;
