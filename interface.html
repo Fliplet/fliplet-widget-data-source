@@ -218,7 +218,18 @@
             </div>
             <div role="tabpanel" class="tab-pane" id="access-rules">
               <br />
-              <a href="#" id="add-rule" class="btn btn-primary">Add new rule</a>
+              <div class="dropdown">
+                <button class="btn btn-default dropdown-toggle" type="button" id="add-rules-dropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                  Add new rule
+                  <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu preconfigured-rules" aria-labelledby="add-rules-dropdown">
+                  <li><a href="#" id="add-rule">Create my own rule</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li class="dropdown-header">Pre-configured rules</li>
+                </ul>
+              </div>
+
               <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
               <br />
               <br />

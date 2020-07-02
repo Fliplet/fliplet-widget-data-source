@@ -505,8 +505,16 @@ a[data-back] {
   background: #FFF;
 }
 
+#access-rules-list tr {
+  transition: background-color 0.3s;
+}
+
 #access-rules-list tr.disabled {
   opacity: 0.5;
+}
+
+#access-rules-list tr.added {
+  background-color: #FFEC84;
 }
 
 #access-rules-list tr.disabled a[data-toggle-status] {
@@ -615,6 +623,10 @@ td.align-baseline {
 
 .required-field .select-proxy-display select {
   top: 0;
+}
+
+.dropdown {
+  display: inline-block;
 }
 
 .users-filter {

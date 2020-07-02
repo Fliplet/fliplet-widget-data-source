@@ -14,6 +14,7 @@ var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 
 var organizationId = Fliplet.Env.get('organizationId');
+var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
 var currentDataSourceDefinition;
@@ -1195,6 +1196,33 @@ $('#add-rule').click(function (event) {
 
   configureAddRuleUI();
   showModal($modal);
+});
+
+preconfiguredRules.forEach(function (rule, idx) {
+  $('.preconfigured-rules').append('<li><a href="#" data-preconfigured="' + idx + '">' + rule.name + '</a></li>');
+});
+
+$('body').on('click', '[data-preconfigured]', function (event) {
+  event.preventDefault();
+
+  var idx = parseInt($(this).data('preconfigured'), 10);
+  var rule = preconfiguredRules[idx];
+
+  rule.rules.forEach(function (newRule) {
+    currentDataSourceRules.push(newRule);
+  });
+
+  markDataSourceRulesUIWithChanges();
+
+  setTimeout(function () {
+    var $rule = $('#access-rules-list tbody tr:last-child');
+    $rule.addClass('added');
+
+    setTimeout(function () {
+      $rule.removeClass('added');
+      $rule.find('[data-rule-edit]').click();
+    }, 500);
+  }, 100);
 });
 
 $('input[name="exclude"]').on('tokenfield:createtoken', function (event) {
