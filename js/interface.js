@@ -1220,7 +1220,8 @@ $('body').on('click', '[data-preconfigured]', function (event) {
 
     setTimeout(function () {
       $rule.removeClass('added');
-    }, 2000);
+      $rule.find('[data-rule-edit]').click();
+    }, 500);
   }, 100);
 });
 

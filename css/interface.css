@@ -506,7 +506,7 @@ a[data-back] {
 }
 
 #access-rules-list tr {
-  transition: background-color 0.7s;
+  transition: background-color 0.3s;
 }
 
 #access-rules-list tr.disabled {
