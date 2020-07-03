@@ -471,19 +471,24 @@ function browseDataSource(id) {
 
     if (copyData.context === 'overlay') {
       Fliplet.DataSources.get({
-          roles: 'publisher,editor',
-          type: null
-        }, {
-          cache: false
-        })
-        .then(function(updatedDataSources) {
-          var html = [];
-          dataSources = updatedDataSources;
-          dataSources.forEach(function (dataSource) {
-            html.push(getDataSourceRender(dataSource));
-          });
-          $dataSources.html(html.join(''));
+        roles: 'publisher,editor',
+        type: null
+      }, {
+        cache: false
+      })
+      .then(function(updatedDataSources) {
+        var html = [];
+        dataSources = updatedDataSources;
+        dataSources.forEach(function (dataSource) {
+          html.push(getDataSourceRender(dataSource));
         });
+        $dataSources.html(html.join(''));
+
+        // Show security rules
+        if (copyData.view === 'access-rules') {
+          $('#show-access-rules').click();
+        }
+      });
     }
   })
   .catch(function() {
@@ -1718,6 +1723,12 @@ function updateDataSourceRules() {
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function () {
+    // Return to parent widget if in overlay
+    if (copyData.context === 'overlay') {
+      Fliplet.Studio.emit('close-overlay');
+      return;
+    }
+
     Fliplet.Modal.alert({
       message: 'Your changes have been applied to all affected apps.'
     });
