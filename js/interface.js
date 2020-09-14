@@ -620,14 +620,7 @@ function sortDataSources(key, order) {
 }
 
 Handlebars.registerHelper('momentCalendar', function(date) {
-  return moment(date).calendar(null, {
-    sameDay: '[Today at] h:mm A',
-    nextDay: '[Tomorrow at ] h:mm A',
-    nextWeek: 'dddd [at] h:mm A',
-    lastDay: '[Yesterday at] h:mm A',
-    lastWeek: '[Last] dddd [at] h:mm A',
-    sameElse: 'MMMM Do YYYY'
-  });
+  return moment(date).format(moment.localeData().longDateFormat('lll'));
 });
 
 // Events

@@ -2,6 +2,7 @@
     <td class="data-source-id">{{id}}</td>
     <td class="data-source-name"><span class="data-source-text" data-browse-source>{{name}}</span></td>
     <td class="data-source-apps">{{#each apps}} {{name}} {{#unless @last}},{{/unless}} {{/each}}</td>
+    <td>{{#if bundle}}<i class="fa fa-check"></i>{{/if}}</td>
     <td class="data-source-apps">{{momentCalendar updatedAt}}</td>
     <td class="data-source-edit text-right"><button class="btn btn-default" data-browse-source>Edit</button></td>
 </tr>
