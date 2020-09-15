@@ -657,3 +657,7 @@ td.align-baseline {
     width: 880px;
   }
 }
+
+td.data-source-apps {
+  min-width: 200px;
+}
