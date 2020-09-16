@@ -12,6 +12,38 @@ body {
   cursor: default;
 }
 
+.btn-round,
+.input-round {
+  border-radius: 20px;
+  outline: none !important;
+}
+
+.btn-round[data-show-alive-source], .btn-round[data-show-trash-source] {
+  padding: 0px 20px 0px;
+}
+
+.active-source {
+  background-color: #36344c;
+  color: white;
+}
+
+.active-source:hover, .active-source:focus {
+  color: white;
+}
+
+.spaced {
+  margin: 0px 10px 0px;
+}
+
+.dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+.remove-item {
+  color: #d9534f !important;
+}
+
 #app,
 #contents {
   height: 100%;
@@ -290,6 +322,11 @@ a[data-back] {
 
 #toolbar .filter-form.expanded {
   width: 100%;
+}
+
+.flex {
+  display: flex;
+  justify-content: space-between;
 }
 
 #toolbar .filter-form .form-control {
