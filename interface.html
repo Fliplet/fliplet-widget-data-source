@@ -12,12 +12,14 @@
         <div id="contents" class="hidden">
           <div class="row">
             <div class="col-sm-8">
-              <button data-create-source class="btn btn-primary">Create new data source</button>
-              <button data-show-all-source class="btn btn-secondary hidden">Show all data sources</button>
-              <button data-app-source class="btn btn-secondary hidden">Show app's data sources</button>
+              <button data-create-source class="btn-round btn btn-primary">Create new data source</button>
+              <button data-show-all-source class="btn-round btn btn-secondary hidden">Show all data sources</button>
+              <button data-app-source class="btn-round btn btn-secondary hidden">Show app's data sources</button>
             </div>
-            <div class="col-sm-4">
-              <input class="search pull-right form-control" type="search" placeholder="Search data sources" />
+            <div class="flex col-sm-4">
+              <button data-show-alive-source class="active-source btn-round btn">All</button>
+              <button data-show-trash-source class="btn-round spaced btn">Trash</button>
+              <input class="search input-round pull-right form-control" type="search" placeholder="Search data sources" />
             </div>
           </div>
           <table class="table-hover" id="data-sources">

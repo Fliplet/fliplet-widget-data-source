@@ -595,6 +595,36 @@ function activateFind() {
   }
 }
 
+function removeItem(id) {
+  Fliplet.Modal.confirm({
+    message: 'Are you sure you want to delete this data source? All entries will be deleted.',
+  })
+  .then(function(confirmAlert) {
+    if (confirmAlert) {
+      Fliplet.DataSources.delete(id).then(function() {
+        // Remove from UI
+        $('.data-source[data-id="' + id + '"]').remove();
+
+        // Remove from dataSources
+        dataSources = dataSources.filter(function(ds) {
+          return ds.id !== id;
+        });
+
+        renderDataSources(dataSources);
+
+        // Return to parent widget if in overlay
+        if (copyData.context === 'overlay') {
+          Fliplet.Studio.emit('close-overlay');
+          return;
+        }
+        // Go back
+        $('[data-back]').click();
+      });
+    }
+    currentDataSourceId = 0;
+  })
+}
+
 function sortDataSources(key, order) {
   var toBeOrderedDataSources = dataSources;
 
@@ -741,6 +771,14 @@ $('#app')
       getDataSources();
     }
   })
+  .on('click', '[data-show-alive-source]', function() {
+    $('[data-show-alive-source]').addClass('active-source');
+    $('[data-show-trash-source]').removeClass('active-source');
+  })
+  .on('click', '[data-show-trash-source]', function() {
+    $('[data-show-trash-source]').addClass('active-source');
+    $('[data-show-alive-source]').removeClass('active-source');
+  })
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
@@ -821,6 +859,8 @@ $('#app')
         $('[data-back]').click();
       });
     });
+    currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
+    removeItem(currentDataSourceId);
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
