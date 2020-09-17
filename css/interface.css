@@ -20,7 +20,8 @@ body {
 
 .btn-round[data-show-alive-source],
 .btn-round[data-show-trash-source] {
-  padding: 0px 20px 0px;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .active-source {
@@ -34,7 +35,8 @@ body {
 }
 
 .spaced {
-  margin: 0px 10px 0px;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .dropdown-menu {
