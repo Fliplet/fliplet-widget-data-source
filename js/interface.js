@@ -817,48 +817,6 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    var usedAppsText = '';
-
-    var currentDS = _.find(dataSources, function(ds) {
-      return ds.id === currentDataSourceId;
-    });
-
-    if (currentDS && currentDS.apps && currentDS.apps.length) {
-      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
-      var appUsedIn = currentDS.apps.map(function(elem) {
-        return elem.name;
-      });
-      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + appUsedIn.join(', ') + '. ';
-    }
-
-    var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
-
-    Fliplet.Modal.confirm({
-      message: message
-    }).then(function(result) {
-      if (!result) {
-        return;
-      }
-
-      Fliplet.DataSources.delete(currentDataSourceId).then(function() {
-        // Remove from UI
-        $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
-
-        // Remove from dataSources
-        dataSources = dataSources.filter(function(ds) {
-          return ds.id !== currentDataSourceId;
-        });
-
-        // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
-          Fliplet.Studio.emit('close-overlay');
-          return;
-        }
-
-        // Go back
-        $('[data-back]').click();
-      });
-    });
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
     removeItem(currentDataSourceId);
   })
