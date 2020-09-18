@@ -632,8 +632,7 @@ function restoreItem(id) {
 
 function removeTrashItem(id, name) {
   Fliplet.Modal.prompt({
-    title: 'Delete data source',
-    placeholder: 'Enter the data source "' + name + '" to confirm.',
+    title: '<p>Delete data source</p><br/><span>Enter the data source name <code>' + name + '</code> to confirm.</span>',
     value: '',
     maxlength: 255
   }).then(function (result) {
