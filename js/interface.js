@@ -625,7 +625,6 @@ function restoreItem(id) {
     method: 'POST'
   }).then(function() {
     $('.data-source[data-id="' + id + '"]').addClass('restore-disabled');
-    console.log($('.data-source[data-id="' + id + '"] button'));
     $('.data-source[data-id="' + id + '"] button').addClass('disabled');
   })
 }
