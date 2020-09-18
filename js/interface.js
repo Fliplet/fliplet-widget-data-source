@@ -619,6 +619,17 @@ function activateFind() {
   }
 }
 
+function restoreItem(id) {
+  Fliplet.API.request({
+    url: 'v1/data-sources/' + id + '/restore',
+    method: 'POST'
+  }).then(function() {
+    $('.data-source[data-id="' + id + '"]').addClass('restore-disabled');
+    console.log($('.data-source[data-id="' + id + '"] button'));
+    $('.data-source[data-id="' + id + '"] button').addClass('disabled');
+  })
+}
+
 function removeTrashItem(id, name) {
   Fliplet.Modal.prompt({
     title: 'Delete data source',
@@ -933,6 +944,11 @@ $('#app')
     event.preventDefault();
     currentDataSourceId = $(this).closest('.data-source').data('id');
     browseDataSource(currentDataSourceId);
+  })
+  .on('click', '[data-restore-source]', function(event) {
+    event.preventDefault();
+    currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
+    restoreItem(currentDataSourceId);
   })
   .on('click', '[data-remove-source]', function(event) {
     event.preventDefault();

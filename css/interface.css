@@ -12,6 +12,10 @@ body {
   cursor: default;
 }
 
+.restore-disabled {
+  opacity: 0.3;
+}
+
 .btn-round,
 .input-round {
   border-radius: 20px;
