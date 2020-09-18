@@ -756,8 +756,9 @@ window.addEventListener('message', function(event){
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
-    if ($(this).hasClass('desc')) {
-      $(this).removeClass('desc').addClass('asc');
+    var item = $(this);
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('updatedAt', 'asc', dataSources);
       // Start rendering process
@@ -765,8 +766,8 @@ $('#app')
       return;
     }
 
-    if ($(this).hasClass('asc')) {
-      $(this).removeClass('asc').addClass('desc');
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
@@ -777,8 +778,9 @@ $('#app')
     }
   })
   .on('click', '[data-trash-date]', function() {
-    if ($(this).hasClass('desc')) {
-      $(this).removeClass('desc').addClass('asc');
+    var item = $(this);
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
       // Start rendering process
@@ -786,8 +788,8 @@ $('#app')
       return;
     }
 
-    if ($(this).hasClass('asc')) {
-      $(this).removeClass('asc').addClass('desc');
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
@@ -798,8 +800,9 @@ $('#app')
     }
   })
   .on('click', '[data-order-name]', function() {
-    if ($(this).hasClass('desc')) {
-      $(this).removeClass('desc').addClass('asc');
+    var item = $(this);
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'asc', dataSources);
@@ -809,20 +812,21 @@ $('#app')
       return;
     }
 
-    if ($(this).hasClass('asc')) {
-      $(this).removeClass('asc').addClass('desc');
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'desc', dataSources);
 
       // Start rendering process
-      renderTrashSources(orderedDataSources);
+      renderDataSources(orderedDataSources);
       return;
     }
   })
   .on('click', '[data-trash-name]', function() {
-    if ($(this).hasClass('desc')) {
-      $(this).removeClass('desc').addClass('asc');
+    var item = $(this);
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'asc', trashSources);
@@ -832,8 +836,8 @@ $('#app')
       return;
     }
 
-    if ($(this).hasClass('asc')) {
-      $(this).removeClass('asc').addClass('desc');
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('name', 'desc', trashSources);
