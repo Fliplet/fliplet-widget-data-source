@@ -72,30 +72,39 @@ body {
   padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
 }
 
-#data-sources {
+#data-sources,
+#trash-sources {
   margin-top: 20px;
 }
 
-#data-sources th {
+#data-sources th,
+#trash-sources th {
   border: none;
 }
 
 #data-sources th.desc,
-#data-sources th.asc {
+#data-sources th.asc,
+#trash-sources th.desc,
+#trash-sources th.asc {
   cursor: pointer;
 }
 
 #data-sources th.desc .fa-sort-amount-asc,
-#data-sources th.asc .fa-sort-amount-desc {
+#data-sources th.asc .fa-sort-amount-desc,
+#trash-sources th.desc .fa-sort-amount-asc,
+#trash-sources th.asc .fa-sort-amount-desc {
   display: none;
 }
 
 #data-sources th.desc .fa-sort-amount-desc,
-#data-sources th.asc .fa-sort-amount-asc {
+#data-sources th.asc .fa-sort-amount-asc,
+#trash-sources th.desc .fa-sort-amount-desc,
+#trash-sources th.asd .fa-sort-amount-asc {
   display: inline-block;
 }
 
-#data-sources td {
+#data-sources td,
+#trash-sources td {
   border-left: none;
   border-right: none;
   border-bottom: none;
