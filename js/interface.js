@@ -627,6 +627,7 @@ function restoreItem(id) {
     $('.data-source[data-id="' + id + '"]').addClass('restore-disabled');
     $('.data-source[data-id="' + id + '"] button').addClass('disabled');
   })
+  currentDataSourceId = 0;
 }
 
 function removeTrashItem(id, name) {
