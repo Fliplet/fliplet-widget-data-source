@@ -657,7 +657,7 @@ td.align-baseline {
 
 .modal-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .modal-footer p {

@@ -619,13 +619,29 @@ function activateFind() {
   }
 }
 
-function restoreItem(id) {
+function restoreItem(id, name) {
   Fliplet.API.request({
     url: 'v1/data-sources/' + id + '/restore',
     method: 'POST'
   }).then(function() {
-    $('.data-source[data-id="' + id + '"]').addClass('restore-disabled');
-    $('.data-source[data-id="' + id + '"] button').addClass('disabled');
+    $('.data-source[data-id="' + id + '"]').remove();
+
+    trashSources = trashSources.filter(function(ds) {
+      return ds.id !== id;
+    });
+
+    Fliplet.Modal.alert({
+      title: 'Restore complete',
+      message: '"' + name + '" restored',
+    });
+
+    renderTrashSources(trashSources);
+  })
+  .catch(function (error) {
+    Fliplet.Modal.alert({
+      title: 'Restore failed',
+      message: Fliplet.parseError(error),
+    });
   })
   currentDataSourceId = 0;
 }
@@ -633,14 +649,23 @@ function restoreItem(id) {
 function removeTrashItem(id, name) {
   Fliplet.Modal.prompt({
     title: '<p>Delete data source</p><br/><span>Enter the data source name <code>' + name + '</code> to confirm.</span>',
-    value: '',
-    maxlength: 255
+    value: null,
+    maxlength: 255,
+    buttons: {
+      confirm: {
+        label: 'Delete data source',
+        className: 'btn-danger'
+      },
+      cancel: {
+        label: 'Cancel',
+        className: 'btn-default'
+      }
+    }
   }).then(function (result) {
     if (result === null) {
       return;
     }
-    var confirTrash = result.trim();
-    if(confirTrash === name) {
+    if(result === name) {
       Fliplet.API.request({
         url: 'v1/data-sources/deleted/' + id,
         method: 'DELETE'
@@ -655,12 +680,30 @@ function removeTrashItem(id, name) {
 
         renderTrashSources(trashSources);
 
+        Fliplet.Modal.alert({
+          title: 'Deletion complete',
+          message: 'Item deleted permanently.',
+        });
+
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
           return;
         }
+      })
+      .catch(function(error) {
+        Fliplet.Modal.alert({
+          title: 'Deletion failed',
+          message: Fliplet.parseError(error),
+        });
       });
+    } else {
+      Fliplet.Modal.alert({
+        title: 'Deletion failed',
+        message: 'Data source name is incorrect',
+      }).then(function () {
+        removeTrashItem(id, name);
+      })
     }
     currentDataSourceId = 0;
   })
@@ -780,7 +823,7 @@ $('#app')
     var item = $(this);
     if (item.hasClass('desc')) {
       item.removeClass('desc').addClass('asc');
-      // Order data sources by updatedAt
+      // Order data sources by deletedAt
       var orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
       // Start rendering process
       renderTrashSources(orderedDataSources);
@@ -790,9 +833,8 @@ $('#app')
     if (item.hasClass('asc')) {
       item.removeClass('asc').addClass('desc');
 
-      // Order data sources by updatedAt
+      // Order data sources by deletedAt
       var orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
-
       // Start rendering process
       renderTrashSources(orderedDataSources);
       return;
@@ -847,20 +889,29 @@ $('#app')
     }
   })
   .on('click', '[data-show-all-source]', function() {
-    isShowingAll = true;
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
-    var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-    dataSourcesToSearch = orderedDataSources;
-    renderDataSources(orderedDataSources);
+    if($('[data-show-trash-source]').hasClass('active-source')) {
+      isShowingAll = false;
+      $('[data-show-trash-source]').click();
+    } else {
+      isShowingAll = true;
+      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+      dataSourcesToSearch = orderedDataSources;
+      renderDataSources(orderedDataSources);
+    }
   })
   .on('click', '[data-app-source]', function() {
     isShowingAll = false;
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
-    var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-    dataSourcesToSearch = orderedDataSources;
-    renderDataSources(orderedDataSources);
+    if($('[data-show-trash-source]').hasClass('active-source')) {
+      $('[data-show-trash-source]').click();
+    } else {
+      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+      dataSourcesToSearch = orderedDataSources;
+      renderDataSources(orderedDataSources);
+    }
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
@@ -904,13 +955,35 @@ $('#app')
     currentDataSourceId = 0;
     $initialSpinnerLoading.addClass('animated');
 
-    Fliplet.API.request('v1/data-sources/deleted/').then(function(result) {
-      $('#data-sources').hide();
-      $('#trash-sources').show();
+    if($('[data-app-source]').hasClass('hidden')) {
+      Fliplet.API.request({
+        url: 'v1/data-sources/deleted/',
+        method: 'GET',
+        data: { appId: copyData.appId }
+      }).then(function (result) {
+        $('#data-sources').hide();
+        $('#trash-sources').show();
 
-      renderTrashSources(result.dataSources);
-      trashSources = result.dataSources;
-    })
+        var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+        dataSourcesToSearch = orderedDataSources;
+  
+        renderTrashSources(result.dataSources);
+        trashSources = result.dataSources;
+      })
+    } else {
+      isShowingAll = false;
+      Fliplet.API.request('v1/data-sources/deleted/').then(function(result) {
+        $('#data-sources').hide();
+        $('#trash-sources').show();
+  
+        var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+        dataSourcesToSearch = orderedDataSources;
+
+        renderTrashSources(result.dataSources);
+        trashSources = result.dataSources;
+      })
+    }
+
   })
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
@@ -951,7 +1024,8 @@ $('#app')
   .on('click', '[data-restore-source]', function(event) {
     event.preventDefault();
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
-    restoreItem(currentDataSourceId);
+    var name = $(this).closest('.data-source').data('name');
+    restoreItem(currentDataSourceId, name);
   })
   .on('click', '[data-remove-source]', function(event) {
     event.preventDefault();
@@ -1144,7 +1218,6 @@ $('#app')
     var term = new RegExp(s, "i");
 
     $noResults.removeClass('show');
-
     var search = dataSourcesToSearch.filter(function(dataSource) {
       return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
@@ -1157,11 +1230,19 @@ $('#app')
 
     var html = [];
 
-    search.forEach(function (dataSource) {
-      html.push(getDataSourceRender(dataSource));
-    });
+    if($('[data-show-trash-source]').hasClass('active-source')) {
+      search.forEach(function (dataSource) {
+        html.push(getTrashSourceRender(dataSource));
+      });
 
-    $dataSources.html(html.join(''));
+      $trashSources.html(html.join(''));
+    } else {
+      search.forEach(function (dataSource) {
+        html.push(getDataSourceRender(dataSource));
+      });
+
+      $dataSources.html(html.join(''));
+    }
   })
   .on('click', '#get-backdoor', function(event) {
     event.preventDefault();
