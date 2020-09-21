@@ -896,7 +896,9 @@ $('#app')
       $('[data-show-trash-source]').click();
     } else {
       isShowingAll = true;
+
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+      
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
     }
@@ -908,7 +910,9 @@ $('#app')
     if($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
+
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
     }
@@ -956,15 +960,17 @@ $('#app')
     $initialSpinnerLoading.addClass('animated');
 
     if($('[data-app-source]').hasClass('hidden')) {
+
       Fliplet.API.request({
         url: 'v1/data-sources/deleted/',
         method: 'GET',
         data: { appId: copyData.appId }
-      }).then(function (result) {
+      }).then(function(result) {
         $('#data-sources').hide();
         $('#trash-sources').show();
 
         var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+
         dataSourcesToSearch = orderedDataSources;
   
         renderTrashSources(result.dataSources);
@@ -977,6 +983,7 @@ $('#app')
         $('#trash-sources').show();
   
         var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+
         dataSourcesToSearch = orderedDataSources;
 
         renderTrashSources(result.dataSources);
@@ -1024,13 +1031,17 @@ $('#app')
   .on('click', '[data-restore-source]', function(event) {
     event.preventDefault();
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
+
     var name = $(this).closest('.data-source').data('name');
+
     restoreItem(currentDataSourceId, name);
   })
   .on('click', '[data-remove-source]', function(event) {
     event.preventDefault();
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
+
     var name = $(this).closest('.data-source').data('name');
+
     removeTrashItem(currentDataSourceId, name)
   })
   .on('click', '[data-delete-source]', function(event) {
@@ -1231,12 +1242,14 @@ $('#app')
     var html = [];
 
     if($('[data-show-trash-source]').hasClass('active-source')) {
+
       search.forEach(function (dataSource) {
         html.push(getTrashSourceRender(dataSource));
       });
 
       $trashSources.html(html.join(''));
     } else {
+
       search.forEach(function (dataSource) {
         html.push(getDataSourceRender(dataSource));
       });
