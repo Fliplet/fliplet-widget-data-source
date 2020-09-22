@@ -30,7 +30,7 @@ body {
 
 .active-source {
   background-color: #36344c;
-  color: white;
+  color: #fff;
 }
 
 .active-source:hover,
@@ -76,39 +76,30 @@ body {
   padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
 }
 
-#data-sources,
-#trash-sources {
+.data-source-table {
   margin-top: 20px;
 }
 
-#data-sources th,
-#trash-sources th {
+.data-source-table th {
   border: none;
 }
 
-#data-sources th.desc,
-#data-sources th.asc,
-#trash-sources th.desc,
-#trash-sources th.asc {
+.data-source-table th.desc,
+.data-source-table th.asc {
   cursor: pointer;
 }
 
-#data-sources th.desc .fa-sort-amount-asc,
-#data-sources th.asc .fa-sort-amount-desc,
-#trash-sources th.desc .fa-sort-amount-asc,
-#trash-sources th.asc .fa-sort-amount-desc {
+.data-source-table th.desc .fa-sort-amount-asc,
+.data-source-table th.asc .fa-sort-amount-desc {
   display: none;
 }
 
-#data-sources th.desc .fa-sort-amount-desc,
-#data-sources th.asc .fa-sort-amount-asc,
-#trash-sources th.desc .fa-sort-amount-desc,
-#trash-sources th.asd .fa-sort-amount-asc {
+.data-source-table th.desc .fa-sort-amount-desc,
+.data-source-table th.asc .fa-sort-amount-asc {
   display: inline-block;
 }
 
-#data-sources td,
-#trash-sources td {
+.data-source-table td {
   border-left: none;
   border-right: none;
   border-bottom: none;

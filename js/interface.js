@@ -132,6 +132,7 @@ function getDataSources() {
 
 function renderDataSources(dataSources) {
   var html = [];
+
   dataSources.forEach(function (dataSource) {
     html.push(getDataSourceRender(dataSource));
   });
@@ -143,9 +144,8 @@ function renderDataSources(dataSources) {
 }
 
 function renderTrashSources(trashSources) {
-  var html = [];
-  trashSources.forEach(function (trashSource) {
-    html.push(getTrashSourceRender(trashSource));
+  var html = trashSources.map(function (trashSource) {
+    return getTrashSourceRender(trashSource);
   });
 
   $trashSources.html(html.join(''));
@@ -623,7 +623,8 @@ function restoreItem(id, name) {
   Fliplet.API.request({
     url: 'v1/data-sources/' + id + '/restore',
     method: 'POST'
-  }).then(function() {
+  })
+  .then(function() {
     $('.data-source[data-id="' + id + '"]').remove();
 
     trashSources = trashSources.filter(function(ds) {
@@ -634,8 +635,6 @@ function restoreItem(id, name) {
       title: 'Restore complete',
       message: '"' + name + '" restored',
     });
-
-    renderTrashSources(trashSources);
   })
   .catch(function (error) {
     Fliplet.Modal.alert({
@@ -690,8 +689,7 @@ function removeTrashItem(id, name) {
           Fliplet.Studio.emit('close-overlay');
           return;
         }
-      })
-      .catch(function(error) {
+      }).catch(function(error) {
         Fliplet.Modal.alert({
           title: 'Deletion failed',
           message: Fliplet.parseError(error),
@@ -898,7 +896,7 @@ $('#app')
       isShowingAll = true;
 
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-      
+
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
     }
@@ -910,7 +908,6 @@ $('#app')
     if($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
-
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
 
       dataSourcesToSearch = orderedDataSources;
@@ -1971,12 +1968,7 @@ if (copyData.context === 'overlay') {
   $('.name-wrapper').removeClass('saved');
   browseDataSource(copyData.dataSourceId);
 } else {
-  // Fetch data sources when the provider starts
-  // if($('#trash-sources').is(':visible')) {
-  //   $('[data-show-trash-source]').click();
-  // } else {
     getDataSources();
-  // };
 }
 
 // Only show versions to admins
