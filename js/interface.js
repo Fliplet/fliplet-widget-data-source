@@ -623,8 +623,7 @@ function restoreItem(id, name) {
   Fliplet.API.request({
     url: 'v1/data-sources/' + id + '/restore',
     method: 'POST'
-  })
-  .then(function() {
+  }).then(function() {
     $('.data-source[data-id="' + id + '"]').remove();
 
     trashSources = trashSources.filter(function(ds) {
@@ -635,8 +634,7 @@ function restoreItem(id, name) {
       title: 'Restore complete',
       message: '"' + name + '" restored',
     });
-  })
-  .catch(function (error) {
+  }).catch(function (error) {
     Fliplet.Modal.alert({
       title: 'Restore failed',
       message: Fliplet.parseError(error),
