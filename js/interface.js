@@ -655,12 +655,11 @@ function removeTrashItem(id, name) {
         className: 'btn-default'
       }
     }
-  }).then(function(result) {
+  }).then(function (result) {
     if (result === null) {
       return;
     }
-
-    if (result === name.toString()) {
+    if(result === name) {
       Fliplet.API.request({
         url: 'v1/data-sources/deleted/' + id,
         method: 'DELETE'
@@ -677,7 +676,7 @@ function removeTrashItem(id, name) {
 
         Fliplet.Modal.alert({
           title: 'Deletion complete',
-          message: 'Item deleted permanently.'
+          message: 'Item deleted permanently.',
         });
 
         // Return to parent widget if in overlay
@@ -688,7 +687,7 @@ function removeTrashItem(id, name) {
       }).catch(function(error) {
         Fliplet.Modal.alert({
           title: 'Deletion failed',
-          message: Fliplet.parseError(error)
+          message: Fliplet.parseError(error),
         });
       });
     } else {
