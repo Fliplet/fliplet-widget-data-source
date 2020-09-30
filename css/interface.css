@@ -43,7 +43,7 @@ body {
   margin-right: 10px;
 }
 
-.dropdown-menu {
+.data-source-edit .dropdown-menu {
   left: auto;
   right: 0;
 }
