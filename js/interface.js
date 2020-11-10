@@ -80,6 +80,7 @@ function getDataSources() {
 
       if (copyData.context === 'app-overlay' || copyData.appId) {
         // Changes UI text
+        $('[data-show-help-link]').addClass('hidden');
         $('[data-show-all-source]').removeClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
 
