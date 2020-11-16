@@ -32,6 +32,7 @@ var allDataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
+var hasAppId = true;
 var columns;
 
 var defaultAccessRules = [
@@ -59,7 +60,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 });
 
 // Fetch all data sources
-function getDataSources(isAppId) {
+function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
@@ -70,7 +71,7 @@ function getDataSources(isAppId) {
   $('#trash-sources').hide();
 
   return Fliplet.DataSources.get({
-    appId: isAppId ? null : copyData.appId,
+    appId: hasAppId ? copyData.appId : null,
     attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     roles: 'publisher,editor',
     type: null
@@ -874,7 +875,9 @@ $('#app')
     }
   })
   .on('click', '[data-show-all-source]', function() {
-    getDataSources(true);
+    hasAppId = false;
+
+    getDataSources();
 
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
@@ -885,8 +888,10 @@ $('#app')
     }
   })
   .on('click', '[data-app-source]', function() {
-    getDataSources();
+    hasAppId = true;
     isShowingAll = false;
+
+    getDataSources();
 
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
