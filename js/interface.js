@@ -59,7 +59,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 });
 
 // Fetch all data sources
-function getDataSources(isShowAll) {
+function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
   $contents.addClass('hidden');
   $sourceContents.addClass('hidden');
@@ -70,7 +70,7 @@ function getDataSources(isShowAll) {
   $('#trash-sources').hide();
 
   return Fliplet.DataSources.get({
-    appId: isShowAll ? null : copyData.appId,
+    appId: isShowingAll ? null : copyData.appId,
     attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     roles: 'publisher,editor',
     type: null
@@ -874,7 +874,8 @@ $('#app')
     }
   })
   .on('click', '[data-show-all-source]', function() {
-    getDataSources(true);
+    isShowingAll = true;
+    getDataSources();
 
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
@@ -885,9 +886,9 @@ $('#app')
     }
   })
   .on('click', '[data-app-source]', function() {
-    getDataSources(false);
-
     isShowingAll = false;
+
+    getDataSources();
 
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
