@@ -874,27 +874,28 @@ $('#app')
     }
   })
   .on('click', '[data-show-all-source]', function() {
-    isShowingAll = true;
-    getDataSources();
-
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
       $('[data-show-trash-source]').click();
+    } else {
+      isShowingAll = true;
+
+      getDataSources();
     }
   })
   .on('click', '[data-app-source]', function() {
-    isShowingAll = false;
-
-    getDataSources();
-
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
+    } else {
+      isShowingAll = false;
+
+      getDataSources();
     }
   })
   .on('click', '[data-back]', function(event) {
