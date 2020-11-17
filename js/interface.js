@@ -70,7 +70,7 @@ function getDataSources() {
   $('#trash-sources').hide();
 
   return Fliplet.DataSources.get({
-    appId: isShowingAll ? null : copyData.appId,
+    appId: isShowingAll ? undefined : copyData.appId,
     attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     roles: 'publisher,editor',
     type: null
