@@ -80,7 +80,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (copyData.context === 'app-overlay' || copyData.appId) {
+      if (copyData.context === 'overlay' || copyData.context === 'app-overlay' || copyData.appId) {
         // Changes UI text
         $('[data-help-link]').addClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
