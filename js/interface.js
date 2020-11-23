@@ -72,7 +72,7 @@ function getDataSources() {
   $('#trash-sources').hide();
 
   return Fliplet.DataSources.get({
-    appId: isShowingAll ? null : copyData.appId,
+    appId: isShowingAll ? undefined : copyData.appId,
     attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     roles: 'publisher,editor',
     type: null
@@ -725,7 +725,7 @@ function getTrashedDataSources() {
   Fliplet.API.request({
     url: 'v1/data-sources/deleted/',
     method: 'GET',
-    data: { appId: isShowingAll ? null : copyData.appId }
+    data: { appId: isShowingAll ? undefined : copyData.appId }
   }).then(function(result) {
     $('#data-sources').hide();
     $('#trash-sources').show();
