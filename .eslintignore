@@ -1,3 +1,4 @@
 /vendor/**
 /js/build.templates.js
+/js/interface.templates.js
 /jsinterface.templates.js
