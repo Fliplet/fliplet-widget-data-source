@@ -80,6 +80,10 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
+      if(copyData.context === 'overlay') {
+        $('[data-help-link]').addClass('hidden');
+      }
+
       if (copyData.context === 'app-overlay' || copyData.appId) {
         // Changes UI text
         $('[data-help-link]').addClass('hidden');
