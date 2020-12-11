@@ -1426,6 +1426,10 @@ $('#show-access-rules').click(function() {
   $tbody.html('');
   $accessRulesList.css('opacity', 0.5);
 
+  if (!Array.isArray(currentDataSourceRules)) {
+    currentDataSourceRules = [];
+  }
+
   if (!currentDataSourceRules) {
     currentDataSourceRules = defaultAccessRules;
   }
