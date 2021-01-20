@@ -357,7 +357,11 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
-    beforeChange: function(changes, source) {
+    beforeChange: function(changes) {
+      if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
+        return;
+      }
+
       // Check if the change was on columns row and validate
       // If we change row without header we put header for this row
       // In this case user won't lose his data if he forgot to input header
@@ -366,14 +370,18 @@ var spreadsheet = function(options) {
           if (change[3] === change[2]) {
             return;
           }
+
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
+
           change[3] = validateOrFixColumnName(change[3]);
         } else {
           var header = getColumns()[change[1]];
+
           if (!header) {
             var newHeader = generateColumnName();
+
             newHeader = validateOrFixColumnName(newHeader);
             hot.setDataAtCell(0, change[1], newHeader);
           }
