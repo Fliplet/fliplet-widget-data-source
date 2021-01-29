@@ -358,6 +358,8 @@ var spreadsheet = function(options) {
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
+      onChanges();
+
       // If users intend to remove value from the cells with Delete or Backspace buttons
       // We shouldn't add a column title
       if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
@@ -389,8 +391,6 @@ var spreadsheet = function(options) {
           }
         }
       });
-
-      onChanges();
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
