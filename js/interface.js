@@ -662,7 +662,8 @@ function removeTrashItem(id, name) {
     if (result === null) {
       return;
     }
-    if(result === name) {
+
+    if(result === name.toString()) {
       Fliplet.API.request({
         url: 'v1/data-sources/deleted/' + id,
         method: 'DELETE'
@@ -704,19 +705,19 @@ function removeTrashItem(id, name) {
     currentDataSourceId = 0;
   })
 }
-function deleteItem(id) {
+function deleteItem(message) {
   Fliplet.Modal.confirm({
-    message: 'Are you sure you want to delete this data source? All entries will be deleted.',
+    message: message
   })
   .then(function(confirmAlert) {
     if (confirmAlert) {
-      Fliplet.DataSources.delete(id).then(function() {
+      Fliplet.DataSources.delete(currentDataSourceId).then(function() {
         // Remove from UI
-        $('.data-source[data-id="' + id + '"]').remove();
+        $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
 
         // Remove from dataSources
         dataSources = dataSources.filter(function(ds) {
-          return ds.id !== id;
+          return ds.id !== currentDataSourceId;
         });
 
         renderDataSources(dataSources);
@@ -956,6 +957,8 @@ $('#app')
 
     if($('[data-app-source]').hasClass('hidden')) {
 
+      console.log(copyData);
+
       Fliplet.API.request({
         url: 'v1/data-sources/deleted/',
         method: 'GET',
@@ -1041,8 +1044,23 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
-    currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
-    deleteItem(currentDataSourceId);
+
+    var usedAppsText = '';
+    var currentDS = _.find(dataSources, function(ds) {
+      return ds.id === currentDataSourceId;
+    });
+
+    if (currentDS && currentDS.apps && currentDS.apps.length) {
+      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
+      var appUsedIn = currentDS.apps.map(function(elem) {
+        return elem.name;
+      });
+      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + appUsedIn.join(', ') + '. ';
+    }
+
+    var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
+
+    deleteItem(message);
   })
   .on('click', '[data-create-source]', function(event) {
     event.preventDefault();
