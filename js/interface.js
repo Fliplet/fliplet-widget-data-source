@@ -397,7 +397,6 @@ function getEmptyColumns(columns, entries) {
     return emptyColumnNameRegex.test(column);
   });
 
-  // entries.forEach(function(entry) {
   _.forEach(entries, function(entry) {
     for (var i = 0; i < emptyColumns.length; i++) {
       if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
