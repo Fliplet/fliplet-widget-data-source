@@ -456,7 +456,6 @@ function saveCurrentData() {
       hot.alter('remove_col', columnIndex, 1, 'removeEmptyColumn');
       columns.splice(columnIndex, 1);
     }
-
   });
 
   entries = removeEmptyColumnsInEntries(entries, emptyColumns);
