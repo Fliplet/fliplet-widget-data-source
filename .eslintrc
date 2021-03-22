@@ -1,9 +1,0 @@
-{
-  "extends": "fliplet",
-  "globals": {
-    "CodeMirror": "readonly",
-    "Raven": "readonly",
-    "spreadsheet": "readonly",
-    "jsdoc": "readonly"
-  }
-}

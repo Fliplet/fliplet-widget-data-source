@@ -4,19 +4,20 @@ function undoRedo(event) {
   if (!ctrlDown) {
     return '';
   }
-
+  
   if (event.keyCode === 89 || (event.shiftKey && event.keyCode === 90)) { // CTRL + Y or CTRL + SHIFT + Z
     return 'redo';
   } else if (event.keyCode === 90) { // CTRL + Z
     return 'undo';
+  } else {
+    return '';
   }
-  return '';
 }
 
 function isUndo(event) {
-  return undoRedo(event) === 'undo';
+  return 'undo' === undoRedo(event);
 }
 
 function isRedo(event) {
-  return undoRedo(event) === 'redo';
+  return 'redo' === undoRedo(event);
 }

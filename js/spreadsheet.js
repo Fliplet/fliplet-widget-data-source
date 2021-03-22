@@ -2,11 +2,11 @@
 var dataStack;
 var currentDataStackIndex;
 
-var hot;
-var copyPastePlugin;
-var data;
-var colWidths = [];
-var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
+var hot,
+    copyPastePlugin,
+    data,
+    colWidths = [],
+    s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -41,7 +41,7 @@ var spreadsheet = function(options) {
           }
 
           // Add double quotes to the string if it contains a comma
-          value = value.map(function(val) {
+          value = value.map(function (val) {
             return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
           }).join(', ');
         }
@@ -69,9 +69,9 @@ var spreadsheet = function(options) {
 
   /**
    * We user this method to determine where is closest data is lokated from the selected cell
-   *
+   * 
    * @param {Array} selectedCell - array of the coordinat of the selected cell reacived throw the hot.getSelected() method
-   *
+   * 
    * @returns {Object} - object of the directions where data is placed occording to the selected cell
    */
   function closestData(selectedCell) {
@@ -80,13 +80,13 @@ var spreadsheet = function(options) {
       console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
-      selectedCell);
+        selectedCell);
       return false;
     }
 
     var col = selectedCell[1];
     var row = selectedCell[0];
-    var selectedCellData = hot.getDataAtCell(row, col);
+    var selectedCellData = hot.getDataAtCell(row, col)
     // At this block we getting an index of the nearest cells from the selected cell
     // If we selected first row it ID is 0 already and if we - 1 from it we will reacive an error in the hot.getDataAtCell() method
     var top = row ? row - 1 : row;
@@ -132,14 +132,14 @@ var spreadsheet = function(options) {
 
   /**
    * Method to get a coordinats which we need to select
-   *
-   * @param {Array} startAt - array of the selected coordinats
+   * 
+   * @param {Array} startAt - array of the selected coordinats 
    * @param {Object} moveTo - object that returned from closestData() function
-   *
+   * 
    * @returns {Array} - coordinats that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
    */
   function coordinatsToSelect(startAt, moveTo) {
-    var firstCol; var lastCol; var firstRow; var lastRow; var allData;
+    var firstCol, lastCol, firstRow, lastRow, allData;
 
     // Returns array of the data from the table with handsontable API
     allData = hot.getData();
@@ -343,7 +343,7 @@ var spreadsheet = function(options) {
     search: true,
     undo: false,
     sortIndicator: true,
-    cells: function(row, col, prop) {
+    cells: function (row, col, prop) {
       var cellProperties = {};
 
       if (row === 0) {
@@ -357,15 +357,7 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
-    beforeChange: function(changes) {
-      onChanges();
-
-      // If users intend to remove value from the cells with Delete or Backspace buttons
-      // We shouldn't add a column title
-      if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
-        return;
-      }
-
+    beforeChange: function(changes, source) {
       // Check if the change was on columns row and validate
       // If we change row without header we put header for this row
       // In this case user won't lose his data if he forgot to input header
@@ -374,23 +366,21 @@ var spreadsheet = function(options) {
           if (change[3] === change[2]) {
             return;
           }
-
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
-
           change[3] = validateOrFixColumnName(change[3]);
         } else {
           var header = getColumns()[change[1]];
-
           if (!header) {
             var newHeader = generateColumnName();
-
             newHeader = validateOrFixColumnName(newHeader);
             hot.setDataAtCell(0, change[1], newHeader);
           }
         }
       });
+
+      onChanges();
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
@@ -417,7 +407,7 @@ var spreadsheet = function(options) {
       colWidths.splice(index, amount);
 
       hot.getSettings().manualColumnResize = false;
-      hot.updateSettings({ colWidths: colWidths });
+      hot.updateSettings({ colWidths: colWidths })
       hot.getSettings().manualColumnResize = true;
       hot.updateSettings({});
       onChanges();
@@ -443,11 +433,11 @@ var spreadsheet = function(options) {
     afterColumnMove: function() {
       onChanges();
     },
-    afterColumnResize: function() {
+    afterColumnResize: function () {
       colWidths = getColWidths();
 
       // Update column sizes in background
-      return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
+      return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
         dataSource.definition = dataSource.definition || {};
         dataSource.definition.columnsWidths = colWidths;
 
@@ -474,7 +464,7 @@ var spreadsheet = function(options) {
 
       // Add this new width before set the widths again
       colWidths.splice(index, 0, 50);
-      hot.updateSettings({ colWidths: colWidths });
+      hot.updateSettings({ colWidths: colWidths })
 
       onChanges();
     },
@@ -485,7 +475,7 @@ var spreadsheet = function(options) {
       if (isForced && rendered < 3 ) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
         tabs.each(function(index) {
-          if (!tabs[index].classList[0]) {
+          if (!tabs[index].classList[0]) { 
             $(tabs[index]).show();
           }
         });
@@ -501,7 +491,7 @@ var spreadsheet = function(options) {
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
     },
-    beforeKeyDown: function(event) {
+    beforeKeyDown: function (event) {
       if (hot.getActiveEditor()._opened) {
         return;
       }
@@ -516,7 +506,7 @@ var spreadsheet = function(options) {
           return;
         }
         event.stopImmediatePropagation();
-
+        
         var cols = getColumns().filter(function(column) {
           return column;
         }).length;
@@ -587,8 +577,8 @@ var spreadsheet = function(options) {
     var columnName = name + '(' + columnNameCounter + ')';
     columnNameCounter = columnNameCounter + 1;
     return headers.indexOf(columnName) > -1
-      ? generateColumnName()
-      : columnName;
+    ? generateColumnName()
+    : columnName;
   }
 
   function removeLastEmptyColumn(data) {
@@ -607,7 +597,7 @@ var spreadsheet = function(options) {
     }
 
     if (lastColumnLength === 0) {
-      data.forEach(function(elem) {
+      data.forEach(function (elem) {
         elem.pop();
       });
       removeLastEmptyColumn(data);
@@ -718,7 +708,7 @@ var spreadsheet = function(options) {
             if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
               try {
                 entry.data[header] = Papa.parse(entry.data[header]).data[0];
-                entry.data[header] = entry.data[header].map(function(val) {
+                entry.data[header] = entry.data[header].map(function (val) {
                   return typeof val === 'string' ? val.trim() : val;
                 });
               } catch (e) {
@@ -747,7 +737,7 @@ var spreadsheet = function(options) {
     destroy: function() {
       return hot.destroy();
     }
-  };
+  }
 };
 
 // Search
@@ -784,7 +774,7 @@ function search(action) {
   if (action === 'clear') {
     searchField.value = '';
     searchSpinner();
-    setTimeout(function() {
+    setTimeout(function(){
       search('find');
     }, 50); // 50ms for spinner to render
     return;
@@ -897,7 +887,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
 
   // Typing
   searchSpinner();
-  var debouncedFind = _.debounce(function() {
+  var debouncedFind = _.debounce(function(){
     search('find');
   }, 500);
   debouncedFind();
@@ -905,7 +895,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
 
 // CHeck if user is on Apple MacOS system
 function isMac() {
-  return navigator.platform.indexOf('Mac') > -1;
+  return navigator.platform.indexOf('Mac') > -1
 }
 
 function openOverlay() {
@@ -948,7 +938,7 @@ document.addEventListener('keydown', function(event) {
   if (isRedo(event)) {
     redo();
   }
-});
+})
 
 function redo() {
   if (!dataStack[currentDataStackIndex + 1]) {
@@ -972,18 +962,18 @@ function undo() {
 }
 
 // Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
-$('#toolbar')
+$("#toolbar")
   .on('click', '[data-action="insert-row-before"]', function(e) {
     hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
   })
   .on('click', '[data-action="insert-row-after"]', function() {
-    hot.alter('insert_row', s[2] + 1, 1, 'Toolbar.rowAfter');
+    hot.alter('insert_row', s[2]+1, 1, 'Toolbar.rowAfter');
   })
   .on('click', '[data-action="insert-column-left"]', function() {
     hot.alter('insert_col', s[3], 1, 'Toolbar.columnLeft');
   })
   .on('click', '[data-action="insert-column-right"]', function() {
-    hot.alter('insert_col', s[3] + 1, 1, 'Toolbar.columnRight');
+    hot.alter('insert_col', s[3]+1, 1, 'Toolbar.columnRight');
   })
   .on('click', '[data-action="remove-row"]', function removeRow() {
     var index = s[0] < s[2] ? s[0] : s[2];
@@ -1001,7 +991,7 @@ $('#toolbar')
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
       copyPastePlugin.copy();
-    } catch (err) {
+    } catch(err) {
       openOverlay();
     }
   })
@@ -1009,11 +999,11 @@ $('#toolbar')
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
       copyPastePlugin.cut();
-    } catch (err) {
+    } catch(err) {
       openOverlay();
     }
   })
-  .on('click', '[data-action="paste"]', function() {
+  .on('click', '[data-action="paste"]', function(){
     openOverlay();
   });
 
@@ -1022,6 +1012,6 @@ $('[data-toggle="tooltip"]').tooltip({
   trigger: 'hover'
 });
 
-$('[data-toggle="tooltip"]').on('click', function() {
+$('[data-toggle="tooltip"]').on('click', function () {
   $(this).tooltip('hide');
-});
+})
