@@ -12,17 +12,18 @@
         <div id="contents" class="hidden">
           <div class="row">
             <div class="col-sm-8">
-              <button data-create-source class="btn-round btn btn-primary">Create new data source</button>
-              <button data-show-all-source class="btn-round btn btn-secondary hidden">Show all data sources</button>
-              <button data-app-source class="btn-round btn btn-secondary hidden">Show app's data sources</button>
+              <button data-create-source class="btn btn-primary">Create new data source</button>
+              <button data-show-all-source class="btn btn-secondary hidden">Show all data sources</button>
+              <button data-app-source class="btn btn-secondary hidden">Show app's data sources</button>
             </div>
             <div class="flex col-sm-4">
-              <button data-show-alive-source class="active-source btn-round btn">All</button>
-              <button data-show-trash-source class="btn-round spaced btn">Trash</button>
-              <input class="search input-round pull-right form-control" type="search" placeholder="Search data sources" />
+              <input class="search pull-right form-control" type="search" placeholder="Search data sources" />
+              <a data-help-link href="https://help.fliplet.com/data-sources/" class="help-icon" target="_blank">
+                <i class="fa fa-question-circle-o"></i>
+              </a>
             </div>
           </div>
-          <table class="table-hover data-source-table" id="data-sources">
+          <table class="table-hover" id="data-sources">
             <thead>
               <tr>
                 <th>ID</th>
@@ -44,26 +45,6 @@
             <tbody>
             </tbody>
           </table>
-          <table class="table-hover data-source-table" id="trash-sources">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th class="desc" data-trash-name>
-                  Data source
-                  <i class="fa fa-sort-amount-asc"></i>
-                  <i class="fa fa-sort-amount-desc"></i>
-                </th>
-                <th class="desc" data-trash-date>
-                  Deleted
-                  <i class="fa fa-sort-amount-asc"></i>
-                  <i class="fa fa-sort-amount-desc"></i>
-                </th>
-                <th>&nbsp;</th>
-              </tr>
-            </thead>
-            <tbody>
-            </tbody>
-          </table>
           <div class="no-results-found">
             <h3>No results found</h3>
             <p>Search again</p>
@@ -72,7 +53,6 @@
         <div id="source-contents" class="hidden">
           <div class="header">
             <a href="#" data-back>See all data sources</a>
-            <a href="https://help.fliplet.com/article/199" target="_blank">Need help?</a>
           </div>
           <div class="controls-wrapper">
             <div class="back-name-holder">
