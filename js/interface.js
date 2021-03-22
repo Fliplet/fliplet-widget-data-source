@@ -57,6 +57,8 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
   mode: 'javascript'
 });
 
+var emptyColumnNameRegex = /Column\s\([0-9]+\)/;
+
 // Fetch all data sources
 function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
@@ -390,6 +392,40 @@ function trimColumns(columns) {
   });
 }
 
+function getEmptyColumns(columns, entries) {
+  var emptyColumns = columns.filter(function(column) {
+    return emptyColumnNameRegex.test(column);
+  });
+
+  entries.forEach(function(entry) {
+    for (var i = 0; i < emptyColumns.length; i++) {
+      if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
+        var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+  
+        if (notEmptyColumnIndex !== -1) {
+          emptyColumns.splice(notEmptyColumnIndex, 1);
+          i--;
+        }
+      }
+    }
+  });
+
+  return emptyColumns;
+}
+
+function removeEmptyColumnsInEntries(entries, emptyColumns) {
+  if (!entries.length || !emptyColumns.length) {
+    return [];
+  }
+
+  return entries.map(function(entry) {
+    entry.data = _.omitBy(entry.data, function(value, key) {
+      return emptyColumns.includes(key);
+    });
+    return entry;
+  });
+}
+
 function saveCurrentData() {
   var columns;
   $('[data-save]').addClass('hidden');
@@ -410,6 +446,20 @@ function saveCurrentData() {
   } else {
     columns = trimColumns(table.getColumns());
   }
+
+  var emptyColumns = getEmptyColumns(columns, entries);
+
+  emptyColumns.forEach(function(column) {
+    var columnIndex = columns.indexOf(column);
+
+    if (columnIndex !== -1) {
+      hot.alter('remove_col', columnIndex, 1, 'removeEmptyColumn');
+      columns.splice(columnIndex, 1);
+    }
+
+  });
+
+  entries = removeEmptyColumnsInEntries(entries, emptyColumns);
 
   var widths = trimColumns(table.getColWidths());
 

@@ -412,7 +412,7 @@ var spreadsheet = function(options) {
     afterRemoveRow: function(index, amount) {
       onChanges();
     },
-    afterRemoveCol: function(index, amount) {
+    afterRemoveCol: function(index, amount, originalArr, source) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -420,7 +420,10 @@ var spreadsheet = function(options) {
       hot.updateSettings({ colWidths: colWidths });
       hot.getSettings().manualColumnResize = true;
       hot.updateSettings({});
-      onChanges();
+
+      if (source !== 'removeEmptyColumn') {
+        onChanges();
+      }
     },
     beforePaste: function(data, coords) {
       removeLastEmptyColumn(data);
