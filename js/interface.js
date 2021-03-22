@@ -393,11 +393,11 @@ function trimColumns(columns) {
 }
 
 function getEmptyColumns(columns, entries) {
-  var emptyColumns = columns.filter(function(column) {
+  var emptyColumns = _.filter(columns, function(column) {
     return emptyColumnNameRegex.test(column);
   });
 
-  entries.forEach(function(entry) {
+  _.forEach(entries, function(entry) {
     for (var i = 0; i < emptyColumns.length; i++) {
       if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
         var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
@@ -449,7 +449,7 @@ function saveCurrentData() {
 
   var emptyColumns = getEmptyColumns(columns, entries);
 
-  emptyColumns.forEach(function(column) {
+  _.forEach(emptyColumns, function(column) {
     var columnIndex = columns.indexOf(column);
 
     if (columnIndex !== -1) {
