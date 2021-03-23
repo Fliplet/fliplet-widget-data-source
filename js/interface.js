@@ -808,89 +808,56 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var item = $(this);
-    var orderedDataSources;
+    var isOrderedByDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
+    var orderedDataSources = sortDataSources('name', newOrder, dataSources);
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
-      // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('updatedAt', 'asc', dataSources);
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
-    }
+    item.toggleClass('desc', isOrderedByDateAsc);
+    item.toggleClass('asc', !isOrderedByDateAsc);
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
-
-      // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
-    }
+    renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var item = $(this);
-    var orderedDataSources;
-    var isOrdersDeletedDateAsc = item.hasClass('asc');
+    var isOrderedByDeletedDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDeletedDateAsc ? 'desc' : 'asc';
+    var orderedDataSources = sortDataSources('updatedAt', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersDeletedDateAsc);
-    item.toggleClass('asc', !isOrdersDeletedDateAsc);
-
-    if (isOrdersDeletedDateAsc) {
-      orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
-    } else {
-      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
-    }
+    item.toggleClass('desc', isOrderedByDeletedDateAsc);
+    item.toggleClass('asc', !isOrderedByDeletedDateAsc);
 
     renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-trash-date]', function() {
     var item = $(this);
-    var orderedDataSources;
-    var isOrdersDateAsc = item.hasClass('asc');
+    var isOrderedByDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
+    var orderedDataSources = sortDataSources('updatedAt', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersDateAsc);
-    item.toggleClass('asc', !isOrdersDateAsc);
-
-    if (isOrdersDateAsc) {
-      orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
-    } else {
-      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
-    }
+    item.toggleClass('desc', isOrderedByDateAsc);
+    item.toggleClass('asc', !isOrderedByDateAsc);
 
     renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-order-name]', function() {
     var item = $(this);
-    var orderedDataSources;
-    var isOrdersNameAsc = item.hasClass('asc');
+    var isOrderedByNameAsc = item.hasClass('asc');
+    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
+    var orderedDataSources = sortDataSources('name', newOrder, dataSources);
 
-    item.toggleClass('desc', isOrdersNameAsc);
-    item.toggleClass('asc', !isOrdersNameAsc);
-
-    if (isOrdersNameAsc) {
-      orderedDataSources = sortDataSources('name', 'asc', dataSources);
-    } else {
-      orderedDataSources = sortDataSources('name', 'desc', dataSources);
-    }
+    item.toggleClass('desc', isOrderedByNameAsc);
+    item.toggleClass('asc', !isOrderedByNameAsc);
 
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-name]', function() {
     var item = $(this);
-    var orderedDataSources;
-    var isOrdersNameAsc = item.hasClass('asc');
+    var isOrderedByNameAsc = item.hasClass('asc');
+    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
+    var orderedDataSources = sortDataSources('name', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersNameAsc);
-    item.toggleClass('asc', !isOrdersNameAsc);
-
-    if (isOrdersNameAsc) {
-      orderedDataSources = sortDataSources('name', 'asc', trashSources);
-    } else {
-      orderedDataSources = sortDataSources('name', 'desc', trashSources);
-    }
+    item.toggleClass('desc', isOrderedByNameAsc);
+    item.toggleClass('asc', !isOrderedByNameAsc);
 
     renderTrashSources(orderedDataSources);
   })
