@@ -414,10 +414,6 @@ function getEmptyColumns(columns, entries) {
 }
 
 function removeEmptyColumnsInEntries(entries, emptyColumns) {
-  if (!entries.length || !emptyColumns.length) {
-    return [];
-  }
-
   return entries.map(function(entry) {
     entry.data = _.omitBy(entry.data, function(value, key) {
       return emptyColumns.includes(key);
@@ -458,7 +454,9 @@ function saveCurrentData() {
     }
   });
 
-  entries = removeEmptyColumnsInEntries(entries, emptyColumns);
+  if (entries.length && emptyColumns.length) {
+    entries = removeEmptyColumnsInEntries(entries, emptyColumns);
+  }
 
   var widths = trimColumns(table.getColWidths());
 
