@@ -81,6 +81,7 @@ function getDataSources() {
       if (!userDataSources.length) {
         $noResults.addClass('show');
       }
+
       allDataSources = userDataSources;
 
       if (copyData.context === 'app-overlay' || copyData.appId) {

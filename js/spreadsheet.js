@@ -366,12 +366,15 @@ var spreadsheet = function(options) {
           if (change[3] === change[2]) {
             return;
           }
+
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
+
           change[3] = validateOrFixColumnName(change[3]);
         } else {
           var header = getColumns()[change[1]];
+
           if (!header) {
             var newHeader = generateColumnName();
             newHeader = validateOrFixColumnName(newHeader);
