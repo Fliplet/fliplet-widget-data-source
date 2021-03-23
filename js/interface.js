@@ -810,7 +810,7 @@ $('#app')
     var item = $(this);
     var isOrderedByDateAsc = item.hasClass('asc');
     var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('name', newOrder, dataSources);
+    var orderedDataSources = sortDataSources('updateAt', newOrder, dataSources);
 
     item.toggleClass('desc', isOrderedByDateAsc);
     item.toggleClass('asc', !isOrderedByDateAsc);
