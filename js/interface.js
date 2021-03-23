@@ -398,13 +398,12 @@ function getEmptyColumns(columns, entries) {
   });
 
   _.forEach(entries, function(entry) {
-    for (var i = 0; i < emptyColumns.length; i++) {
+    for (var i = emptyColumns.length - 1; i >= 0; i--) {
       if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
         var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
   
         if (notEmptyColumnIndex !== -1) {
           emptyColumns.splice(notEmptyColumnIndex, 1);
-          i--;
         }
       }
     }
