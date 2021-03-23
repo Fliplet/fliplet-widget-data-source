@@ -830,7 +830,7 @@ $('#app')
       return;
     }
   })
-  .on('click', '[data-trash-date]', function() {
+  .on('click', '[data-trash-deleted-date]', function() {
     var item = $(this);
     var orderedDataSources;
 
@@ -848,6 +848,29 @@ $('#app')
 
       // Order data sources by deletedAt
       orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
+      return;
+    }
+  })
+  .on('click', '[data-trash-date]', function() {
+    var item = $(this);
+    var orderedDataSources;
+
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
+      // Order data sources by updatedAt
+      orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
+      return;
+    }
+
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
+
+      // Order data sources by updatedAt
+      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
       // Start rendering process
       renderTrashSources(orderedDataSources);
       return;
@@ -997,14 +1020,14 @@ $('#app')
         $('#data-sources').hide();
         $('#trash-sources').show();
 
-        var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+        var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
         trashSources = _.sortBy(result.dataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashSources(_.sortBy(result.dataSources, ['name']));
+        renderTrashSources(trashSources);
       });
     } else {
       isShowingAll = false;
@@ -1017,7 +1040,7 @@ $('#app')
         $('#data-sources').hide();
         $('#trash-sources').show();
 
-        var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+        var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
         trashSources = _.sortBy(result.dataSources, function(dataSource) {
