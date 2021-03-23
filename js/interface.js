@@ -502,6 +502,7 @@ function browseDataSource(id) {
 
     if (copyData.context === 'overlay') {
       Fliplet.DataSources.get({
+        attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
         roles: 'publisher,editor',
         type: null
       }, {
@@ -1007,6 +1008,7 @@ $('#app')
       });
     } else {
       isShowingAll = false;
+
       Fliplet.API.request('v1/data-sources/deleted/').then(function(result) {
         if (!result.dataSources.length) {
           $noResults.addClass('show');
