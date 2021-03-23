@@ -833,95 +833,66 @@ $('#app')
   .on('click', '[data-trash-deleted-date]', function() {
     var item = $(this);
     var orderedDataSources;
+    var isOrdersDeletedDateAsc = item.hasClass('asc');
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
-      // Order data sources by deletedAt
-      orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
-      // Start rendering process
-      renderTrashSources(orderedDataSources);
-      return;
+    item.toggleClass('desc', isOrdersDeletedDateAsc);
+    item.toggleClass('asc', !isOrdersDeletedDateAsc);
+
+    if (isOrdersDeletedDateAsc) {
+      orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
+    } else {
+      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
     }
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
-
-      // Order data sources by deletedAt
-      orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
-      // Start rendering process
-      renderTrashSources(orderedDataSources);
-      return;
-    }
+    renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-trash-date]', function() {
     var item = $(this);
     var orderedDataSources;
+    var isOrdersDateAsc = item.hasClass('asc');
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    item.toggleClass('desc', isOrdersDateAsc);
+    item.toggleClass('asc', !isOrdersDateAsc);
+
+    if (isOrdersDateAsc) {
       orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
-      renderTrashSources(orderedDataSources);
-      return;
+    } else {
+      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
     }
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
-      orderedDataSources = sortDataSources('updatedAt', 'desc', trashSources);
-      renderTrashSources(orderedDataSources);
-      return;
-    }
+    renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-order-name]', function() {
     var item = $(this);
     var orderedDataSources;
+    var isOrdersNameAsc = item.hasClass('asc');
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    item.toggleClass('desc', isOrdersNameAsc);
+    item.toggleClass('asc', !isOrdersNameAsc);
 
-      // Order data sources by updatedAt
+    if (isOrdersNameAsc) {
       orderedDataSources = sortDataSources('name', 'asc', dataSources);
-
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
-    }
-
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
-
-      // Order data sources by updatedAt
+    } else {
       orderedDataSources = sortDataSources('name', 'desc', dataSources);
-
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
     }
+
+    renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-name]', function() {
     var item = $(this);
     var orderedDataSources;
+    var isOrdersNameAsc = item.hasClass('asc');
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    item.toggleClass('desc', isOrdersNameAsc);
+    item.toggleClass('asc', !isOrdersNameAsc);
 
-      // Order data sources by updatedAt
+    if (isOrdersNameAsc) {
       orderedDataSources = sortDataSources('name', 'asc', trashSources);
-
-      // Start rendering process
-      renderTrashSources(orderedDataSources);
-      return;
-    }
-
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
-
-      // Order data sources by updatedAt
+    } else {
       orderedDataSources = sortDataSources('name', 'desc', trashSources);
-
-      // Start rendering process
-      renderTrashSources(orderedDataSources);
-      return;
     }
+
+    renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
