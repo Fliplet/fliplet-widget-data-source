@@ -86,8 +86,18 @@ this["Fliplet"]["Widget"]["Templates"]["templates.requiredField"] = Handlebars.t
     return "<div class=\"required-field\">\n  <button class=\"btn\" data-remove-field><i class=\"fa fa-minus fa-fw\"></i></button>\n  <input name=\"field\" class=\"form-control\" type=\"text\" placeholder=\"Field name\"/>\n  <label class=\"select-proxy-display\">\n    <select class=\"hidden-select form-control\" name=\"required-field-type\">\n      <option value=\"required\">Is required</option>\n      <option value=\"equals\">Equals</option>\n      <option value=\"notequals\">Not equals</option>\n      <option value=\"contains\">Contains</option>\n    </select>\n    <span class=\"icon fa fa-chevron-down\"></span>\n  </label>\n  <input name=\"value\" class=\"form-control hidden\" type=\"text\" placeholder=\"Value\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"To reference user data, use {{&nbsp;user.[*]&nbsp;}} e.g. {{&nbsp;user.[Email]&nbsp;}},<br />{{&nbsp;user.[First&nbsp;name]&nbsp;}}\"/>\n</div>";
 },"useData":true});
 
-this["Fliplet"]["Widget"]["Templates"]["templates.trashSource"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+this["Fliplet"]["Widget"]["Templates"]["templates.trashSource"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {});
+
+  return " "
+    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + " "
+    + ((stack1 = helpers.unless.call(alias1,(data && data.last),{"name":"unless","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + " ";
+},"2":function(container,depth0,helpers,partials,data) {
+    return ",";
+},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
   return "<tr class=\"data-source\" data-id=\""
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
@@ -97,6 +107,10 @@ this["Fliplet"]["Widget"]["Templates"]["templates.trashSource"] = Handlebars.tem
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
     + "</td>\n    <td class=\"data-source-name\">"
     + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td class=\"data-source-apps\">"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.apps : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + "</td>\n    <td class=\"data-source-apps\">"
+    + alias4((helpers.momentCalendar || (depth0 && depth0.momentCalendar) || alias2).call(alias1,(depth0 != null ? depth0.updatedAt : depth0),{"name":"momentCalendar","hash":{},"data":data}))
     + "</td>\n    <td class=\"data-source-apps\">"
     + alias4((helpers.momentCalendar || (depth0 && depth0.momentCalendar) || alias2).call(alias1,(depth0 != null ? depth0.deletedAt : depth0),{"name":"momentCalendar","hash":{},"data":data}))
     + "</td>\n    <td class=\"data-source-edit text-right\">\n        <div class=\"btn-group\">\n        <button type=\"button\" class=\"btn btn-default btn-round dropdown-toggle\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n            Actions <span class=\"caret\"></span>\n        </button>\n        <ul class=\"dropdown-menu\">\n            <li data-restore-source><a href=\"#\">Restore</a></li>\n            <li role=\"separator\" class=\"divider\"></li>\n            <li data-remove-source><span class=\"remove-item\">Delete forever</span></li>\n        </ul>\n        </div>\n    </td>\n</tr>\n";

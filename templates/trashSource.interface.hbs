@@ -1,6 +1,8 @@
 <tr class="data-source" data-id="{{id}}" data-name="{{name}}">
     <td class="data-source-id">{{id}}</td>
     <td class="data-source-name">{{name}}</td>
+    <td class="data-source-apps">{{#each apps}} {{name}} {{#unless @last}},{{/unless}} {{/each}}</td>
+    <td class="data-source-apps">{{momentCalendar updatedAt}}</td>
     <td class="data-source-apps">{{momentCalendar deletedAt}}</td>
     <td class="data-source-edit text-right">
         <div class="btn-group">
