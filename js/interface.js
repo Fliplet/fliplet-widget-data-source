@@ -808,56 +808,56 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var item = $(this);
-    var isOrdersByDateAsc = item.hasClass('asc');
-    var newOrder = isOrdersByDateAsc ? 'desc' : 'asc';
+    var isOrderedByDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
     var orderedDataSources = sortDataSources('name', newOrder, dataSources);
 
-    item.toggleClass('desc', isOrdersByDateAsc);
-    item.toggleClass('asc', !isOrdersByDateAsc);
+    item.toggleClass('desc', isOrderedByDateAsc);
+    item.toggleClass('asc', !isOrderedByDateAsc);
 
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var item = $(this);
-    var isOrdersByDeletedDateAsc = item.hasClass('asc');
-    var newOrder = isOrdersByDeletedDateAsc ? 'desc' : 'asc';
+    var isOrderedByDeletedDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDeletedDateAsc ? 'desc' : 'asc';
     var orderedDataSources = sortDataSources('updatedAt', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersByDeletedDateAsc);
-    item.toggleClass('asc', !isOrdersByDeletedDateAsc);
+    item.toggleClass('desc', isOrderedByDeletedDateAsc);
+    item.toggleClass('asc', !isOrderedByDeletedDateAsc);
 
     renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-trash-date]', function() {
     var item = $(this);
-    var isOrdersByDateAsc = item.hasClass('asc');
-    var newOrder = isOrdersByDateAsc ? 'desc' : 'asc';
+    var isOrderedByDateAsc = item.hasClass('asc');
+    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
     var orderedDataSources = sortDataSources('updatedAt', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersByDateAsc);
-    item.toggleClass('asc', !isOrdersByDateAsc);
+    item.toggleClass('desc', isOrderedByDateAsc);
+    item.toggleClass('asc', !isOrderedByDateAsc);
 
     renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-order-name]', function() {
     var item = $(this);
-    var isOrdersByNameAsc = item.hasClass('asc');
-    var newOrder = isOrdersByNameAsc ? 'desc' : 'asc';
+    var isOrderedByNameAsc = item.hasClass('asc');
+    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
     var orderedDataSources = sortDataSources('name', newOrder, dataSources);
 
-    item.toggleClass('desc', isOrdersByNameAsc);
-    item.toggleClass('asc', !isOrdersByNameAsc);
+    item.toggleClass('desc', isOrderedByNameAsc);
+    item.toggleClass('asc', !isOrderedByNameAsc);
 
     renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-name]', function() {
     var item = $(this);
-    var isOrdersByNameAsc = item.hasClass('asc');
-    var newOrder = isOrdersByNameAsc ? 'desc' : 'asc';
+    var isOrderedByNameAsc = item.hasClass('asc');
+    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
     var orderedDataSources = sortDataSources('name', newOrder, trashSources);
 
-    item.toggleClass('desc', isOrdersByNameAsc);
-    item.toggleClass('asc', !isOrdersByNameAsc);
+    item.toggleClass('desc', isOrderedByNameAsc);
+    item.toggleClass('asc', !isOrderedByNameAsc);
 
     renderTrashSources(orderedDataSources);
   })
