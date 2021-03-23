@@ -398,6 +398,10 @@ function getEmptyColumns(columns, entries) {
   });
 
   _.forEach(entries, function(entry) {
+    if (!emptyColumns.length) {
+      return false;
+    }
+
     for (var i = emptyColumns.length - 1; i >= 0; i--) {
       if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
         var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
