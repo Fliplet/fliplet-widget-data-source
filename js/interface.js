@@ -859,9 +859,7 @@ $('#app')
 
     if (item.hasClass('desc')) {
       item.removeClass('desc').addClass('asc');
-      // Order data sources by updatedAt
       orderedDataSources = sortDataSources('updatedAt', 'asc', trashSources);
-      // Start rendering process
       renderTrashSources(orderedDataSources);
       return;
     }
