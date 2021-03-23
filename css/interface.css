@@ -41,7 +41,7 @@ body {
 
 .active-source {
   background-color: #36344c;
-  color: #fff;
+  color: #ffff;
 }
 
 .active-source:hover,
@@ -378,6 +378,7 @@ a[data-back] {
 .flex {
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 #toolbar .filter-form .form-control {

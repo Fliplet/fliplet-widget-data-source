@@ -461,6 +461,7 @@ function getDataSourceRender(data) {
 function getTrashSourceRender(data) {
   var tpl = Fliplet.Widget.Templates['templates.trashSource'];
   var html = '';
+
   html = tpl(data);
   return html;
 }
@@ -738,6 +739,7 @@ function deleteItem(message, currentDataSourceId) {
         $('[data-back]').click();
       });
     }
+
     currentDataSourceId = 0;
   });
 }
@@ -806,6 +808,7 @@ $('#app')
   .on('click', '[data-order-date]', function() {
     var item = $(this);
     var orderedDataSources;
+
     if (item.hasClass('desc')) {
       item.removeClass('desc').addClass('asc');
       // Order data sources by updatedAt
@@ -904,6 +907,7 @@ $('#app')
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
+
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
       $('[data-show-trash-source]').click();
@@ -918,8 +922,10 @@ $('#app')
   })
   .on('click', '[data-app-source]', function() {
     isShowingAll = false;
+
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
+
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
@@ -931,6 +937,7 @@ $('#app')
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
+
     $('[href="#entries"]').click();
 
     if (dataSourceEntriesHasChanged) {
@@ -946,23 +953,26 @@ $('#app')
         } catch (e) {}
 
         dataSourceEntriesHasChanged = false;
+
         $('.data-save-updated').addClass('hidden');
         $('.name-wrapper').removeClass('saved');
         $('[data-order-date]').removeClass('asc').addClass('desc');
+
         getDataSources();
       });
     } else {
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
+
       getDataSources();
     }
   })
   .on('click', '[data-show-alive-source]', function() {
     $('[data-show-alive-source]').addClass('active-source');
     $('[data-show-trash-source]').removeClass('active-source');
-    currentDataSourceId = 0;
 
+    currentDataSourceId = 0;
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -1020,6 +1030,7 @@ $('#app')
     event.preventDefault();
 
     var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
+
     dataSourceEntriesHasChanged = false;
 
     saveData.then(function() {

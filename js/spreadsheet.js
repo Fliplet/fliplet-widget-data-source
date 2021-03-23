@@ -316,6 +316,7 @@ var spreadsheet = function(options) {
    */
   function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
     var escaped = Handsontable.helper.stringify(value);
+
     td.innerHTML = escaped;
     $(td).css({
       'font-weight': 'bold',
@@ -377,6 +378,7 @@ var spreadsheet = function(options) {
 
           if (!header) {
             var newHeader = generateColumnName();
+
             newHeader = validateOrFixColumnName(newHeader);
             hot.setDataAtCell(0, change[1], newHeader);
           }
