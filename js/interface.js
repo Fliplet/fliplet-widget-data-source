@@ -397,21 +397,24 @@ function getEmptyColumns(columns, entries) {
     return emptyColumnNameRegex.test(column);
   });
 
-  _.forEach(entries, function(entry) {
-    if (!emptyColumns.length) {
-      return false;
-    }
-
-    for (var i = emptyColumns.length - 1; i >= 0; i--) {
-      if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
-        var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+  if (emptyColumns.length) {
+    _.forEach(entries, function(entry) {
+      // Stop iteration through entries if all empty columns have values (removed from array)
+      if (!emptyColumns.length) {
+        return false;
+      }
   
-        if (notEmptyColumnIndex !== -1) {
-          emptyColumns.splice(notEmptyColumnIndex, 1);
+      for (var i = emptyColumns.length - 1; i >= 0; i--) {
+        if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
+          var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+    
+          if (notEmptyColumnIndex !== -1) {
+            emptyColumns.splice(notEmptyColumnIndex, 1);
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   return emptyColumns;
 }
