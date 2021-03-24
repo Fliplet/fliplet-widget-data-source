@@ -57,7 +57,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
   mode: 'javascript'
 });
 
-var emptyColumnNameRegex = /Column\s\([0-9]+\)/;
+var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
 // Fetch all data sources
 function getDataSources() {
