@@ -715,18 +715,18 @@ function removeTrashItem(id, name) {
     currentDataSourceId = 0;
   });
 }
-function deleteItem(message, currentDataSourceId) {
+function deleteItem(message, dataSourceId) {
   Fliplet.Modal.confirm({
     message: message
   }).then(function(confirmAlert) {
     if (confirmAlert) {
-      Fliplet.DataSources.delete(currentDataSourceId).then(function() {
+      Fliplet.DataSources.delete(dataSourceId).then(function() {
       // Remove from UI
-        $('.data-source[data-id="' + currentDataSourceId + '"]').remove();
+        $('.data-source[data-id="' + dataSourceId + '"]').remove();
 
         // Remove from dataSources
         dataSources = dataSources.filter(function(ds) {
-          return ds.id !== currentDataSourceId;
+          return ds.id !== dataSourceId;
         });
 
         renderDataSources(dataSources);
@@ -1083,6 +1083,7 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
+    currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
 
     var usedAppsText = '';
     var currentDS = _.find(dataSources, function(ds) {
@@ -1099,7 +1100,6 @@ $('#app')
 
     var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
 
-    currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
     deleteItem(message, currentDataSourceId);
   })
   .on('click', '[data-create-source]', function(event) {
