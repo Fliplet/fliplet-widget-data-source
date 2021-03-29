@@ -78,12 +78,6 @@ function getDataSources() {
     cache: false
   })
     .then(function(userDataSources) {
-      if (!userDataSources.length) {
-        $noResults.addClass('show');
-
-        return;
-      }
-
       allDataSources = userDataSources;
 
       if (copyData.context === 'app-overlay' || copyData.appId) {
@@ -158,7 +152,7 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function rendertrashedDataSources(trashedDataSources) {
+function renderTrashedDataSources(trashedDataSources) {
   var html = trashedDataSources.map(function(trashSource) {
     return getTrashSourceRender(trashSource);
   });
@@ -696,7 +690,7 @@ function deleteDataSource(id, name) {
           return ds.id !== id;
         });
 
-        rendertrashedDataSources(trashedDataSources);
+        renderTrashedDataSources(trashedDataSources);
 
         Fliplet.Modal.alert({
           title: 'Deletion complete',
@@ -858,7 +852,7 @@ $('#app')
       orderedDataSources = sortDataSources('deletedAt', 'asc', trashedDataSources);
 
       // Start rendering process
-      rendertrashedDataSources(orderedDataSources);
+      renderTrashedDataSources(orderedDataSources);
       return;
     }
 
@@ -869,7 +863,7 @@ $('#app')
       orderedDataSources = sortDataSources('deletedAt', 'desc', trashedDataSources);
 
       // Start rendering process
-      rendertrashedDataSources(orderedDataSources);
+      renderTrashedDataSources(orderedDataSources);
       return;
     }
   })
@@ -910,7 +904,7 @@ $('#app')
       orderedDataSources = sortDataSources('name', 'asc', trashedDataSources);
 
       // Start rendering process
-      rendertrashedDataSources(orderedDataSources);
+      renderTrashedDataSources(orderedDataSources);
       return;
     }
 
@@ -921,7 +915,7 @@ $('#app')
       orderedDataSources = sortDataSources('name', 'desc', trashedDataSources);
 
       // Start rendering process
-      rendertrashedDataSources(orderedDataSources);
+      renderTrashedDataSources(orderedDataSources);
       return;
     }
   })
@@ -1025,7 +1019,7 @@ $('#app')
           return dataSource.name.trim().toUpperCase();
         });
 
-        rendertrashedDataSources(_.sortBy(result.dataSources, ['name']));
+        renderTrashedDataSources(_.sortBy(result.dataSources, ['name']));
       });
 
       return;
@@ -1048,7 +1042,7 @@ $('#app')
         return dataSource.name.trim().toUpperCase();
       });
 
-      rendertrashedDataSources(trashedDataSources);
+      renderTrashedDataSources(trashedDataSources);
     });
   })
   .on('click', '[data-save]', function(event) {
