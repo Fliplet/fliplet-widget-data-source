@@ -27,7 +27,7 @@ var currentDataSourceRules;
 var currentDataSourceRuleIndex;
 var currentEditor;
 var dataSources;
-var trashSources;
+var trashedDataSources;
 var allDataSources;
 var table;
 var dataSourceEntriesHasChanged = false;
@@ -80,6 +80,8 @@ function getDataSources() {
     .then(function(userDataSources) {
       if (!userDataSources.length) {
         $noResults.addClass('show');
+
+        return;
       }
 
       allDataSources = userDataSources;
@@ -151,8 +153,8 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function renderTrashSources(trashSources) {
-  var html = trashSources.map(function(trashSource) {
+function rendertrashedDataSources(trashedDataSources) {
+  var html = trashedDataSources.map(function(trashSource) {
     return getTrashSourceRender(trashSource);
   });
 
@@ -638,7 +640,7 @@ function restoreDataSource(id, name) {
   }).then(function() {
     $('.data-source[data-id="' + id + '"]').remove();
 
-    trashSources = trashSources.filter(function(ds) {
+    trashedDataSources = trashedDataSources.filter(function(ds) {
       return ds.id !== id;
     });
 
@@ -684,12 +686,12 @@ function deleteDataSource(id, name) {
         // Remove from UI
         $('.data-source[data-id="' + id + '"]').remove();
 
-        // Remove from trashSources
-        trashSources = trashSources.filter(function(ds) {
+        // Remove from trashedDataSources
+        trashedDataSources = trashedDataSources.filter(function(ds) {
           return ds.id !== id;
         });
 
-        renderTrashSources(trashSources);
+        rendertrashedDataSources(trashedDataSources);
 
         Fliplet.Modal.alert({
           title: 'Deletion complete',
@@ -841,37 +843,37 @@ $('#app')
     }
   })
   .on('click', '[data-trash-date]', function() {
-    var item = $(this);
+    var $dataSource = $(this);
     var orderedDataSources;
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    if ($dataSource.hasClass('desc')) {
+      $dataSource.removeClass('desc').addClass('asc');
 
       // Order data sources by deletedAt
-      orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
+      orderedDataSources = sortDataSources('deletedAt', 'asc', trashedDataSources);
 
       // Start rendering process
-      renderTrashSources(orderedDataSources);
+      rendertrashedDataSources(orderedDataSources);
       return;
     }
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
+    if ($dataSource.hasClass('asc')) {
+      $dataSource.removeClass('asc').addClass('desc');
 
       // Order data sources by deletedAt
-      orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
+      orderedDataSources = sortDataSources('deletedAt', 'desc', trashedDataSources);
 
       // Start rendering process
-      renderTrashSources(orderedDataSources);
+      rendertrashedDataSources(orderedDataSources);
       return;
     }
   })
   .on('click', '[data-order-name]', function() {
-    var item = $(this);
+    var $dataSource = $(this);
     var orderedDataSources;
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    if ($dataSource.hasClass('desc')) {
+      $dataSource.removeClass('desc').addClass('asc');
 
       // Order data sources by updatedAt
       orderedDataSources = sortDataSources('name', 'asc', dataSources);
@@ -881,8 +883,8 @@ $('#app')
       return;
     }
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
+    if ($dataSource.hasClass('asc')) {
+      $dataSource.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
       orderedDataSources = sortDataSources('name', 'desc', dataSources);
@@ -893,28 +895,28 @@ $('#app')
     }
   })
   .on('click', '[data-trash-name]', function() {
-    var item = $(this);
+    var $dataSource = $(this);
     var orderedDataSources;
 
-    if (item.hasClass('desc')) {
-      item.removeClass('desc').addClass('asc');
+    if ($dataSource.hasClass('desc')) {
+      $dataSource.removeClass('desc').addClass('asc');
 
       // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('name', 'asc', trashSources);
+      orderedDataSources = sortDataSources('name', 'asc', trashedDataSources);
 
       // Start rendering process
-      renderTrashSources(orderedDataSources);
+      rendertrashedDataSources(orderedDataSources);
       return;
     }
 
-    if (item.hasClass('asc')) {
-      item.removeClass('asc').addClass('desc');
+    if ($dataSource.hasClass('asc')) {
+      $dataSource.removeClass('asc').addClass('desc');
 
       // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('name', 'desc', trashSources);
+      orderedDataSources = sortDataSources('name', 'desc', trashedDataSources);
 
       // Start rendering process
-      renderTrashSources(orderedDataSources);
+      rendertrashedDataSources(orderedDataSources);
       return;
     }
   })
@@ -924,6 +926,7 @@ $('#app')
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
+
       $('[data-show-trash-source]').click();
     } else {
       isShowingAll = true;
@@ -1013,11 +1016,11 @@ $('#app')
         var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
-        trashSources = _.sortBy(result.dataSources, function(dataSource) {
+        trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashSources(_.sortBy(result.dataSources, ['name']));
+        rendertrashedDataSources(_.sortBy(result.dataSources, ['name']));
       });
 
       return;
@@ -1036,11 +1039,11 @@ $('#app')
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
       dataSourcesToSearch = orderedDataSources;
-      trashSources = _.sortBy(result.dataSources, function(dataSource) {
+      trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
-      renderTrashSources(trashSources);
+      rendertrashedDataSources(trashedDataSources);
     });
   })
   .on('click', '[data-save]', function(event) {
