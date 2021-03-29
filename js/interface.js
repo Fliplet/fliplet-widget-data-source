@@ -846,8 +846,10 @@ $('#app')
 
     if (item.hasClass('desc')) {
       item.removeClass('desc').addClass('asc');
+
       // Order data sources by deletedAt
       orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
+
       // Start rendering process
       renderTrashSources(orderedDataSources);
       return;
@@ -858,6 +860,7 @@ $('#app')
 
       // Order data sources by deletedAt
       orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
+
       // Start rendering process
       renderTrashSources(orderedDataSources);
       return;
