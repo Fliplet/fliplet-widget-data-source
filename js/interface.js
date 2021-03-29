@@ -89,6 +89,7 @@ function getDataSources() {
       if (copyData.context === 'app-overlay' || copyData.appId) {
         // Changes UI text
         isShowingAll = false;
+
         $('[data-show-all-source]').removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
@@ -113,6 +114,10 @@ function getDataSources() {
       } else {
         dataSourcesToSearch = userDataSources;
         dataSources = userDataSources;
+      }
+
+      if (!dataSources.length) {
+        $noResults.addClass('show');
       }
 
       // Order data sources by updatedAt
@@ -558,7 +563,7 @@ function createDataSource(createOptions, options) {
       });
     }
 
-    $('[data-show-all-source]').addClass('active-source');
+    $('[data-show-source]').addClass('active-source');
     $('[data-show-trash-source]').removeClass('active-source');
 
     // Simulate going back to the "all datasources" list
@@ -985,8 +990,8 @@ $('#app')
       getDataSources();
     }
   })
-  .on('click', '[data-show-all-source]', function() {
-    $('[data-show-all-source]').addClass('active-source');
+  .on('click', '[data-show-source]', function() {
+    $('[data-show-source]').addClass('active-source');
     $('[data-show-trash-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
@@ -994,7 +999,7 @@ $('#app')
   })
   .on('click', '[data-show-trash-source]', function() {
     $('[data-show-trash-source]').addClass('active-source');
-    $('[data-show-all-source]').removeClass('active-source');
+    $('[data-show-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
     $noResults.removeClass('show');
