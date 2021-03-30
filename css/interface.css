@@ -33,7 +33,7 @@ body {
   outline: none !important;
 }
 
-.btn-round[data-show-alive-source],
+.btn-round[data-show-all-source],
 .btn-round[data-show-trash-source] {
   padding-left: 20px;
   padding-right: 20px;
@@ -60,14 +60,7 @@ body {
 }
 
 .remove-item {
-  color: #d9534f;
-  display: block;
-  padding: 3px 20px;
-  clear: both;
-  font-weight: normal;
-  line-height: 1.42857143;
-  white-space: nowrap;
-  cursor: pointer;
+  color: #d9534f !important;
 }
 
 .remove-item:hover {
