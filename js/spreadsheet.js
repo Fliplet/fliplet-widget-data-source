@@ -316,6 +316,7 @@ var spreadsheet = function(options) {
    */
   function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
     var escaped = Handsontable.helper.stringify(value);
+
     td.innerHTML = escaped;
     $(td).css({
       'font-weight': 'bold',
@@ -357,15 +358,7 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
-    beforeChange: function(changes) {
-      onChanges();
-
-      // If users intend to remove value from the cells with Delete or Backspace buttons
-      // We shouldn't add a column title
-      if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
-        return;
-      }
-
+    beforeChange: function(changes, source) {
       // Check if the change was on columns row and validate
       // If we change row without header we put header for this row
       // In this case user won't lose his data if he forgot to input header
@@ -391,6 +384,8 @@ var spreadsheet = function(options) {
           }
         }
       });
+
+      onChanges();
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack

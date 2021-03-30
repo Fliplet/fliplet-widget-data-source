@@ -6,6 +6,7 @@ html {
 body {
   padding-top: 15px;
 }
+
 .help-icon {
   font-size: 16px;
   margin-left: 8px;
@@ -16,15 +17,55 @@ body {
 .items-center {
   align-items: center;
 }
+
 .btn.disabled {
   pointer-events: none;
   cursor: default;
 }
 
-#app,
-#contents {
-  height: 100%;
-  padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
+.restore-disabled {
+  opacity: 0.3;
+}
+
+.btn-round,
+.input-round {
+  border-radius: 20px;
+  outline: none !important;
+}
+
+.btn-round[data-show-all-source],
+.btn-round[data-show-trash-source] {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.active-source {
+  background-color: #36344c;
+  color: #ffff;
+}
+
+.active-source:hover,
+.active-source:focus {
+  color: white;
+}
+
+.spaced {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+.remove-item {
+  color: #d9534f !important;
+}
+
+.remove-item:hover {
+  text-decoration: none;
+  background-color: #f5f5f5;
 }
 
 #app,
@@ -33,30 +74,36 @@ body {
   padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
 }
 
-#data-sources {
+#app,
+#contents {
+  height: 100%;
+  padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
+}
+
+.data-source-table {
   margin-top: 20px;
 }
 
-#data-sources th {
+.data-source-table th {
   border: none;
 }
 
-#data-sources th.desc,
-#data-sources th.asc {
+.data-source-table th.desc,
+.data-source-table th.asc {
   cursor: pointer;
 }
 
-#data-sources th.desc .fa-sort-amount-asc,
-#data-sources th.asc .fa-sort-amount-desc {
+.data-source-table th.desc .fa-sort-amount-asc,
+.data-source-table th.asc .fa-sort-amount-desc {
   display: none;
 }
 
-#data-sources th.desc .fa-sort-amount-desc,
-#data-sources th.asc .fa-sort-amount-asc {
+.data-source-table th.desc .fa-sort-amount-desc,
+.data-source-table th.asc .fa-sort-amount-asc {
   display: inline-block;
 }
 
-#data-sources td {
+.data-source-table td {
   border-left: none;
   border-right: none;
   border-bottom: none;
@@ -73,11 +120,6 @@ body {
 .controls-wrapper.data-settings,
 .controls-wrapper.data-roles {
   width: 100%;
-}
-
-.flex {
-  display: flex;
-  align-items: center;
 }
 
 .back-name-holder {
@@ -324,6 +366,12 @@ a[data-back] {
 
 #toolbar .filter-form.expanded {
   width: 100%;
+}
+
+.flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 #toolbar .filter-form .form-control {
@@ -605,7 +653,7 @@ td.align-baseline {
 
 .modal-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .modal-footer p {
