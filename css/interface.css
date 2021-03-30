@@ -664,7 +664,7 @@ td.align-baseline {
 
 .ui-autocomplete {
   z-index: 9999; /* goes above modal */
-  max-height: 200px;
+  max-height: 200px; /* Prevent dropdown from being clipped within the overlay frame */
   overflow-y: scroll;
   overflow-x: hidden;
 }
