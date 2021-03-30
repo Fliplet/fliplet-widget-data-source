@@ -430,7 +430,7 @@ function getEmptyColumns(columns, entries) {
     for (var i = emptyColumns.length - 1; i >= 0; i--) {
       if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
         var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
-  
+
         if (notEmptyColumnIndex !== -1) {
           emptyColumns.splice(notEmptyColumnIndex, 1);
         }
@@ -888,10 +888,11 @@ $('#app')
     if ($dataSource.hasClass('asc')) {
       $dataSource.removeClass('asc').addClass('desc');
 
-    item.toggleClass('desc', isOrderedByDeletedDateAsc);
-    item.toggleClass('asc', !isOrderedByDeletedDateAsc);
+      item.toggleClass('desc', isOrderedByDeletedDateAsc);
+      item.toggleClass('asc', !isOrderedByDeletedDateAsc);
 
-    renderTrashSources(orderedDataSources);
+      renderTrashSources(orderedDataSources);
+    }
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
@@ -919,6 +920,29 @@ $('#app')
       return;
     }
   })
+  .on('click', '[data-trash-date]', function() {
+    var item = $(this);
+    var orderedDataSources;
+
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
+      // Order data sources by deletedAt
+      orderedDataSources = sortDataSources('deletedAt', 'asc', trashSources);
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
+      return;
+    }
+
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
+
+      // Order data sources by deletedAt
+      orderedDataSources = sortDataSources('deletedAt', 'desc', trashSources);
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
+      return;
+    }
+  })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
     var orderedDataSources;
@@ -937,10 +961,11 @@ $('#app')
     if ($dataSource.hasClass('asc')) {
       $dataSource.removeClass('asc').addClass('desc');
 
-    item.toggleClass('desc', isOrderedByNameAsc);
-    item.toggleClass('asc', !isOrderedByNameAsc);
+      item.toggleClass('desc', isOrderedByNameAsc);
+      item.toggleClass('asc', !isOrderedByNameAsc);
 
-    renderDataSources(orderedDataSources);
+      renderDataSources(orderedDataSources);
+    }
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
@@ -965,6 +990,32 @@ $('#app')
 
       // Start rendering process
       renderTrashedDataSources(orderedDataSources);
+      return;
+    }
+  })
+  .on('click', '[data-trash-name]', function() {
+    var item = $(this);
+    var orderedDataSources;
+
+    if (item.hasClass('desc')) {
+      item.removeClass('desc').addClass('asc');
+
+      // Order data sources by updatedAt
+      orderedDataSources = sortDataSources('name', 'asc', trashSources);
+
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
+      return;
+    }
+
+    if (item.hasClass('asc')) {
+      item.removeClass('asc').addClass('desc');
+
+      // Order data sources by updatedAt
+      orderedDataSources = sortDataSources('name', 'desc', trashSources);
+
+      // Start rendering process
+      renderTrashSources(orderedDataSources);
       return;
     }
   })
