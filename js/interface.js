@@ -59,6 +59,8 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
   mode: 'javascript'
 });
 
+var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
+
 // Fetch all data sources
 function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
@@ -410,6 +412,44 @@ function trimColumns(columns) {
   });
 }
 
+function getEmptyColumns(columns, entries) {
+  var emptyColumns = _.filter(columns, function(column) {
+    return emptyColumnNameRegex.test(column);
+  });
+
+  if (!emptyColumns.length) {
+    return [];
+  }
+
+  _.forEach(entries, function(entry) {
+    // Stop iteration through entries if all empty columns have values (removed from array)
+    if (!emptyColumns.length) {
+      return false;
+    }
+
+    for (var i = emptyColumns.length - 1; i >= 0; i--) {
+      if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
+        var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+  
+        if (notEmptyColumnIndex !== -1) {
+          emptyColumns.splice(notEmptyColumnIndex, 1);
+        }
+      }
+    }
+  });
+
+  return emptyColumns;
+}
+
+function removeEmptyColumnsInEntries(entries, emptyColumns) {
+  return entries.map(function(entry) {
+    entry.data = _.omitBy(entry.data, function(value, key) {
+      return emptyColumns.includes(key);
+    });
+    return entry;
+  });
+}
+
 function saveCurrentData() {
   var columns;
   $('[data-save]').addClass('hidden');
@@ -429,6 +469,21 @@ function saveCurrentData() {
     }
   } else {
     columns = trimColumns(table.getColumns());
+  }
+
+  var emptyColumns = getEmptyColumns(columns, entries);
+
+  _.forEach(emptyColumns, function(column) {
+    var columnIndex = columns.indexOf(column);
+
+    if (columnIndex !== -1) {
+      hot.alter('remove_col', columnIndex, 1, 'removeEmptyColumn');
+      columns.splice(columnIndex, 1);
+    }
+  });
+
+  if (entries.length && emptyColumns.length) {
+    entries = removeEmptyColumnsInEntries(entries, emptyColumns);
   }
 
   var widths = trimColumns(table.getColWidths());
@@ -833,13 +888,10 @@ $('#app')
     if ($dataSource.hasClass('asc')) {
       $dataSource.removeClass('asc').addClass('desc');
 
-      // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+    item.toggleClass('desc', isOrderedByDeletedDateAsc);
+    item.toggleClass('asc', !isOrderedByDeletedDateAsc);
 
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
-    }
+    renderTrashSources(orderedDataSources);
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
@@ -885,13 +937,10 @@ $('#app')
     if ($dataSource.hasClass('asc')) {
       $dataSource.removeClass('asc').addClass('desc');
 
-      // Order data sources by updatedAt
-      orderedDataSources = sortDataSources('name', 'desc', dataSources);
+    item.toggleClass('desc', isOrderedByNameAsc);
+    item.toggleClass('asc', !isOrderedByNameAsc);
 
-      // Start rendering process
-      renderDataSources(orderedDataSources);
-      return;
-    }
+    renderDataSources(orderedDataSources);
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
@@ -1012,7 +1061,7 @@ $('#app')
         $('#data-sources').hide();
         $('#trash-sources').show();
 
-        var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
+        var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
         trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
