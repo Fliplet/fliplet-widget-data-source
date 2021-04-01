@@ -805,14 +805,6 @@ function deleteItem(message, dataSourceId) {
         return ds.id !== dataSourceId;
       });
 
-      allDataSources = allDataSources.filter(function(ds) {
-        return ds.id !== dataSourceId;
-      });
-
-      if (!dataSources.length) {
-        $noResults.removeClass('hidden');
-      }
-
       renderDataSources(dataSources);
 
       // Return to parent widget if in overlay
@@ -821,10 +813,8 @@ function deleteItem(message, dataSourceId) {
         return;
       }
 
-      if (!$sourceContents.hasClass('hidden')) {
-        // Go back
-        $('[data-back]').click();
-      }
+      // Go back
+      $('[data-back]').click();
     });
 
     currentDataSourceId = 0;
@@ -920,7 +910,6 @@ $('#app')
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
-    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
@@ -940,16 +929,11 @@ $('#app')
 
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
-    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      if (!dataSources.length) {
-        $noResults.removeClass('hidden');
-      }
 
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
