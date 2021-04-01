@@ -42,8 +42,10 @@ var spreadsheet = function(options) {
 
           // Add double quotes to the string if it contains a comma
           value = value.map(function(val) {
-            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
+            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : JSON.stringify(val);
           }).join(', ');
+        } else if (typeof value === 'object') {
+          value = JSON.stringify(value);
         }
 
         return value;
