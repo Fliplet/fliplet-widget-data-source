@@ -1,18 +1,18 @@
-<tr class="data-source" data-id="{{id}}">
+<tr class="data-source" data-id="{{id}}" data-name="{{name}}">
     <td class="data-source-id">{{id}}</td>
-    <td class="data-source-name"><span class="data-source-text" data-browse-source>{{name}}</span></td>
+    <td class="data-source-name">{{name}}</td>
     <td class="data-source-apps">{{#each apps}} {{name}} {{#unless @last}},{{/unless}} {{/each}}</td>
-    <td>{{#if bundle}}<i class="fa fa-check"></i>{{/if}}</td>
     <td class="data-source-apps">{{momentCalendar updatedAt}}</td>
+    <td class="data-source-apps">{{momentCalendar deletedAt}}</td>
     <td class="data-source-edit text-right">
         <div class="btn-group">
         <button type="button" class="btn btn-default btn-round dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
             Actions <span class="caret"></span>
         </button>
         <ul class="dropdown-menu">
-            <li data-browse-source><a href="#">Edit</a></li>
+            <li data-restore-source><a href="#">Restore</a></li>
             <li role="separator" class="divider"></li>
-            <li data-delete-source><a href="#" class="remove-item">Delete</a></li>
+            <li data-remove-source><a href="#" class="remove-item">Delete forever</a></li>
         </ul>
         </div>
     </td>
