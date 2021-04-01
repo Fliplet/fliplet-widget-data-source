@@ -154,6 +154,16 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
+function sortColumn($element, column, data) {
+  var isOrderedByAsc = $element.hasClass('asc');
+  var newOrder = isOrderedByAsc ? 'desc' : 'asc';
+
+  $element.toggleClass('desc', isOrderedByAsc);
+  $element.toggleClass('asc', !isOrderedByAsc);
+
+  return sortDataSources(column, newOrder, data);
+}
+
 function renderTrashedDataSources(trashedDataSources) {
   var html = trashedDataSources.map(function(trashSource) {
     return getTrashSourceRender(trashSource);
@@ -874,58 +884,28 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var $dataSource = $(this);
-    var isOrderedByDateAsc = $dataSource.hasClass('asc');
-    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('updatedAt', newOrder, dataSources);
 
-    $dataSource.toggleClass('desc', isOrderedByDateAsc);
-    $dataSource.toggleClass('asc', !isOrderedByDateAsc);
-
-    renderDataSources(orderedDataSources);
+    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources));
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var $dataSource = $(this);
-    var isOrderedByDeletedDateAsc = $dataSource.hasClass('asc');
-    var newOrder = isOrderedByDeletedDateAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('deletedAt', newOrder, trashedDataSources);
 
-    $dataSource.toggleClass('desc', isOrderedByDeletedDateAsc);
-    $dataSource.toggleClass('asc', !isOrderedByDeletedDateAsc);
-
-    renderTrashedDataSources(orderedDataSources);
+    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources));
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
-    var isOrderedByDateAsc = $dataSource.hasClass('asc');
-    var newOrder = isOrderedByDateAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('updatedAt', newOrder, trashedDataSources);
 
-    $dataSource.toggleClass('desc', isOrderedByDateAsc);
-    $dataSource.toggleClass('asc', !isOrderedByDateAsc);
-
-    renderTrashedDataSources(orderedDataSources);
+    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources));
   })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
-    var isOrderedByNameAsc = $dataSource.hasClass('asc');
-    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('name', newOrder, dataSources);
 
-    $dataSource.toggleClass('desc', isOrderedByNameAsc);
-    $dataSource.toggleClass('asc', !isOrderedByNameAsc);
-
-    renderDataSources(orderedDataSources);
+    renderDataSources(sortColumn($dataSource, 'name', dataSources));
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
-    var isOrderedByNameAsc = $dataSource.hasClass('asc');
-    var newOrder = isOrderedByNameAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('name', newOrder, trashedDataSources);
 
-    $dataSource.toggleClass('desc', isOrderedByNameAsc);
-    $dataSource.toggleClass('asc', !isOrderedByNameAsc);
-
-    renderTrashedDataSources(orderedDataSources);
+    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources));
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
