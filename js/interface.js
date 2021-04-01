@@ -1050,6 +1050,10 @@ $('#app')
     } else {
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
 
+      if (dataSources) {
+        $noResults.removeClass('hidden');
+      }
+
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
     }
