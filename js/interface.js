@@ -803,8 +803,10 @@ function deleteItem(message, dataSourceId) {
         return;
       }
 
-      // Go back
-      $('[data-back]').click();
+      if (!$sourceContents.hasClass('hidden')) {
+        // Go back
+        $('[data-back]').click();
+      }
     });
 
     currentDataSourceId = 0;
@@ -1028,6 +1030,7 @@ $('#app')
 
       $('[data-show-trash-source]').click();
     } else {
+      $noResults.addClass('hidden');
       isShowingAll = true;
 
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
@@ -1046,6 +1049,10 @@ $('#app')
       $('[data-show-trash-source]').click();
     } else {
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+
+      if (dataSources) {
+        $noResults.removeClass('hidden');
+      }
 
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
