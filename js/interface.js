@@ -802,9 +802,6 @@ function deleteItem(message, dataSourceId) {
         Fliplet.Studio.emit('close-overlay');
         return;
       }
-
-      // Go back
-      $('[data-back]').click();
     });
 
     currentDataSourceId = 0;
