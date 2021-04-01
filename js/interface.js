@@ -802,6 +802,11 @@ function deleteItem(message, dataSourceId) {
         Fliplet.Studio.emit('close-overlay');
         return;
       }
+
+      if (!$sourceContents.hasClass('hidden')) {
+        // Go back
+        $('[data-back]').click();
+      }
     });
 
     currentDataSourceId = 0;
@@ -1025,6 +1030,7 @@ $('#app')
 
       $('[data-show-trash-source]').click();
     } else {
+      $noResults.addClass('hidden');
       isShowingAll = true;
 
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
