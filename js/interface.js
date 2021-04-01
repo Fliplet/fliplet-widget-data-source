@@ -887,7 +887,7 @@ $('#app')
     var $dataSource = $(this);
     var isOrderedByDeletedDateAsc = $dataSource.hasClass('asc');
     var newOrder = isOrderedByDeletedDateAsc ? 'desc' : 'asc';
-    var orderedDataSources = sortDataSources('updatedAt', newOrder, trashedDataSources);
+    var orderedDataSources = sortDataSources('deletedAt', newOrder, trashedDataSources);
 
     $dataSource.toggleClass('desc', isOrderedByDeletedDateAsc);
     $dataSource.toggleClass('asc', !isOrderedByDeletedDateAsc);
