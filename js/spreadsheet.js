@@ -420,7 +420,7 @@ var spreadsheet = function(options) {
         onChanges();
       }
     },
-    beforePaste: function(data, coords) {      
+    beforePaste: function(data, coords) {
       var cellsToSelect = [];
       
       // Checks if the entire row is selected
