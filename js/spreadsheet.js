@@ -422,7 +422,7 @@ var spreadsheet = function(options) {
     },
     beforePaste: function(data, coords) {
       var cellsToSelect = [];
-      
+
       // Checks if the entire row is selected
       if (getColWidths().length === coords[0].endCol - coords[0].startCol + 1) {
         // Selects only start column of each row to prevent populating 
