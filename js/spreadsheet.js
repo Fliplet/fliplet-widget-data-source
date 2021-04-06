@@ -316,6 +316,7 @@ var spreadsheet = function(options) {
    */
   function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
     var escaped = Handsontable.helper.stringify(value);
+
     td.innerHTML = escaped;
     $(td).css({
       'font-weight': 'bold',
@@ -366,14 +367,18 @@ var spreadsheet = function(options) {
           if (change[3] === change[2]) {
             return;
           }
+
           if (change[3] === '') {
             change[3] = generateColumnName();
           }
+
           change[3] = validateOrFixColumnName(change[3]);
         } else {
           var header = getColumns()[change[1]];
+
           if (!header) {
             var newHeader = generateColumnName();
+
             newHeader = validateOrFixColumnName(newHeader);
             hot.setDataAtCell(0, change[1], newHeader);
           }
@@ -402,7 +407,7 @@ var spreadsheet = function(options) {
     afterRemoveRow: function(index, amount) {
       onChanges();
     },
-    afterRemoveCol: function(index, amount) {
+    afterRemoveCol: function(index, amount, originalArr, source) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -410,7 +415,10 @@ var spreadsheet = function(options) {
       hot.updateSettings({ colWidths: colWidths });
       hot.getSettings().manualColumnResize = true;
       hot.updateSettings({});
-      onChanges();
+
+      if (source !== 'removeEmptyColumn') {
+        onChanges();
+      }
     },
     beforePaste: function(data, coords) {
       removeLastEmptyColumn(data);
