@@ -811,8 +811,6 @@ function deleteItem(message, dataSourceId) {
         $noResults.removeClass('hidden');
       }
 
-      renderDataSources(dataSources);
-
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
