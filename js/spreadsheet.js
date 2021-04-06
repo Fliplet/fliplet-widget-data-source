@@ -435,6 +435,7 @@ var spreadsheet = function(options) {
             coords[0].startCol
           ]);
         }
+
         hot.selectCells(cellsToSelect);
       }
 
