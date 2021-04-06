@@ -755,8 +755,6 @@ function deleteDataSource(id, name) {
           return ds.id !== id;
         });
 
-        renderTrashedDataSources(trashedDataSources);
-
         Fliplet.Modal.alert({
           title: 'Deletion complete',
           message: 'Item deleted permanently.'
