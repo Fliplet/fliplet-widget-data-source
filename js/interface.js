@@ -759,7 +759,7 @@ function deleteDataSource(id, name) {
 
         Fliplet.Modal.alert({
           title: 'Deletion complete',
-          message: 'Item deleted permanently.'
+          message: '1 data source deleted permanently.'
         });
 
         // Return to parent widget if in overlay
