@@ -425,8 +425,8 @@ var spreadsheet = function(options) {
 
       // Checks if the entire row is selected
       if (getColWidths().length === coords[0].endCol - coords[0].startCol + 1) {
-        // Selects only start column of each row to prevent populating
-        // with duplicates of the entire row
+        // Changes selection to first cell of each selected row
+        // to prevent populating with duplicates of the entire row
         for (var i = 0; i < coords[0].endRow - coords[0].startRow + 1; i++) {
           cellsToSelect.push([
             coords[0].startRow,
