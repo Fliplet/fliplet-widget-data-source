@@ -30,9 +30,9 @@ var spreadsheet = function(options) {
    * of data prepared to be consumed by Handsontable
    * @param {Array} rows
    * @param {Array} columns
-   * @param {Boolean} firstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
+   * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    */
-  function prepareData(rows, columns, firstRender) {
+  function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header, index) {
         var value = row.data[header];
@@ -45,14 +45,14 @@ var spreadsheet = function(options) {
           // Add double quotes to the string if it contains a comma
           value = value.map(function(val) {
             // Stringify value only for the first render for nested arrays
-            if (firstRender && value && typeof val !== 'string') {
+            if (isFirstRender && value && typeof val !== 'string') {
               return JSON.stringify(val);
             }
 
               return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
           }).join(', ');
         // Stringify value only for the first render for nested objects
-        } else if (firstRender && value && typeof value === 'object') {
+        } else if (isFirstRender && value && typeof value === 'object') {
           value = JSON.stringify(value);
         }
 
