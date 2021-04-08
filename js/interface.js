@@ -755,8 +755,6 @@ function deleteDataSource(id, name) {
           return ds.id !== id;
         });
 
-        renderTrashedDataSources(trashedDataSources);
-
         Fliplet.Modal.alert({
           title: 'Deletion complete',
           message: 'Item deleted permanently.'
@@ -805,7 +803,13 @@ function deleteItem(message, dataSourceId) {
         return ds.id !== dataSourceId;
       });
 
-      renderDataSources(dataSources);
+      allDataSources = allDataSources.filter(function(ds) {
+        return ds.id !== dataSourceId;
+      });
+
+      if (!dataSources.length) {
+        $noResults.removeClass('hidden');
+      }
 
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
@@ -813,8 +817,10 @@ function deleteItem(message, dataSourceId) {
         return;
       }
 
-      // Go back
-      $('[data-back]').click();
+      if (!$sourceContents.hasClass('hidden')) {
+        // Go back
+        $('[data-back]').click();
+      }
     });
 
     currentDataSourceId = 0;
@@ -910,6 +916,7 @@ $('#app')
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
+    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
@@ -929,11 +936,16 @@ $('#app')
 
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
+    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+
+      if (!dataSources.length) {
+        $noResults.removeClass('hidden');
+      }
 
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
