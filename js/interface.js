@@ -1100,7 +1100,11 @@ $('#app')
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
-      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + '<br/><br/>' + '<ul><li style="font-weight: bold;">' + appUsedIn.join(', ') + '</li></ul>' + '<br/>';
+      var appsList = _.map(appUsedIn, function(el) {
+        return '<li style="font-weight: bold;">' + el + '</li>';
+      });
+
+      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + '<br/><br/>' + '<ul>' + appsList.join('') + '</ul>' + '<br/>';
     }
 
     var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
