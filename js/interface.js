@@ -1101,7 +1101,7 @@ $('#app')
         return elem.name;
       });
       var appsList = _.map(appUsedIn, function(el) {
-        return '<li style="font-weight: bold;">' + el + '</li>';
+        return '<li><b>' + el + '</b></li>';
       });
 
       usedAppsText = 'The data source is currently in use by the following ' + appPrefix + '<br/><br/>' + '<ul>' + appsList.join('') + '</ul>' + '<br/>';
