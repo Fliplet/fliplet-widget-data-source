@@ -15,6 +15,7 @@ var spreadsheet = function(options) {
   var connection = options.connection;
   var dataLoaded = false;
   var arrayColumns = [];
+  var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
 
@@ -53,6 +54,10 @@ var spreadsheet = function(options) {
           }).join(', ');
         // Stringify value only for the first render for nested objects
         } else if (isFirstRender && value && typeof value === 'object') {
+          if (objColumns.indexOf(header) === -1) {
+            objColumns.push(header);
+          }
+
           value = JSON.stringify(value);
         }
 
@@ -737,6 +742,18 @@ var spreadsheet = function(options) {
                 // nothing
               }
             }
+
+            // Cast string to object
+            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+              entry.data[header] = validateJsonString(entry.data[header]);
+            }
+
+            // Validate nested arrays
+            if (Array.isArray(entry.data[header])) {
+              entry.data[header] = entry.data[header].map(function(val) {
+                return validateJsonString(val);
+              });
+            }
           });
 
           entries.push(entry);
@@ -751,6 +768,16 @@ var spreadsheet = function(options) {
 
     return entries;
   };
+
+  function validateJsonString(str) {
+    var validatedString;
+    try {
+      validatedString = JSON.parse(str);
+    } catch (e) {
+      validatedString = str;
+    }
+    return validatedString;
+  }
 
   return {
     getData: getData,
