@@ -539,10 +539,6 @@ var spreadsheet = function(options) {
         return false;
       }
     }
-    // },
-    // beforeRenderer: function(TD, row, column, prop, value, cellProperties) {
-    //   console.log('beforeRenderer', arguments);
-    // }
   };
 
   if (currentDataSourceDefinition && Array.isArray(currentDataSourceDefinition.columnsWidths)) {
