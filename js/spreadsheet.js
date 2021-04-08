@@ -8,6 +8,8 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
+var jsonObjRegExp = /^({|\[).*(}|\])$/;
+
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
   var rows = options.rows || [];
@@ -768,7 +770,7 @@ var spreadsheet = function(options) {
   function validateJsonString(str) {
     var validatedString;
     try {
-      validatedString = JSON.parse(str);
+      validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
     } catch (e) {
       validatedString = str;
     }
