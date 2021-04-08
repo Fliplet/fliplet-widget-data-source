@@ -23,14 +23,16 @@ var spreadsheet = function(options) {
 
   // Don't bind data to data source object
   // Data as an array
-  data = prepareData(rows, columns);
+  data = prepareData(rows, columns, true);
 
   /**
    * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
    * @param {Array} rows
+   * @param {Array} columns
+   * @param {Boolean} firstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    */
-  function prepareData(rows, columns) {
+  function prepareData(rows, columns, firstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header, index) {
         var value = row.data[header];
@@ -42,9 +44,15 @@ var spreadsheet = function(options) {
 
           // Add double quotes to the string if it contains a comma
           value = value.map(function(val) {
-            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : JSON.stringify(val);
+            // Stringify value only for the first render for nested arrays
+            if (firstRender && value && typeof val !== 'string') {
+              return JSON.stringify(val);
+            }
+
+              return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
           }).join(', ');
-        } else if (typeof value === 'object') {
+        // Stringify value only for the first render for nested objects
+        } else if (firstRender && value && typeof value === 'object') {
           value = JSON.stringify(value);
         }
 
@@ -526,6 +534,10 @@ var spreadsheet = function(options) {
         return false;
       }
     }
+    // },
+    // beforeRenderer: function(TD, row, column, prop, value, cellProperties) {
+    //   console.log('beforeRenderer', arguments);
+    // }
   };
 
   if (currentDataSourceDefinition && Array.isArray(currentDataSourceDefinition.columnsWidths)) {
