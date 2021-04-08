@@ -49,7 +49,7 @@ var spreadsheet = function(options) {
               return JSON.stringify(val);
             }
 
-            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : validateJsonString(val);
+              return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
           }).join(', ');
         // Stringify value only for the first render for nested objects
         } else if (isFirstRender && value && typeof value === 'object') {
@@ -66,16 +66,6 @@ var spreadsheet = function(options) {
     preparedData.unshift(columns);
 
     return preparedData;
-  }
-
-  function validateJsonString(str) {
-    var validatedString;
-    try {
-      validatedString = JSON.parse(str);
-    } catch (e) {
-      validatedString = str;
-    }
-    return validatedString;
   }
 
   function onChanges() {
