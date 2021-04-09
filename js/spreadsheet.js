@@ -8,7 +8,7 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
-var jsonObjRegExp = /^({|\[).*(}|\])$/;
+var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
