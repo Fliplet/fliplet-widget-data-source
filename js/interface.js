@@ -1563,7 +1563,7 @@ function configureAddRuleUI(rule) {
   $('.required-fields').html('');
   $('.users-filter').addClass('hidden').find('.filters').html('');
   $('button.selected').removeClass('selected');
-  $('input[name="type"]').removeAttr('checked');
+  $('input[name="type"]:checked').prop('checked', false);
 
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
@@ -1576,7 +1576,7 @@ function configureAddRuleUI(rule) {
   $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
 
   rule.type.forEach(function(type) {
-    $('input[name="type"][value="' + type + '"]').attr('checked', true);
+    $('input[name="type"][value="' + type + '"]').prop('checked', true);
   });
 
   if (rule.allow) {
