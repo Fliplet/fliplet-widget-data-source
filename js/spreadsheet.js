@@ -8,6 +8,8 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
+var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
+
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
   var rows = options.rows || [];
@@ -15,6 +17,7 @@ var spreadsheet = function(options) {
   var connection = options.connection;
   var dataLoaded = false;
   var arrayColumns = [];
+  var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
 
@@ -23,14 +26,16 @@ var spreadsheet = function(options) {
 
   // Don't bind data to data source object
   // Data as an array
-  data = prepareData(rows, columns);
+  data = prepareData(rows, columns, true);
 
   /**
    * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
    * @param {Array} rows
+   * @param {Array} columns
+   * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    */
-  function prepareData(rows, columns) {
+  function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header, index) {
         var value = row.data[header];
@@ -42,8 +47,20 @@ var spreadsheet = function(options) {
 
           // Add double quotes to the string if it contains a comma
           value = value.map(function(val) {
+            // Stringify value only for the first render for nested arrays
+            if (isFirstRender && value && typeof val !== 'string') {
+              return JSON.stringify(val);
+            }
+
             return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
           }).join(', ');
+        // Stringify value only for the first render for nested objects
+        } else if (isFirstRender && value && typeof value === 'object') {
+          if (objColumns.indexOf(header) === -1) {
+            objColumns.push(header);
+          }
+
+          value = JSON.stringify(value);
         }
 
         return value;
@@ -741,6 +758,18 @@ var spreadsheet = function(options) {
                 // nothing
               }
             }
+
+            // Cast string to object
+            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+              entry.data[header] = validateJsonString(entry.data[header]);
+            }
+
+            // Validate nested arrays
+            if (Array.isArray(entry.data[header])) {
+              entry.data[header] = entry.data[header].map(function(val) {
+                return validateJsonString(val);
+              });
+            }
           });
 
           entries.push(entry);
@@ -755,6 +784,16 @@ var spreadsheet = function(options) {
 
     return entries;
   };
+
+  function validateJsonString(str) {
+    var validatedString;
+    try {
+      validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
+    } catch (e) {
+      validatedString = str;
+    }
+    return validatedString;
+  }
 
   return {
     getData: getData,
