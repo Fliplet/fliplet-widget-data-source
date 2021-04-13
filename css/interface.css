@@ -547,7 +547,7 @@ a[data-back] {
   justify-content: center;
   align-items: center;
   position: fixed;
-  top: 45%;
+  top: 90px;
   left: 50%;
 }
 
