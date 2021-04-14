@@ -986,6 +986,7 @@ $('#app')
     currentDataSourceId = 0;
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
+    $contents.addClass('hidden');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
