@@ -755,11 +755,9 @@ function deleteDataSource(id, name) {
           return ds.id !== id;
         });
 
-        renderTrashedDataSources(trashedDataSources);
-
         Fliplet.Modal.alert({
           title: 'Deletion complete',
-          message: 'Item deleted permanently.'
+          message: '1 data source deleted permanently.'
         });
 
         // Return to parent widget if in overlay
@@ -805,7 +803,13 @@ function deleteItem(message, dataSourceId) {
         return ds.id !== dataSourceId;
       });
 
-      renderDataSources(dataSources);
+      allDataSources = allDataSources.filter(function(ds) {
+        return ds.id !== dataSourceId;
+      });
+
+      if (!dataSources.length) {
+        $noResults.removeClass('hidden');
+      }
 
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
@@ -813,8 +817,10 @@ function deleteItem(message, dataSourceId) {
         return;
       }
 
-      // Go back
-      $('[data-back]').click();
+      if (!$sourceContents.hasClass('hidden')) {
+        // Go back
+        $('[data-back]').click();
+      }
     });
 
     currentDataSourceId = 0;
@@ -910,6 +916,7 @@ $('#app')
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
+    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       isShowingAll = false;
@@ -929,11 +936,16 @@ $('#app')
 
     $('[data-app-source]').addClass('hidden');
     $('[data-show-all-source]').removeClass('hidden');
+    $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
+
+      if (!dataSources.length) {
+        $noResults.removeClass('hidden');
+      }
 
       dataSourcesToSearch = orderedDataSources;
       renderDataSources(orderedDataSources);
@@ -986,6 +998,7 @@ $('#app')
     currentDataSourceId = 0;
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
+    $contents.addClass('hidden');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1100,7 +1113,11 @@ $('#app')
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
-      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + appUsedIn.join(', ') + '. ';
+      var appsList = _.map(appUsedIn, function(el) {
+        return '<li><b>' + el + '</b></li>';
+      });
+
+      usedAppsText = 'The data source is currently in use by the following ' + appPrefix + '<br/><br/>' + '<ul>' + appsList.join('') + '</ul>' + '<br/>';
     }
 
     var message = 'Are you sure you want to delete this data source? ' + usedAppsText + 'All entries will be deleted.';
@@ -1551,7 +1568,7 @@ function configureAddRuleUI(rule) {
   $('.required-fields').html('');
   $('.users-filter').addClass('hidden').find('.filters').html('');
   $('button.selected').removeClass('selected');
-  $('input[name="type"]').removeAttr('checked');
+  $('input[name="type"]:checked').prop('checked', false);
 
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
@@ -1564,7 +1581,7 @@ function configureAddRuleUI(rule) {
   $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
 
   rule.type.forEach(function(type) {
-    $('input[name="type"][value="' + type + '"]').attr('checked', true);
+    $('input[name="type"][value="' + type + '"]').prop('checked', true);
   });
 
   if (rule.allow) {
