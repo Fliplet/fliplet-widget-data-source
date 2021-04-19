@@ -376,6 +376,14 @@ var spreadsheet = function(options) {
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes, source) {
+      onChanges();
+
+      // If users intend to remove value from the cells with Delete or Backspace buttons
+      // We shouldn't add a column title
+      if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
+        return;
+      }
+
       // Check if the change was on columns row and validate
       // If we change row without header we put header for this row
       // In this case user won't lose his data if he forgot to input header
@@ -401,8 +409,6 @@ var spreadsheet = function(options) {
           }
         }
       });
-
-      onChanges();
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
