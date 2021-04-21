@@ -18,6 +18,16 @@ body {
   align-items: center;
 }
 
+.desc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f161";
+}
+
+.asc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f160";
+}
+
 .btn.disabled {
   pointer-events: none;
   cursor: default;
