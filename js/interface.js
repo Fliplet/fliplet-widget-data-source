@@ -122,7 +122,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
-      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+      toggleSortedIcon($('th.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -425,8 +425,16 @@ function trimColumns(columns) {
 }
 
 function toggleSortedIcon(column) {
-  if (activeSortedColumn) {
-    activeSortedColumn.removeClass('sorted');
+  if (!activeSortedColumn) {
+    activeSortedColumn = column.addClass('sorted');
+
+    return;
+  }
+
+  var currentTableColumn = $activeDataSourceTable.find($(activeSortedColumn));
+
+  if (currentTableColumn) {
+    currentTableColumn.removeClass('sorted');
   }
 
   activeSortedColumn = column.addClass('sorted');
@@ -1034,7 +1042,7 @@ $('#app')
         });
 
         renderTrashedDataSources(trashedDataSources);
-        toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+        toggleSortedIcon($('th.sorted'));
       });
 
       return;
@@ -1058,7 +1066,7 @@ $('#app')
       });
 
       renderTrashedDataSources(trashedDataSources);
-      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+      toggleSortedIcon($('th.sorted'));
     });
   })
   .on('click', '.sortable', function() {
