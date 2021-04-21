@@ -1052,7 +1052,6 @@ $('#app')
 
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
-      activeSortedColumn = $('[data-trash-deleted-date]').addClass('sorted');
       dataSourcesToSearch = orderedDataSources;
       trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
