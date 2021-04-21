@@ -122,7 +122,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
-      toggleSortedIcon($('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -425,16 +425,8 @@ function trimColumns(columns) {
 }
 
 function toggleSortedIcon(column) {
-  if (!activeSortedColumn) {
-    activeSortedColumn = column.addClass('sorted');
-
-    return;
-  }
-
-  var currentTableColumn = $activeDataSourceTable.find($(activeSortedColumn));
-
-  if (currentTableColumn) {
-    currentTableColumn.removeClass('sorted');
+  if (activeSortedColumn) {
+    activeSortedColumn.removeClass('sorted');
   }
 
   activeSortedColumn = column.addClass('sorted');
@@ -1009,6 +1001,7 @@ $('#app')
     currentDataSourceId = 0;
 
     $activeDataSourceTable = $('#data-sources');
+    activeSortedColumn = $activeDataSourceTable.find('th.sorted');
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -1020,6 +1013,7 @@ $('#app')
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
     $activeDataSourceTable = $('#trash-sources');
+    activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1042,7 +1036,7 @@ $('#app')
         });
 
         renderTrashedDataSources(trashedDataSources);
-        toggleSortedIcon($('th.sorted'));
+        toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
       });
 
       return;
@@ -1066,7 +1060,7 @@ $('#app')
       });
 
       renderTrashedDataSources(trashedDataSources);
-      toggleSortedIcon($('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     });
   })
   .on('click', '.sortable', function() {
