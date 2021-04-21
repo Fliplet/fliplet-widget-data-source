@@ -122,7 +122,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
-      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -1001,6 +1001,7 @@ $('#app')
     currentDataSourceId = 0;
 
     $activeDataSourceTable = $('#data-sources');
+    activeSortedColumn = $activeDataSourceTable.find('th.sorted');
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -1012,6 +1013,7 @@ $('#app')
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
     $activeDataSourceTable = $('#trash-sources');
+    activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1034,7 +1036,7 @@ $('#app')
         });
 
         renderTrashedDataSources(trashedDataSources);
-        toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+        toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
       });
 
       return;
@@ -1052,14 +1054,13 @@ $('#app')
 
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
-      activeSortedColumn = $('[data-trash-deleted-date]').addClass('sorted');
       dataSourcesToSearch = orderedDataSources;
       trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
       renderTrashedDataSources(trashedDataSources);
-      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     });
   })
   .on('click', '.sortable', function() {
