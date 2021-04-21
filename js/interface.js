@@ -13,9 +13,10 @@ var $noResults = $('.no-results-found');
 var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
-
+var $activeDataSourceTable = $('#data-sources');
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
+var activeSortedColumn;
 var currentDataSource;
 var currentDataSourceId;
 var currentDataSourceDefinition;
@@ -121,6 +122,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
+      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -420,6 +422,14 @@ function trimColumns(columns) {
   return _.filter(columns, function(column) {
     return column !== null;
   });
+}
+
+function toggleSortedIcon(column) {
+  if (activeSortedColumn) {
+    activeSortedColumn.removeClass('sorted');
+  }
+
+  activeSortedColumn = column.addClass('sorted');
 }
 
 function getEmptyColumns(columns, entries) {
@@ -989,6 +999,8 @@ $('#app')
     $('[data-show-trash-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
+
+    $activeDataSourceTable = $('#data-sources');
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -999,6 +1011,7 @@ $('#app')
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
+    $activeDataSourceTable = $('#trash-sources');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1020,7 +1033,8 @@ $('#app')
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashedDataSources(_.sortBy(result.dataSources, ['name']));
+        renderTrashedDataSources(trashedDataSources);
+        toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
       });
 
       return;
@@ -1038,13 +1052,18 @@ $('#app')
 
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
+      activeSortedColumn = $('[data-trash-deleted-date]').addClass('sorted');
       dataSourcesToSearch = orderedDataSources;
       trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
       renderTrashedDataSources(trashedDataSources);
+      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
     });
+  })
+  .on('click', '.sortable', function() {
+    toggleSortedIcon($(this));
   })
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
