@@ -13,6 +13,7 @@ var $noResults = $('.no-results-found');
 var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
+var $activeDataSourceTable = $('#data-sources');
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var activeSortedColumn;
@@ -119,11 +120,9 @@ function getDataSources() {
       // Order data sources by updatedAt
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
 
-      activeSortedColumn = $('[data-order-date]').addClass('sorted');
-
       // Start rendering process
       renderDataSources(orderedDataSources);
-      toggleSortedIcon($('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -1000,6 +999,8 @@ $('#app')
     $('[data-show-trash-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
+
+    $activeDataSourceTable = $('#data-sources');
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -1010,6 +1011,7 @@ $('#app')
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
+    $activeDataSourceTable = $('#trash-sources');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1026,14 +1028,13 @@ $('#app')
 
         var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
-        activeSortedColumn = $('[data-trash-deleted-date]').addClass('sorted');
         dataSourcesToSearch = orderedDataSources;
         trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
         renderTrashedDataSources(trashedDataSources);
-        toggleSortedIcon($('th.sorted'));
+        toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
       });
 
       return;
@@ -1058,7 +1059,7 @@ $('#app')
       });
 
       renderTrashedDataSources(trashedDataSources);
-      toggleSortedIcon($('th.sorted'));
+      toggleSortedIcon($activeDataSourceTable.find('th.sorted'));
     });
   })
   .on('click', '.sortable', function() {
