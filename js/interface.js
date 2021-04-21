@@ -14,9 +14,9 @@ var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
+var $activeSortedColumn;
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
-var activeSortedColumn;
 var currentDataSource;
 var currentDataSourceId;
 var currentDataSourceDefinition;
@@ -425,11 +425,11 @@ function trimColumns(columns) {
 }
 
 function toggleSortedIcon(column) {
-  if (activeSortedColumn) {
-    activeSortedColumn.removeClass('sorted');
+  if ($activeSortedColumn) {
+    $activeSortedColumn.removeClass('sorted');
   }
 
-  activeSortedColumn = column.addClass('sorted');
+  $activeSortedColumn = column.addClass('sorted');
 }
 
 function getEmptyColumns(columns, entries) {
@@ -1001,7 +1001,8 @@ $('#app')
     currentDataSourceId = 0;
 
     $activeDataSourceTable = $('#data-sources');
-    activeSortedColumn = $activeDataSourceTable.find('th.sorted');
+    $activeSortedColumn = $activeDataSourceTable.find('th.sorted');
+
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -1013,7 +1014,7 @@ $('#app')
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
     $activeDataSourceTable = $('#trash-sources');
-    activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
+    $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
