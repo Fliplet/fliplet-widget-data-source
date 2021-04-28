@@ -158,10 +158,16 @@ function renderDataSources(dataSources) {
 
 function sortColumn($element, column, data) {
   var isOrderedByAsc = $element.hasClass('asc');
-  var newOrder = isOrderedByAsc ? 'desc' : 'asc';
+  var newOrder;
 
-  $element.toggleClass('desc', isOrderedByAsc);
-  $element.toggleClass('asc', !isOrderedByAsc);
+  if ($element.hasClass('sorted')) {
+    newOrder = isOrderedByAsc ? 'desc' : 'asc';
+
+    $element.toggleClass('desc', isOrderedByAsc);
+    $element.toggleClass('asc', !isOrderedByAsc);
+  } else {
+    newOrder = isOrderedByAsc ? 'asc' : 'desc';
+  }
 
   return sortDataSources(column, newOrder, data);
 }
