@@ -166,7 +166,15 @@ function sortColumn($element, column, data) {
     $element.toggleClass('desc', isOrderedByAsc);
     $element.toggleClass('asc', !isOrderedByAsc);
   } else {
-    newOrder = isOrderedByAsc ? 'asc' : 'desc';
+    if (column === 'name') {
+      newOrder = 'asc';
+
+      $element.toggleClass('asc', true);
+    } else {
+      newOrder = 'desc';
+
+      $element.toggleClass('desc', true);
+    }
   }
 
   return sortDataSources(column, newOrder, data);
@@ -1038,11 +1046,11 @@ $('#app')
         var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
-        trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+        trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashedDataSources(trashedDataSources);
+        renderTrashedDataSources(orderedDataSources);
         toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
       });
 
@@ -1062,11 +1070,12 @@ $('#app')
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
       dataSourcesToSearch = orderedDataSources;
-      trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+      trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
-      renderTrashedDataSources(trashedDataSources);
+
+      renderTrashedDataSources(orderedDataSources);
       toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     });
   })
