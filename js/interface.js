@@ -167,6 +167,8 @@ function sortColumn($element, column, data, $defaultOrder) {
     $element.toggleClass('asc', !isOrderedByAsc);
   } else {
     newOrder = $defaultOrder;
+
+    $element.toggleClass($defaultOrder, true);
   }
 
   return sortDataSources(column, newOrder, data);
