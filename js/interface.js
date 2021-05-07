@@ -156,7 +156,7 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function sortColumn($element, column, data) {
+function sortColumn($element, column, data, $defaultOrder) {
   var isOrderedByAsc = $element.hasClass('asc');
   var newOrder;
 
@@ -166,15 +166,7 @@ function sortColumn($element, column, data) {
     $element.toggleClass('desc', isOrderedByAsc);
     $element.toggleClass('asc', !isOrderedByAsc);
   } else {
-    if (column === 'name') {
-      newOrder = 'asc';
-
-      $element.toggleClass('asc', true);
-    } else {
-      newOrder = 'desc';
-
-      $element.toggleClass('desc', true);
-    }
+    newOrder = $defaultOrder;
   }
 
   return sortDataSources(column, newOrder, data);
@@ -914,28 +906,33 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var $dataSource = $(this);
+    var $defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources));
+    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources, $defaultOrder));
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var $dataSource = $(this);
+    var $defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources, $defaultOrder));
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
+    var $defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources, $defaultOrder));
   })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
+    var $defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'name', dataSources));
+    renderDataSources(sortColumn($dataSource, 'name', dataSources, $defaultOrder));
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
+    var $defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, $defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
