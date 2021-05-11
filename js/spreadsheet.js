@@ -541,7 +541,9 @@ var spreadsheet = function(options) {
       s = [r, c, r2, c2];
     },
     beforeKeyDown: function(event) {
-      if (hot.getActiveEditor()._opened) {
+      var editor = hot.getActiveEditor();
+
+      if (editor && editor._opened) {
         return;
       }
 
