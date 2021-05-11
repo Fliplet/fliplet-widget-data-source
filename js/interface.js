@@ -309,19 +309,16 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       $('#show-versions').show();
 
-      // Let's make sure we get all the columns checking all rows
-      // and add any missing column to the datasource columns
-      rows.forEach(function addMissingColumns(row) {
-        Object.keys(row.data).forEach(function addColumn(column) {
-          if (columns.indexOf(column) > -1) {
-            return;
-          }
+      var computedColumns = _.keys(_.extend.apply({}, rows.map(function(row) {
+        return row.data;
+      })));
 
-          // TODO: Add tracking to verify how often this happens and why
-          // Missing column found
-          columns.push(column);
-        });
-      });
+      if (computedColumns.length !== columns.length) {
+        // TODO: Add tracking to verify how often this happens and why
+        // Missing column found
+      }
+
+      columns = _.uniq(_.concat(columns, computedColumns));
     }
 
     currentDataSourceRowsCount = rows.length;
