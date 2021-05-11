@@ -345,6 +345,12 @@ var spreadsheet = function(options) {
     td.classList.add('column-header-cell');
   }
 
+  var getColWidths = function() {
+    return hot.getColHeader().map(function(header, index) {
+      return hot.getColWidth(index);
+    });
+  };
+
   var hotSettings = {
     stretchH: 'all',
     manualColumnResize: true,
@@ -610,7 +616,7 @@ var spreadsheet = function(options) {
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Initialize colWidths if they wasn't stored locally
-  if (!colWidths) {
+  if (!colWidths || !colWidths.length) {
     colWidths = getColWidths();
   }
 
@@ -719,12 +725,6 @@ var spreadsheet = function(options) {
       return field;
     });
   }
-
-  var getColWidths = function() {
-    return hot.getColHeader().map(function(header, index) {
-      return hot.getColWidth(index);
-    });
-  };
 
   var getData = function(options) {
     options = options || { removeEmptyRows: true };
