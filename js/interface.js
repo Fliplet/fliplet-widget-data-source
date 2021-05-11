@@ -1001,6 +1001,10 @@ $('#app')
         getDataSources();
       });
     } else {
+      try {
+        table.destroy();
+      } catch (e) {}
+
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
