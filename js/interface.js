@@ -13,7 +13,8 @@ var $noResults = $('.no-results-found');
 var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
-
+var $activeDataSourceTable = $('#data-sources');
+var $activeSortedColumn;
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
@@ -121,6 +122,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -154,12 +156,21 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function sortColumn($element, column, data) {
+function sortColumn($element, column, data, defaultOrder) {
   var isOrderedByAsc = $element.hasClass('asc');
-  var newOrder = isOrderedByAsc ? 'desc' : 'asc';
+  var newOrder;
 
-  $element.toggleClass('desc', isOrderedByAsc);
-  $element.toggleClass('asc', !isOrderedByAsc);
+  if ($element.hasClass('sorted')) {
+    newOrder = isOrderedByAsc ? 'desc' : 'asc';
+
+    $element.toggleClass('desc', isOrderedByAsc);
+    $element.toggleClass('asc', !isOrderedByAsc);
+  } else {
+    newOrder = defaultOrder;
+
+    $element.removeClass('asc desc');
+    $element.toggleClass(defaultOrder, true);
+  }
 
   return sortDataSources(column, newOrder, data);
 }
@@ -420,6 +431,14 @@ function trimColumns(columns) {
   return _.filter(columns, function(column) {
     return column !== null;
   });
+}
+
+function toggleSortedIcon(column) {
+  if ($activeSortedColumn) {
+    $activeSortedColumn.removeClass('sorted');
+  }
+
+  $activeSortedColumn = column.addClass('sorted');
 }
 
 function getEmptyColumns(columns, entries) {
@@ -890,28 +909,33 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources));
+    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'name', dataSources));
+    renderDataSources(sortColumn($dataSource, 'name', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
@@ -989,6 +1013,10 @@ $('#app')
     $('[data-show-trash-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
+
+    $activeDataSourceTable = $('#data-sources');
+    $activeSortedColumn = $activeDataSourceTable.find('th.sorted');
+
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -999,6 +1027,8 @@ $('#app')
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
+    $activeDataSourceTable = $('#trash-sources');
+    $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1016,11 +1046,12 @@ $('#app')
         var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
-        trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+        trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashedDataSources(_.sortBy(result.dataSources, ['name']));
+        renderTrashedDataSources(orderedDataSources);
+        toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
       });
 
       return;
@@ -1039,12 +1070,17 @@ $('#app')
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
       dataSourcesToSearch = orderedDataSources;
-      trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+      trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
-      renderTrashedDataSources(trashedDataSources);
+
+      renderTrashedDataSources(orderedDataSources);
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     });
+  })
+  .on('click', '.sortable', function() {
+    toggleSortedIcon($(this));
   })
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
