@@ -368,6 +368,7 @@ var spreadsheet = function(options) {
     search: true,
     undo: false,
     sortIndicator: true,
+    selectionMode: 'range',
     cells: function(row, col, prop) {
       var cellProperties = {};
 
