@@ -701,7 +701,13 @@ var spreadsheet = function(options) {
 
   function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
-    td.innerHTML = '<div class="cell-wrapper">' + td.innerHTML + '</div>';
+
+    var wrapper = document.createElement('div');
+
+    wrapper.classList.add('cell-wrapper');
+    wrapper.innerHTML = td.innerHTML;
+
+    td.replaceChildren(wrapper);
   }
 
   /**
