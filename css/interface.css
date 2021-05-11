@@ -290,6 +290,7 @@ a[data-back] {
   max-height: 110px;
   min-height: 100%;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .mce-ico {
@@ -599,6 +600,11 @@ a[data-toggle-status]:hover {
 
 td.align-baseline {
   vertical-align: baseline;
+}
+
+td.column-header-cell {
+  font-weight: bold;
+  background-color: #e4e4e4;
 }
 
 #configure-rule h5 {

@@ -12,6 +12,7 @@ var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
+
   var rows = options.rows || [];
   var columns = options.columns || [];
   var connection = options.connection;
@@ -65,7 +66,9 @@ var spreadsheet = function(options) {
 
         return value;
       });
+
       dataRow.id = row.id;
+
       return dataRow;
     });
 
@@ -93,11 +96,13 @@ var spreadsheet = function(options) {
    */
   function closestData(selectedCell) {
     selectedCell = selectedCell[0];
+
     if (!Array.isArray(selectedCell)) {
       console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
       selectedCell);
+
       return false;
     }
 
@@ -128,6 +133,7 @@ var spreadsheet = function(options) {
     // If there is a data in the selected cell we should select data releated to this cell
     if (selectedCellData !== null) {
       dataAt.hasData = true;
+
       return dataAt;
     }
 
@@ -135,6 +141,7 @@ var spreadsheet = function(options) {
     // and clicked ctrl+a combination
     if (leftValue === null && rightValue === null && topValue === null && bottomValue === null) {
       dataAt.all = true;
+
       return dataAt;
     }
 
@@ -335,10 +342,7 @@ var spreadsheet = function(options) {
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
-    $(td).css({
-      'font-weight': 'bold',
-      'background-color': '#e4e4e4'
-    });
+    td.classList.add('column-header-cell');
   }
 
   var hotSettings = {
@@ -361,14 +365,15 @@ var spreadsheet = function(options) {
     search: true,
     undo: false,
     sortIndicator: true,
+    selectionMode: 'range',
     cells: function(row, col, prop) {
-      var cellProperties = {};
-
-      if (row === 0) {
-        cellProperties.renderer = columnValueRenderer;
+      if (row !== 0) {
+        return;
       }
 
-      return cellProperties;
+      return {
+        renderer: columnValueRenderer
+      };
     },
     data: data,
     renderer: addMaxHeightToCells,
@@ -508,6 +513,7 @@ var spreadsheet = function(options) {
       // Column name
       for (var i = 0; i < amount; i++) {
         var columnName = generateColumnName();
+
         hot.setDataAtCell(0, index + i, columnName);
       }
 
@@ -523,6 +529,7 @@ var spreadsheet = function(options) {
       // Because we trigger afterRender event 2 times before UI show as a table it self.
       if (isForced && rendered < 3 ) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
+
         tabs.each(function(index) {
           if (!tabs[index].classList[0]) {
             $(tabs[index]).show();
@@ -541,7 +548,9 @@ var spreadsheet = function(options) {
       s = [r, c, r2, c2];
     },
     beforeKeyDown: function(event) {
-      if (hot.getActiveEditor()._opened) {
+      var editor = hot.getActiveEditor();
+
+      if (editor && editor._opened) {
         return;
       }
 
@@ -551,9 +560,11 @@ var spreadsheet = function(options) {
         var selectedCell = hot.getSelected();
         var whereToLook = closestData(selectedCell);
         var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+
         if (!selectedRange) {
           return;
         }
+
         event.stopImmediatePropagation();
 
         var cols = getColumns().filter(function(column) {
@@ -562,6 +573,7 @@ var spreadsheet = function(options) {
 
         hot.deselectCell();
         hot.selectCells(selectedRange, false, false);
+
         return false;
       }
     }
@@ -622,9 +634,12 @@ var spreadsheet = function(options) {
    */
   function generateColumnName(name) {
     name = name || 'Column ';
+
     var headers = getColumns();
     var columnName = name + '(' + columnNameCounter + ')';
+
     columnNameCounter = columnNameCounter + 1;
+
     return headers.indexOf(columnName) > -1
       ? generateColumnName()
       : columnName;
@@ -679,8 +694,10 @@ var spreadsheet = function(options) {
    */
   function validateOrFixColumnName(name) {
     var headers = getColumns();
+
     if (headers.indexOf(name) > -1) {
       var newName = generateColumnName(name);
+
       return newName;
     }
 
@@ -697,14 +714,9 @@ var spreadsheet = function(options) {
    * @param {Array} row
    */
   function isNotEmpty(row) {
-    var isEmpty = true;
-    row.forEach(function(field) {
-      if (field) {
-        isEmpty = false;
-      }
+    return row.some(function(field) {
+      return field;
     });
-
-    return !isEmpty;
   }
 
   var getColWidths = function() {
@@ -715,6 +727,7 @@ var spreadsheet = function(options) {
 
   var getData = function(options) {
     options = options || { removeEmptyRows: true };
+
     var headers = getColumns();
     var entries = [];
 
@@ -740,11 +753,14 @@ var spreadsheet = function(options) {
       // We need to sort bot visual and physical because column
       // move also doesn't keep the physical data in order
       var sortedVisual = _.clone(visualRow).sort();
+
       // Loop through the physical items to get the id
       for (i = 0; i < physical.length; i++) {
         var sortedPhysical = _.clone(physical[i]).sort();
+
         if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
+
           headers.forEach(function(header, index) {
             if (header === null) {
               return;
@@ -793,11 +809,13 @@ var spreadsheet = function(options) {
 
   function validateJsonString(str) {
     var validatedString;
+
     try {
       validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
     } catch (e) {
       validatedString = str;
     }
+
     return validatedString;
   }
 
@@ -821,14 +839,17 @@ var resultsCount = 0;
 function setSearchMessage(msg) {
   if (msg) {
     $('.find-results').html(msg);
+
     return;
   }
 
   var value = searchField.value;
   var foundMessage = resultsCount + ' found';
+
   if (resultsCount) {
     foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
   }
+
   $('.find-results').html(value !== '' ? foundMessage : '');
 }
 
@@ -841,6 +862,7 @@ function searchSpinner() {
  * @param {string} action next | prev | find | clear
  */
 var previousSearchValue = '';
+
 function search(action) {
   if (action === 'clear') {
     searchField.value = '';
@@ -848,15 +870,19 @@ function search(action) {
     setTimeout(function() {
       search('find');
     }, 50); // 50ms for spinner to render
+
     return;
   }
 
   var value = searchField.value;
+
   //  Don't run search again if the value hasn't changed
   if (action === 'find' && previousSearchValue === value) {
     setSearchMessage();
+
     return;
   }
+
   previousSearchValue = value;
 
   if (value !== '') {
@@ -870,6 +896,7 @@ function search(action) {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
+
     if (resultsCount) {
       $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
       hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
@@ -883,6 +910,7 @@ function search(action) {
   if (action === 'next' || action === 'prev') {
     if (action === 'next') {
       queryResultIndex++;
+
       if (queryResultIndex >= queryResult.length) {
         queryResultIndex = 0;
       }
@@ -890,6 +918,7 @@ function search(action) {
 
     if (action === 'prev') {
       queryResultIndex--;
+
       if (queryResultIndex < 0) {
         queryResultIndex = queryResult.length - 1;
       }
@@ -935,12 +964,14 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   // Enter & Shift + Enter
   if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
     search(event.shiftKey ? 'prev' : 'next');
+
     return;
   }
 
   // Esc
   if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
     search('clear');
+
     return;
   }
 
@@ -948,6 +979,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   if (ctrlDown && !event.altKey && event.keyCode === 71) {
     search(event.shiftKey ? 'prev' : 'next');
     event.preventDefault();
+
     return;
   }
 
@@ -958,9 +990,11 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
 
   // Typing
   searchSpinner();
+
   var debouncedFind = _.debounce(function() {
     search('find');
   }, 500);
+
   debouncedFind();
 });
 
@@ -984,8 +1018,10 @@ function openOverlay() {
       // Change shorcut keys based on system (Win/Mac)
       if (isMac()) {
         $('.mac').addClass('active');
+
         return;
       }
+
       // Windows
       $('.win').addClass('active');
     }
@@ -996,6 +1032,7 @@ function undoRedoToggle() {
   // Change undo/redo state buttons
   var disableUndo = dataStack[currentDataStackIndex - 1] ? false : true;
   var disableRedo = dataStack[currentDataStackIndex + 1] ? false : true;
+
   $('[data-action="undo"]').prop('disabled', disableUndo);
   $('[data-action="redo"]').prop('disabled', disableRedo);
 }
@@ -1049,11 +1086,13 @@ $('#toolbar')
   .on('click', '[data-action="remove-row"]', function removeRow() {
     var index = s[0] < s[2] ? s[0] : s[2];
     var amount = Math.abs(s[0] - s[2]) + 1;
+
     hot.alter('remove_row', index, amount, 'Toolbar.removeRow');
   })
   .on('click', '[data-action="remove-column"]', function removeColumn() {
     var index = s[1] < s[3] ? s[1] : s[3];
     var amount = Math.abs(s[1] - s[3]) + 1;
+
     hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
   .on('click', '[data-action="undo"]', undo)
