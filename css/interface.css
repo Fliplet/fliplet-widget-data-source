@@ -290,6 +290,7 @@ a[data-back] {
   max-height: 110px;
   min-height: 100%;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .mce-ico {
