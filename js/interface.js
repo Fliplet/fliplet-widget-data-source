@@ -156,7 +156,7 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function sortColumn($element, column, data, $defaultOrder) {
+function sortColumn($element, column, data, defaultOrder) {
   var isOrderedByAsc = $element.hasClass('asc');
   var newOrder;
 
@@ -166,10 +166,10 @@ function sortColumn($element, column, data, $defaultOrder) {
     $element.toggleClass('desc', isOrderedByAsc);
     $element.toggleClass('asc', !isOrderedByAsc);
   } else {
-    newOrder = $defaultOrder;
+    newOrder = defaultOrder;
 
     $element.removeClass('asc desc');
-    $element.toggleClass($defaultOrder, true);
+    $element.toggleClass(defaultOrder, true);
   }
 
   return sortDataSources(column, newOrder, data);
@@ -909,33 +909,33 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var $dataSource = $(this);
-    var $defaultOrder = $(this).data('defaultOrder');
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources, $defaultOrder));
+    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var $dataSource = $(this);
-    var $defaultOrder = $(this).data('defaultOrder');
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources, $defaultOrder));
+    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
-    var $defaultOrder = $(this).data('defaultOrder');
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources, $defaultOrder));
+    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
-    var $defaultOrder = $(this).data('defaultOrder');
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'name', dataSources, $defaultOrder));
+    renderDataSources(sortColumn($dataSource, 'name', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
-    var $defaultOrder = $(this).data('defaultOrder');
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, $defaultOrder));
+    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
