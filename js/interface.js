@@ -168,6 +168,7 @@ function sortColumn($element, column, data, $defaultOrder) {
   } else {
     newOrder = $defaultOrder;
 
+    $element.removeClass('asc desc');
     $element.toggleClass($defaultOrder, true);
   }
 
