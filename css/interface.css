@@ -602,6 +602,11 @@ td.align-baseline {
   vertical-align: baseline;
 }
 
+td.column-header-cell {
+  font-weight: bold;
+  background-color: #e4e4e4;
+}
+
 #configure-rule h5 {
   font-weight: bold;
   font-size: 16px;

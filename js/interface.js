@@ -317,6 +317,8 @@ function fetchCurrentDataSourceEntries(entries) {
             return;
           }
 
+          // TODO: Add tracking to verify how often this happens and why
+          // Missing column found
           columns.push(column);
         });
       });

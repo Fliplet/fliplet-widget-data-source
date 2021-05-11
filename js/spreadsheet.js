@@ -342,10 +342,7 @@ var spreadsheet = function(options) {
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
-    $(td).css({
-      'font-weight': 'bold',
-      'background-color': '#e4e4e4'
-    });
+    td.classList.add('column-header-cell');
   }
 
   var hotSettings = {
@@ -370,13 +367,13 @@ var spreadsheet = function(options) {
     sortIndicator: true,
     selectionMode: 'range',
     cells: function(row, col, prop) {
-      var cellProperties = {};
-
-      if (row === 0) {
-        cellProperties.renderer = columnValueRenderer;
+      if (row !== 0) {
+        return;
       }
 
-      return cellProperties;
+      return {
+        renderer: columnValueRenderer
+      };
     },
     data: data,
     renderer: addMaxHeightToCells,
@@ -717,15 +714,9 @@ var spreadsheet = function(options) {
    * @param {Array} row
    */
   function isNotEmpty(row) {
-    var isEmpty = true;
-
-    row.forEach(function(field) {
-      if (field) {
-        isEmpty = false;
-      }
+    return row.some(function(field) {
+      return field;
     });
-
-    return !isEmpty;
   }
 
   var getColWidths = function() {
