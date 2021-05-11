@@ -93,6 +93,7 @@ function getDataSources() {
 
         // Filters data sources
         var filteredDataSources = [];
+
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
             return dataSource.appId === copyData.appId || app.id === copyData.appId;
@@ -136,6 +137,7 @@ function getDataSources() {
 
       if (!(error instanceof Error)) {
         Raven.captureMessage('Error loading data sources', { extra: { error: error } });
+
         return;
       }
 
@@ -194,12 +196,14 @@ function renderError(options) {
 
   options = options || {};
   options.message = options.message || 'Unexpected error';
+
   var parsedError = Fliplet.parseError(options.error);
 
   if (!parsedError) {
     Fliplet.Modal.alert({
       message: options.message
     });
+
     return;
   }
 
@@ -231,6 +235,7 @@ function fetchCurrentDataSourceDetails() {
   return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
+
     if (!dataSource.bundle) {
       $('#bundle').prop('checked', true);
     }
@@ -255,6 +260,7 @@ function fetchCurrentDataSourceUsers() {
       var html = tpl({
         users: users
       });
+
       $usersContents.html(html);
     });
   });
@@ -268,6 +274,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
+
       currentDataSourceUpdatedAt = moment(dataSource.updatedAt).fromNow();
 
       $sourceContents.find('.editing-data-source-name').html(sourceName);
@@ -335,6 +342,7 @@ function fetchCurrentDataSourceEntries(entries) {
       } else if (typeof Raven !== 'undefined') {
         Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
       }
+
       $('.entries-message').html('<br>' + message);
     });
 }
@@ -392,6 +400,7 @@ function fetchCurrentDataSourceVersions() {
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
         version.columnsCount = version.data.columns.length;
+
         return version;
       });
 
@@ -406,6 +415,7 @@ function fetchCurrentDataSourceVersions() {
         columnsCount: currentDataSourceColumnsCount,
         versions: versions
       });
+
       $versionsContents.html(html);
     }).catch(function(err) {
       console.error(err);
@@ -475,15 +485,18 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
     entry.data = _.omitBy(entry.data, function(value, key) {
       return emptyColumns.includes(key);
     });
+
     return entry;
   });
 }
 
 function saveCurrentData() {
   var columns;
+
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').removeClass('hidden').html('Saving...');
   $('.name-wrapper').addClass('saved');
+
   var entries = table.getData();
 
   // If we don't have data we might also have no columns
@@ -491,6 +504,7 @@ function saveCurrentData() {
   // This way next load will load demo data
   if (!entries.length) {
     columns = table.getColumns({ raw: true });
+
     if (_.some(columns)) {
       columns = table.getColumns();
     } else {
@@ -542,6 +556,7 @@ function getDataSourceRender(data) {
   }
 
   html = tpl(data);
+
   return html;
 }
 
@@ -550,6 +565,7 @@ function getTrashSourceRender(data) {
   var html = '';
 
   html = tpl(data);
+
   return html;
 }
 
@@ -597,6 +613,7 @@ function browseDataSource(id) {
       })
         .then(function(updatedDataSources) {
           var html = [];
+
           dataSources = updatedDataSources;
           dataSources.forEach(function(dataSource) {
             html.push(getDataSourceRender(dataSource));
@@ -683,6 +700,7 @@ function createDataSource(createOptions, options) {
 
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
+
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
@@ -702,6 +720,7 @@ function activateFind() {
   // Data sources list view
   if (!$contents.hasClass('hidden')) {
     $('.search').focus();
+
     return true;
   }
 
@@ -710,6 +729,7 @@ function activateFind() {
     case 'entries':
       hot.deselectCell();
       searchField.focus();
+
       return true;
     default:
       return false;
@@ -782,6 +802,7 @@ function deleteDataSource(id, name) {
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
+
           return;
         }
       }).catch(function(error) {
@@ -792,6 +813,7 @@ function deleteDataSource(id, name) {
       });
 
       currentDataSourceId = 0;
+
       return;
     }
 
@@ -805,6 +827,7 @@ function deleteDataSource(id, name) {
     currentDataSourceId = 0;
   });
 }
+
 function deleteItem(message, dataSourceId) {
   Fliplet.Modal.confirm({
     message: message
@@ -833,6 +856,7 @@ function deleteItem(message, dataSourceId) {
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
+
         return;
       }
 
@@ -894,6 +918,7 @@ window.addEventListener('keydown', function(event) {
     if (activateFind()) {
       event.preventDefault();
     }
+
     return;
   }
 });
@@ -1097,6 +1122,7 @@ $('#app')
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
+
         return;
       }
 
@@ -1182,6 +1208,7 @@ $('#app')
   })
   .on('click', '[data-create-role]', function(event) {
     event.preventDefault();
+
     var _this = $(this);
     var userId;
     var permissions;
@@ -1194,6 +1221,7 @@ $('#app')
       }).then(function(result) {
         if (result === null || !result.trim()) {
           _this.removeClass('disabled').text('Add new user');
+
           return;
         }
 
@@ -1205,6 +1233,7 @@ $('#app')
         }).then(function(result) {
           if (result === null || !result.trim()) {
             _this.removeClass('disabled').text('Add new user');
+
             return;
           }
 
@@ -1212,6 +1241,7 @@ $('#app')
 
           Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
             _this.removeClass('disabled').text('Add new user');
+
             return source.addUserRole({
               userId: userId,
               permissions: permissions
@@ -1226,13 +1256,16 @@ $('#app')
   })
   .on('keyup keypress', '[data-input-name]', function(event) {
     var keyCode = event.keyCode || event.which;
+
     if (keyCode === 13) {
       event.preventDefault();
+
       return false;
     }
   })
   .on('click', '[data-revoke-role]', function(event) {
     event.preventDefault();
+
     var userId = $(this).data('revoke-role');
 
     Fliplet.Modal.confirm({
@@ -1251,16 +1284,19 @@ $('#app')
   })
   .on('submit', 'form[data-settings]', function(event) {
     event.preventDefault();
+
     var name = $settings.find('#name').val().trim();
 
     if (!name) {
       $settings.find('#name').parents(':eq(1)').addClass('has-error');
+
       return;
     }
 
     var bundle = !$('#bundle').is(':checked');
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
+
     $settings.find('#name').parents(':eq(1)').removeClass('has-error');
 
     try {
@@ -1270,6 +1306,7 @@ $('#app')
         popupTitle: 'Invalid settings',
         popupMessage: 'Definition must be a valid JSON'
       });
+
       return;
     }
 
@@ -1280,6 +1317,7 @@ $('#app')
         popupTitle: 'Invalid settings',
         popupMessage: 'Hooks must be a valid JSON'
       });
+
       return;
     }
 
@@ -1288,6 +1326,7 @@ $('#app')
         popupTitle: 'Invalid hooks',
         popupMessage: 'Hooks must be an array'
       });
+
       return;
     }
 
@@ -1314,6 +1353,7 @@ $('#app')
         popupTitle: 'Invalid hooks',
         popupMessage: e
       });
+
       return;
     }
 
@@ -1331,6 +1371,7 @@ $('#app')
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
+
           return;
         }
 
@@ -1344,6 +1385,7 @@ $('#app')
     var term = new RegExp(s, 'i');
 
     $noResults.removeClass('show');
+
     var search = dataSourcesToSearch.filter(function(dataSource) {
       return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
@@ -1420,6 +1462,7 @@ $('#app')
   })
   .on('click', '[data-version-preview]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-preview');
     var version = _.find(currentDataSourceVersions, { id: id });
 
@@ -1427,6 +1470,7 @@ $('#app')
   })
   .on('click', '[data-version-restore]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-restore');
 
     return Fliplet.Modal.confirm({
@@ -1456,6 +1500,7 @@ $('#app')
   })
   .on('click', '[data-version-copy]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-copy');
 
     return createDataSource({
@@ -1475,6 +1520,7 @@ $('#app')
         }).then(function(result) {
           if (!result) {
             $('[aria-controls="entries"]').click();
+
             return;
           }
 
@@ -1482,6 +1528,7 @@ $('#app')
           $('[data-save]').addClass('hidden');
           $('.data-save-updated').removeClass('hidden');
           $('.name-wrapper').addClass('saved');
+
           try {
             table.destroy();
             fetchCurrentDataSourceEntries();
@@ -1538,6 +1585,7 @@ $('#add-rule').click(function(event) {
   event.preventDefault();
 
   var $modal = $('#configure-rule');
+
   $modal.find('.modal-title').text('Add new security rule');
   $modal.find('[data-save-rule]').text('Add rule');
 
@@ -1563,6 +1611,7 @@ $('body').on('click', '[data-preconfigured]', function(event) {
 
   setTimeout(function() {
     var $rule = $('#access-rules-list tbody tr:last-child');
+
     $rule.addClass('added');
 
     setTimeout(function() {
@@ -1589,6 +1638,7 @@ $('body').on('click', '[data-remove-field]', function(event) {
 
 $('body').on('change', 'select[name="required-field-type"]', function(event) {
   event.preventDefault();
+
   var value = $(this).val();
 
   $(this).closest('.required-field').find('[name="value"]').toggleClass('hidden', value === 'required');
@@ -1858,6 +1908,7 @@ $('#show-access-rules').click(function() {
         apps: rule.appId
           ? _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, { id: appId });
+
             return app && app.name;
           })).join(', ')
           : 'All apps',
@@ -2070,6 +2121,7 @@ function updateDataSourceRules() {
     // Return to parent widget if in overlay
     if (copyData.context === 'overlay') {
       Fliplet.Studio.emit('close-overlay');
+
       return;
     }
 
