@@ -310,9 +310,15 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       $('#show-versions').show();
 
+      // Add an empty object in the beginning for _.extend
+      rows.unshift({});
+
       var computedColumns = _.keys(_.extend.apply({}, rows.map(function(row) {
         return row.data;
       })));
+
+      // Remove the first entry
+      rows.shift();
 
       if (computedColumns.length !== columns.length) {
         // TODO: Add tracking to verify how often this happens and why
