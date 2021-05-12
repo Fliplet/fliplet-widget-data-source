@@ -925,8 +925,13 @@ function search(action) {
     }
 
     if (queryResult[queryResultIndex]) {
-      hot.selectCell(
-        queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+      var row = queryResult[queryResultIndex].row;
+      var col = queryResult[queryResultIndex].col;
+
+      hot.selectCell(row, col, row, col, true, false);
+      // HACK: Select the cell twice to scroll the viewport to show the cell
+      // in case it was out of view and couldn't be rendered in time
+      hot.selectCell(row, col, row, col, true, false);
     }
   }
 
