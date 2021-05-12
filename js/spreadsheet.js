@@ -542,7 +542,15 @@ var spreadsheet = function(options) {
     },
     afterLoadData: function(firstTime) {
       dataLoaded = true;
-      $('.entries-message').html('');
+
+      if (!options.initialLoad) {
+        $('.entries-message').html('');
+      }
+
+      // Clear existing searches if data is updated
+      if (!firstTime) {
+        search('clear');
+      }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
