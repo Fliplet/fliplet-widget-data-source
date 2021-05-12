@@ -832,6 +832,8 @@ var spreadsheet = function(options) {
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
+      search('clear');
+
       return hot.destroy();
     }
   };
@@ -900,7 +902,7 @@ function search(action) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
 
-  if (action === 'find') {
+  if (action === 'find' && hot.search) {
     queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
