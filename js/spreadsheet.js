@@ -575,6 +575,10 @@ var spreadsheet = function(options) {
       if (!options.initialLoad) {
         $('.entries-message').html('');
       }
+
+      // Clear existing searches if data is updated
+      if (!firstTime) {
+        search('clear');
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
