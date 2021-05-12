@@ -571,7 +571,10 @@ var spreadsheet = function(options) {
     },
     afterLoadData: function(firstTime) {
       dataLoaded = true;
-      $('.entries-message').html('');
+
+      if (!options.initialLoad) {
+        $('.entries-message').html('');
+      }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];

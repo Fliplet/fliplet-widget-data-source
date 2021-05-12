@@ -35,6 +35,7 @@ var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
+var initialLoad = true;
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -324,10 +325,25 @@ function fetchCurrentDataSourceEntries(entries) {
     currentDataSourceRowsCount = rows.length;
     currentDataSourceColumnsCount = columns.length;
 
-    table = spreadsheet({ columns: columns, rows: rows });
-    $('.table-entries').css('visibility', 'visible');
+    // On initial load, create an empty spreadsheet as this speeds up subsequent loads
+    if (initialLoad) {
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-    $('#versions').removeClass('hidden');
+      setTimeout(function() {
+        table.destroy();
+        initialLoad = false;
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
+    } else {
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
+    }
   })
     .catch(function onFetchError(error) {
       var message = error;
