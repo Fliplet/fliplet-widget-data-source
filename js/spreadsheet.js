@@ -98,7 +98,7 @@ var spreadsheet = function(options) {
     selectedCell = selectedCell[0];
 
     if (!Array.isArray(selectedCell)) {
-      console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
+      console.error('We must pass an array of the cell coordinates to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
       selectedCell);
@@ -433,7 +433,8 @@ var spreadsheet = function(options) {
       // Re-execute search without changing cell selection
       search('find', {
         selectCell: false,
-        force: true
+        force: true,
+        focusSearch: false
       });
 
       undoRedoToggle();
@@ -553,9 +554,16 @@ var spreadsheet = function(options) {
         $('.entries-message').html('');
       }
 
-      // Clear existing searches if data is updated
-      if (!firstTime) {
+      // Clear search in initial load
+      if (firstTime) {
         search('clear');
+      } else {
+        // Re-execute search without changing cell selection
+        search('find', {
+          selectCell: false,
+          force: true,
+          focusSearch: false
+        });
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
@@ -890,7 +898,7 @@ function search(action, options) {
     searchField.value = '';
     searchSpinner();
     setTimeout(function() {
-      search('find');
+      search('find', options);
     }, 50); // 50ms for spinner to render
 
     return;
@@ -914,7 +922,7 @@ function search(action, options) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
 
-  if (!hot.search) {
+  if (!hot || !hot.search) {
     return;
   }
 
@@ -974,8 +982,10 @@ function search(action, options) {
   // Update message
   setSearchMessage();
 
-  // Focus back to the search field
-  searchField.focus();
+  if (options.focusSearch !== false) {
+    // Focus back to the search field
+    searchField.focus();
+  }
 }
 
 $('.find-prev, .find-next').on('click', function() {
