@@ -18,6 +18,16 @@ body {
   align-items: center;
 }
 
+.desc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f161";
+}
+
+.asc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f160";
+}
+
 .btn.disabled {
   pointer-events: none;
   cursor: default;
@@ -280,6 +290,7 @@ a[data-back] {
   max-height: 110px;
   min-height: 100%;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .mce-ico {
@@ -547,7 +558,7 @@ a[data-back] {
   justify-content: center;
   align-items: center;
   position: fixed;
-  top: 90px;
+  top: 45%;
   left: 50%;
 }
 
@@ -589,6 +600,11 @@ a[data-toggle-status]:hover {
 
 td.align-baseline {
   vertical-align: baseline;
+}
+
+td.column-header-cell {
+  font-weight: bold;
+  background-color: #e4e4e4;
 }
 
 #configure-rule h5 {
