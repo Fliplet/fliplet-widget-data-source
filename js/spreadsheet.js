@@ -1042,10 +1042,6 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   if (ctrlDown) {
     return;
   }
-
-  // Typing
-  searchSpinner();
-  debouncedFind();
 });
 
 Handsontable.dom.addEvent(searchField, 'input', function onInput() {
