@@ -450,7 +450,7 @@ var spreadsheet = function(options) {
       var columns = getColumns();
       var preparedData = prepareData(data, columns);
 
-      // Clear all aftr current index to reset redo
+      // Clear all after current index to reset redo
       if (currentDataStackIndex + 1 < dataStack.length) {
         dataStack.splice(currentDataStackIndex + 1);
       }
