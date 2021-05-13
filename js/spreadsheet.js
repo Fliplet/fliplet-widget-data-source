@@ -1004,6 +1004,10 @@ $('.reset-find').on('click', function() {
   search('clear');
 });
 
+var debouncedFind = _.debounce(function() {
+  search('find');
+}, 500);
+
 Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   // Just the modifiers
   if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
@@ -1038,14 +1042,11 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   if (ctrlDown) {
     return;
   }
+});
 
+Handsontable.dom.addEvent(searchField, 'input', function onInput() {
   // Typing
   searchSpinner();
-
-  var debouncedFind = _.debounce(function() {
-    search('find');
-  }, 500);
-
   debouncedFind();
 });
 
