@@ -450,7 +450,7 @@ var spreadsheet = function(options) {
       var columns = getColumns();
       var preparedData = prepareData(data, columns);
 
-      // Clear all aftr current index to reset redo
+      // Clear all after current index to reset redo
       if (currentDataStackIndex + 1 < dataStack.length) {
         dataStack.splice(currentDataStackIndex + 1);
       }
@@ -458,6 +458,12 @@ var spreadsheet = function(options) {
       // Add current change to stack
       dataStack.push({ data: preparedData });
       currentDataStackIndex = currentDataStackIndex + 1;
+
+      // Re-execute search without changing cell selection
+      search('find', {
+        selectCell: false,
+        force: true
+      });
 
       undoRedoToggle();
     },
@@ -574,6 +580,11 @@ var spreadsheet = function(options) {
 
       if (!options.initialLoad) {
         $('.entries-message').html('');
+      }
+
+      // Clear existing searches if data is updated
+      if (!firstTime) {
+        search('clear');
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
@@ -828,6 +839,8 @@ var spreadsheet = function(options) {
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
+      search('clear');
+
       return hot.destroy();
     }
   };
@@ -861,13 +874,19 @@ function searchSpinner() {
   setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
 }
 
-/**
- * This will make a search
- * @param {string} action next | prev | find | clear
- */
 var previousSearchValue = '';
 
-function search(action) {
+/**
+ * This will make a search
+ * @param {String} action next | prev | find | clear
+ * @param {Object} options a map of options for the function
+ * @param {Boolean} [options.selectCell=true] If false, the search won't take the user to the search result
+ * @param {Boolean} [options.force=false] If true, a new search will be executed, even if the search term has not changed
+ * @return {void}
+ */
+function search(action, options) {
+  options = options || {};
+
   if (action === 'clear') {
     searchField.value = '';
     searchSpinner();
@@ -881,7 +900,7 @@ function search(action) {
   var value = searchField.value;
 
   //  Don't run search again if the value hasn't changed
-  if (action === 'find' && previousSearchValue === value) {
+  if (action === 'find' && previousSearchValue === value && !options.force) {
     setSearchMessage();
 
     return;
@@ -896,22 +915,36 @@ function search(action) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
 
+  if (!hot.search) {
+    return;
+  }
+
+  var row;
+  var col;
+
   if (action === 'find') {
-    queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
+    queryResultIndex = 0;
 
     if (resultsCount) {
       $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
+
+      if (options.selectCell !== false) {
+        row = queryResult[queryResultIndex].row;
+        col = queryResult[queryResultIndex].col;
+
+        hot.selectCell(row, col, row, col, true, false);
+        // HACK: Select the cell twice to scroll the viewport to show the cell
+        // in case it was out of view and couldn't be rendered in time
+        hot.selectCell(row, col, row, col, true, false);
+      }
     } else {
       $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
     }
 
     hot.render();
-  }
-
-  if (action === 'next' || action === 'prev') {
+  } else if (action === 'next' || action === 'prev') {
     if (action === 'next') {
       queryResultIndex++;
 
@@ -928,9 +961,14 @@ function search(action) {
       }
     }
 
-    if (queryResult[queryResultIndex]) {
-      hot.selectCell(
-        queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+    if (queryResult[queryResultIndex] && options.selectCell !== false) {
+      row = queryResult[queryResultIndex].row;
+      col = queryResult[queryResultIndex].col;
+
+      hot.selectCell(row, col, row, col, true, false);
+      // HACK: Select the cell twice to scroll the viewport to show the cell
+      // in case it was out of view and couldn't be rendered in time
+      hot.selectCell(row, col, row, col, true, false);
     }
   }
 
