@@ -867,7 +867,7 @@ function setSearchMessage(msg) {
     return;
   }
 
-  var value = searchField.value;
+  var value = searchField.value.trim();
   var foundMessage = resultsCount + ' found';
 
   if (resultsCount) {
@@ -904,7 +904,7 @@ function search(action, options) {
     return;
   }
 
-  var value = searchField.value;
+  var value = searchField.value.trim();
 
   //  Don't run search again if the value hasn't changed
   if (action === 'find' && previousSearchValue === value && !options.force) {
