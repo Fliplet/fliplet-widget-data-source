@@ -35,6 +35,7 @@ var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
+var initialLoad = true;
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -309,28 +310,46 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       $('#show-versions').show();
 
-      // Let's make sure we get all the columns checking all rows
-      // and add any missing column to the datasource columns
-      rows.forEach(function addMissingColumns(row) {
-        Object.keys(row.data).forEach(function addColumn(column) {
-          if (columns.indexOf(column) > -1) {
-            return;
-          }
+      // Add an empty object in the beginning for _.extend
+      rows.unshift({});
 
-          // TODO: Add tracking to verify how often this happens and why
-          // Missing column found
-          columns.push(column);
-        });
-      });
+      var computedColumns = _.keys(_.extend.apply({}, rows.map(function(row) {
+        return row.data;
+      })));
+
+      // Remove the first entry
+      rows.shift();
+
+      if (computedColumns.length !== columns.length) {
+        // TODO: Add tracking to verify how often this happens and why
+        // Missing column found
+      }
+
+      columns = _.uniq(_.concat(columns, computedColumns));
     }
 
     currentDataSourceRowsCount = rows.length;
     currentDataSourceColumnsCount = columns.length;
 
-    table = spreadsheet({ columns: columns, rows: rows });
-    $('.table-entries').css('visibility', 'visible');
+    // On initial load, create an empty spreadsheet as this speeds up subsequent loads
+    if (initialLoad) {
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-    $('#versions').removeClass('hidden');
+      setTimeout(function() {
+        table.destroy();
+        initialLoad = false;
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
+    } else {
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
+    }
   })
     .catch(function onFetchError(error) {
       var message = error;

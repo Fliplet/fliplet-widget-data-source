@@ -345,6 +345,12 @@ var spreadsheet = function(options) {
     td.classList.add('column-header-cell');
   }
 
+  var getColWidths = function() {
+    return hot.getColHeader().map(function(header, index) {
+      return hot.getColWidth(index);
+    });
+  };
+
   var hotSettings = {
     stretchH: 'all',
     manualColumnResize: true,
@@ -362,6 +368,29 @@ var spreadsheet = function(options) {
       rowsLimit: 1000000000
     },
     columnSorting: true,
+    sortFunction: function sortData(sortOrder, columnMeta) {
+      return function(a, b) {
+        var plugin = hot.getPlugin('columnSorting');
+        var sortFunction;
+
+        if (a[0] === 0) {
+          return -1;
+        }
+
+        switch (columnMeta.type) {
+          case 'date':
+            sortFunction = plugin.dateSort;
+            break;
+          case 'numeric':
+            sortFunction = plugin.numericSort;
+            break;
+          default:
+            sortFunction = plugin.defaultSort;
+        }
+
+        return sortFunction(sortOrder, columnMeta)(a, b);
+      };
+    },
     search: true,
     undo: false,
     sortIndicator: true,
@@ -608,36 +637,8 @@ var spreadsheet = function(options) {
   dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
-  // Set a sort function using Handsontable columnSorting plugin
-  hot.updateSettings({
-    colWidths: hotSettings.colWidths,
-    sortFunction: function(sortOrder, columnMeta) {
-      return function(a, b) {
-        var plugin = hot.getPlugin('columnSorting');
-        var sortFunction;
-
-        if (a[0] === 0) {
-          return -1;
-        }
-
-        switch (columnMeta.type) {
-          case 'date':
-            sortFunction = plugin.dateSort;
-            break;
-          case 'numeric':
-            sortFunction = plugin.numericSort;
-            break;
-          default:
-            sortFunction = plugin.defaultSort;
-        }
-
-        return sortFunction(sortOrder, columnMeta)(a, b);
-      };
-    }
-  });
-
   // Initialize colWidths if they wasn't stored locally
-  if (!colWidths) {
+  if (!colWidths || !colWidths.length) {
     colWidths = getColWidths();
   }
 
@@ -728,7 +729,13 @@ var spreadsheet = function(options) {
 
   function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
-    td.innerHTML = '<div class="cell-wrapper">' + td.innerHTML + '</div>';
+
+    var wrapper = document.createElement('div');
+
+    wrapper.classList.add('cell-wrapper');
+    wrapper.innerHTML = td.innerHTML;
+
+    td.replaceChildren(wrapper);
   }
 
   /**
@@ -740,12 +747,6 @@ var spreadsheet = function(options) {
       return field;
     });
   }
-
-  var getColWidths = function() {
-    return hot.getColHeader().map(function(header, index) {
-      return hot.getColWidth(index);
-    });
-  };
 
   var getData = function(options) {
     options = options || { removeEmptyRows: true };
