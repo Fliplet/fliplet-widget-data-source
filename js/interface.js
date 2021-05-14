@@ -2161,10 +2161,3 @@ if (copyData.context === 'overlay') {
 } else {
   getDataSources();
 }
-
-// Only show versions to admins
-Fliplet.API.request('v1/user').then(function(response) {
-  if (response.user.isAdmin || response.user.isImpersonating) {
-    $('#show-versions').parent('li').removeClass('hidden');
-  }
-});
