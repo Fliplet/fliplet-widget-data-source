@@ -391,6 +391,17 @@ var spreadsheet = function(options) {
         return sortFunction(sortOrder, columnMeta)(a, b);
       };
     },
+    afterColumnSort: function() {
+      var tableContainer = hot.container.children[0];
+
+      if (!tableContainer) {
+        return;
+      }
+
+      // Scroll the table by a pixel to ensure all the cells in viewport are rendered
+      tableContainer.scrollBy(0, 1);
+      tableContainer.scrollBy(0, -1);
+    },
     search: true,
     undo: false,
     sortIndicator: true,
