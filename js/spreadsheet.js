@@ -9,7 +9,6 @@ var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
-var afterColumnSort = false;
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -393,7 +392,10 @@ var spreadsheet = function(options) {
       };
     },
     afterColumnSort: function() {
-      afterColumnSort = true;
+      // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
+      setTimeout(function() {
+        hot.view.wt.draw(true);
+      }, 0);
     },
     search: true,
     undo: false,
@@ -565,17 +567,6 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterRender: function(isForced) {
-      if (isForced && afterColumnSort) {
-        var tableContainer = hot.container.children[0];
-
-        if (tableContainer) {
-          tableContainer.scrollBy(0, 1);
-          tableContainer.scrollBy(0, -1);
-        }
-
-        afterColumnSort = false;
-      }
-
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
       // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
       // Because we trigger afterRender event 2 times before UI show as a table it self.
