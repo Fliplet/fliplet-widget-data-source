@@ -9,6 +9,7 @@ var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
+var afterColumnSort = false;
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
@@ -392,19 +393,7 @@ var spreadsheet = function(options) {
       };
     },
     afterColumnSort: function() {
-      var tableContainer = hot.container.children[0];
-
-      if (!tableContainer) {
-        return;
-      }
-
-      setTimeout(function() {
-        // Scroll the table by a pixel to ensure all the cells in viewport are rendered
-        tableContainer.scrollBy(0, 1);
-        setTimeout(function() {
-          tableContainer.scrollBy(0, -1);
-        }, 0);
-      }, 0);
+      afterColumnSort = true;
     },
     search: true,
     undo: false,
@@ -575,6 +564,17 @@ var spreadsheet = function(options) {
       onChanges();
     },
     afterRender: function(isForced) {
+      if (isForced && afterColumnSort) {
+        var tableContainer = hot.container.children[0];
+
+        if (tableContainer) {
+          tableContainer.scrollBy(0, 1);
+          tableContainer.scrollBy(0, -1);
+        }
+
+        afterColumnSort = false;
+      }
+
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
       // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
       // Because we trigger afterRender event 2 times before UI show as a table it self.
