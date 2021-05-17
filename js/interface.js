@@ -438,6 +438,7 @@ function fetchCurrentDataSourceVersions() {
       });
 
       $versionsContents.html(html);
+      $('#versions-details').removeClass('hidden');
     }).catch(function(err) {
       console.error(err);
 
