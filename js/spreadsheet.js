@@ -418,7 +418,8 @@ var spreadsheet = function(options) {
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
       // We shouldn't add a column title
-      if (window.event.key === 'Delete' || window.event.key === 'Backspace') {
+      // We should add column title when we editing the 0 row.
+      if ((window.event.key === 'Delete' || window.event.key === 'Backspace') && changes[0][0] !== 0) {
         return;
       }
 
