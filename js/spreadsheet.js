@@ -398,9 +398,13 @@ var spreadsheet = function(options) {
         return;
       }
 
-      // Scroll the table by a pixel to ensure all the cells in viewport are rendered
-      tableContainer.scrollBy(0, 1);
-      tableContainer.scrollBy(0, -1);
+      setTimeout(function() {
+        // Scroll the table by a pixel to ensure all the cells in viewport are rendered
+        tableContainer.scrollBy(0, 1);
+        setTimeout(function() {
+          tableContainer.scrollBy(0, -1);
+        }, 0);
+      }, 0);
     },
     search: true,
     undo: false,
