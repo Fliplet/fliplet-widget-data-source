@@ -12,6 +12,7 @@ var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
 
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
+
   var rows = options.rows || [];
   var columns = options.columns || [];
   var connection = options.connection;
@@ -65,7 +66,9 @@ var spreadsheet = function(options) {
 
         return value;
       });
+
       dataRow.id = row.id;
+
       return dataRow;
     });
 
@@ -93,11 +96,13 @@ var spreadsheet = function(options) {
    */
   function closestData(selectedCell) {
     selectedCell = selectedCell[0];
+
     if (!Array.isArray(selectedCell)) {
-      console.error('We must pass an array of the cell coordinats to the closestData function. First element is cell' +
+      console.error('We must pass an array of the cell coordinates to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
       selectedCell);
+
       return false;
     }
 
@@ -128,6 +133,7 @@ var spreadsheet = function(options) {
     // If there is a data in the selected cell we should select data releated to this cell
     if (selectedCellData !== null) {
       dataAt.hasData = true;
+
       return dataAt;
     }
 
@@ -135,6 +141,7 @@ var spreadsheet = function(options) {
     // and clicked ctrl+a combination
     if (leftValue === null && rightValue === null && topValue === null && bottomValue === null) {
       dataAt.all = true;
+
       return dataAt;
     }
 
@@ -335,11 +342,14 @@ var spreadsheet = function(options) {
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
-    $(td).css({
-      'font-weight': 'bold',
-      'background-color': '#e4e4e4'
-    });
+    td.classList.add('column-header-cell');
   }
+
+  var getColWidths = function() {
+    return hot.getColHeader().map(function(header, index) {
+      return hot.getColWidth(index);
+    });
+  };
 
   var hotSettings = {
     stretchH: 'all',
@@ -358,17 +368,47 @@ var spreadsheet = function(options) {
       rowsLimit: 1000000000
     },
     columnSorting: true,
+    sortFunction: function sortData(sortOrder, columnMeta) {
+      return function(a, b) {
+        var plugin = hot.getPlugin('columnSorting');
+        var sortFunction;
+
+        if (a[0] === 0) {
+          return -1;
+        }
+
+        switch (columnMeta.type) {
+          case 'date':
+            sortFunction = plugin.dateSort;
+            break;
+          case 'numeric':
+            sortFunction = plugin.numericSort;
+            break;
+          default:
+            sortFunction = plugin.defaultSort;
+        }
+
+        return sortFunction(sortOrder, columnMeta)(a, b);
+      };
+    },
+    afterColumnSort: function() {
+      // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
+      setTimeout(function() {
+        hot.view.wt.draw(true);
+      }, 0);
+    },
     search: true,
     undo: false,
     sortIndicator: true,
+    selectionMode: 'range',
     cells: function(row, col, prop) {
-      var cellProperties = {};
-
-      if (row === 0) {
-        cellProperties.renderer = columnValueRenderer;
+      if (row !== 0) {
+        return;
       }
 
-      return cellProperties;
+      return {
+        renderer: columnValueRenderer
+      };
     },
     data: data,
     renderer: addMaxHeightToCells,
@@ -376,6 +416,15 @@ var spreadsheet = function(options) {
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes, source) {
+      onChanges();
+
+      // If users intend to remove value from the cells with Delete or Backspace buttons
+      // We shouldn't add a column title
+      // We should add column title when we editing the 0 row.
+      if ((window.event.key === 'Delete' || window.event.key === 'Backspace') && changes[0][0] !== 0) {
+        return;
+      }
+
       // Check if the change was on columns row and validate
       // If we change row without header we put header for this row
       // In this case user won't lose his data if he forgot to input header
@@ -401,8 +450,6 @@ var spreadsheet = function(options) {
           }
         }
       });
-
-      onChanges();
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
@@ -410,7 +457,7 @@ var spreadsheet = function(options) {
       var columns = getColumns();
       var preparedData = prepareData(data, columns);
 
-      // Clear all aftr current index to reset redo
+      // Clear all after current index to reset redo
       if (currentDataStackIndex + 1 < dataStack.length) {
         dataStack.splice(currentDataStackIndex + 1);
       }
@@ -418,6 +465,13 @@ var spreadsheet = function(options) {
       // Add current change to stack
       dataStack.push({ data: preparedData });
       currentDataStackIndex = currentDataStackIndex + 1;
+
+      // Re-execute search without changing cell selection
+      search('find', {
+        selectCell: false,
+        force: true,
+        focusSearch: false
+      });
 
       undoRedoToggle();
     },
@@ -502,6 +556,7 @@ var spreadsheet = function(options) {
       // Column name
       for (var i = 0; i < amount; i++) {
         var columnName = generateColumnName();
+
         hot.setDataAtCell(0, index + i, columnName);
       }
 
@@ -517,6 +572,7 @@ var spreadsheet = function(options) {
       // Because we trigger afterRender event 2 times before UI show as a table it self.
       if (isForced && rendered < 3 ) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
+
         tabs.each(function(index) {
           if (!tabs[index].classList[0]) {
             $(tabs[index]).show();
@@ -529,13 +585,30 @@ var spreadsheet = function(options) {
     },
     afterLoadData: function(firstTime) {
       dataLoaded = true;
-      $('.entries-message').html('');
+
+      if (!options.initialLoad) {
+        $('.entries-message').html('');
+      }
+
+      // Clear search in initial load
+      if (firstTime) {
+        search('clear');
+      } else {
+        // Re-execute search without changing cell selection
+        search('find', {
+          selectCell: false,
+          force: true,
+          focusSearch: false
+        });
+      }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
     },
     beforeKeyDown: function(event) {
-      if (hot.getActiveEditor()._opened) {
+      var editor = hot.getActiveEditor();
+
+      if (editor && editor._opened) {
         return;
       }
 
@@ -545,9 +618,11 @@ var spreadsheet = function(options) {
         var selectedCell = hot.getSelected();
         var whereToLook = closestData(selectedCell);
         var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+
         if (!selectedRange) {
           return;
         }
+
         event.stopImmediatePropagation();
 
         var cols = getColumns().filter(function(column) {
@@ -556,6 +631,7 @@ var spreadsheet = function(options) {
 
         hot.deselectCell();
         hot.selectCells(selectedRange, false, false);
+
         return false;
       }
     }
@@ -568,36 +644,8 @@ var spreadsheet = function(options) {
   dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
-  // Set a sort function using Handsontable columnSorting plugin
-  hot.updateSettings({
-    colWidths: hotSettings.colWidths,
-    sortFunction: function(sortOrder, columnMeta) {
-      return function(a, b) {
-        var plugin = hot.getPlugin('columnSorting');
-        var sortFunction;
-
-        if (a[0] === 0) {
-          return -1;
-        }
-
-        switch (columnMeta.type) {
-          case 'date':
-            sortFunction = plugin.dateSort;
-            break;
-          case 'numeric':
-            sortFunction = plugin.numericSort;
-            break;
-          default:
-            sortFunction = plugin.defaultSort;
-        }
-
-        return sortFunction(sortOrder, columnMeta)(a, b);
-      };
-    }
-  });
-
   // Initialize colWidths if they wasn't stored locally
-  if (!colWidths) {
+  if (!colWidths || !colWidths.length) {
     colWidths = getColWidths();
   }
 
@@ -616,9 +664,12 @@ var spreadsheet = function(options) {
    */
   function generateColumnName(name) {
     name = name || 'Column ';
+
     var headers = getColumns();
     var columnName = name + '(' + columnNameCounter + ')';
+
     columnNameCounter = columnNameCounter + 1;
+
     return headers.indexOf(columnName) > -1
       ? generateColumnName()
       : columnName;
@@ -673,8 +724,10 @@ var spreadsheet = function(options) {
    */
   function validateOrFixColumnName(name) {
     var headers = getColumns();
+
     if (headers.indexOf(name) > -1) {
       var newName = generateColumnName(name);
+
       return newName;
     }
 
@@ -683,7 +736,13 @@ var spreadsheet = function(options) {
 
   function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
-    td.innerHTML = '<div class="cell-wrapper">' + td.innerHTML + '</div>';
+
+    var wrapper = document.createElement('div');
+
+    wrapper.classList.add('cell-wrapper');
+    wrapper.innerHTML = td.innerHTML;
+
+    td.replaceChildren(wrapper);
   }
 
   /**
@@ -691,24 +750,14 @@ var spreadsheet = function(options) {
    * @param {Array} row
    */
   function isNotEmpty(row) {
-    var isEmpty = true;
-    row.forEach(function(field) {
-      if (field) {
-        isEmpty = false;
-      }
+    return row.some(function(field) {
+      return field;
     });
-
-    return !isEmpty;
   }
-
-  var getColWidths = function() {
-    return hot.getColHeader().map(function(header, index) {
-      return hot.getColWidth(index);
-    });
-  };
 
   var getData = function(options) {
     options = options || { removeEmptyRows: true };
+
     var headers = getColumns();
     var entries = [];
 
@@ -734,11 +783,14 @@ var spreadsheet = function(options) {
       // We need to sort bot visual and physical because column
       // move also doesn't keep the physical data in order
       var sortedVisual = _.clone(visualRow).sort();
+
       // Loop through the physical items to get the id
       for (i = 0; i < physical.length; i++) {
         var sortedPhysical = _.clone(physical[i]).sort();
+
         if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
+
           headers.forEach(function(header, index) {
             if (header === null) {
               return;
@@ -787,11 +839,13 @@ var spreadsheet = function(options) {
 
   function validateJsonString(str) {
     var validatedString;
+
     try {
       validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
     } catch (e) {
       validatedString = str;
     }
+
     return validatedString;
   }
 
@@ -800,6 +854,8 @@ var spreadsheet = function(options) {
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
+      search('clear');
+
       return hot.destroy();
     }
   };
@@ -815,14 +871,17 @@ var resultsCount = 0;
 function setSearchMessage(msg) {
   if (msg) {
     $('.find-results').html(msg);
+
     return;
   }
 
-  var value = searchField.value;
+  var value = searchField.value.trim();
   var foundMessage = resultsCount + ' found';
+
   if (resultsCount) {
     foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
   }
+
   $('.find-results').html(value !== '' ? foundMessage : '');
 }
 
@@ -830,27 +889,38 @@ function searchSpinner() {
   setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
 }
 
+var previousSearchValue = '';
+
 /**
  * This will make a search
- * @param {string} action next | prev | find | clear
+ * @param {String} action next | prev | find | clear
+ * @param {Object} options a map of options for the function
+ * @param {Boolean} [options.selectCell=true] If false, the search won't take the user to the search result
+ * @param {Boolean} [options.force=false] If true, a new search will be executed, even if the search term has not changed
+ * @return {void}
  */
-var previousSearchValue = '';
-function search(action) {
+function search(action, options) {
+  options = options || {};
+
   if (action === 'clear') {
     searchField.value = '';
     searchSpinner();
     setTimeout(function() {
-      search('find');
+      search('find', options);
     }, 50); // 50ms for spinner to render
+
     return;
   }
 
-  var value = searchField.value;
+  var value = searchField.value.trim();
+
   //  Don't run search again if the value hasn't changed
-  if (action === 'find' && previousSearchValue === value) {
+  if (action === 'find' && previousSearchValue === value && !options.force) {
     setSearchMessage();
+
     return;
   }
+
   previousSearchValue = value;
 
   if (value !== '') {
@@ -860,23 +930,39 @@ function search(action) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
 
+  if (!hot || !hot.search) {
+    return;
+  }
+
+  var row;
+  var col;
+
   if (action === 'find') {
-    queryResultIndex = 0;
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
+    queryResultIndex = 0;
+
     if (resultsCount) {
       $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-      hot.selectCell(queryResult[0].row, queryResult[0].col, queryResult[0].row, queryResult[0].col, true, false);
+
+      if (options.selectCell !== false) {
+        row = queryResult[queryResultIndex].row;
+        col = queryResult[queryResultIndex].col;
+
+        hot.selectCell(row, col, row, col, true, false);
+        // HACK: Select the cell twice to scroll the viewport to show the cell
+        // in case it was out of view and couldn't be rendered in time
+        hot.selectCell(row, col, row, col, true, false);
+      }
     } else {
       $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
     }
 
     hot.render();
-  }
-
-  if (action === 'next' || action === 'prev') {
+  } else if (action === 'next' || action === 'prev') {
     if (action === 'next') {
       queryResultIndex++;
+
       if (queryResultIndex >= queryResult.length) {
         queryResultIndex = 0;
       }
@@ -884,22 +970,30 @@ function search(action) {
 
     if (action === 'prev') {
       queryResultIndex--;
+
       if (queryResultIndex < 0) {
         queryResultIndex = queryResult.length - 1;
       }
     }
 
-    if (queryResult[queryResultIndex]) {
-      hot.selectCell(
-        queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, queryResult[queryResultIndex].row, queryResult[queryResultIndex].col, true, false);
+    if (queryResult[queryResultIndex] && options.selectCell !== false) {
+      row = queryResult[queryResultIndex].row;
+      col = queryResult[queryResultIndex].col;
+
+      hot.selectCell(row, col, row, col, true, false);
+      // HACK: Select the cell twice to scroll the viewport to show the cell
+      // in case it was out of view and couldn't be rendered in time
+      hot.selectCell(row, col, row, col, true, false);
     }
   }
 
   // Update message
   setSearchMessage();
 
-  // Focus back to the search field
-  searchField.focus();
+  if (options.focusSearch !== false) {
+    // Focus back to the search field
+    searchField.focus();
+  }
 }
 
 $('.find-prev, .find-next').on('click', function() {
@@ -918,6 +1012,10 @@ $('.reset-find').on('click', function() {
   search('clear');
 });
 
+var debouncedFind = _.debounce(function() {
+  search('find');
+}, 500);
+
 Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   // Just the modifiers
   if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
@@ -929,12 +1027,14 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   // Enter & Shift + Enter
   if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
     search(event.shiftKey ? 'prev' : 'next');
+
     return;
   }
 
   // Esc
   if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
     search('clear');
+
     return;
   }
 
@@ -942,6 +1042,7 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   if (ctrlDown && !event.altKey && event.keyCode === 71) {
     search(event.shiftKey ? 'prev' : 'next');
     event.preventDefault();
+
     return;
   }
 
@@ -949,12 +1050,11 @@ Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
   if (ctrlDown) {
     return;
   }
+});
 
+Handsontable.dom.addEvent(searchField, 'input', function onInput() {
   // Typing
   searchSpinner();
-  var debouncedFind = _.debounce(function() {
-    search('find');
-  }, 500);
   debouncedFind();
 });
 
@@ -978,8 +1078,10 @@ function openOverlay() {
       // Change shorcut keys based on system (Win/Mac)
       if (isMac()) {
         $('.mac').addClass('active');
+
         return;
       }
+
       // Windows
       $('.win').addClass('active');
     }
@@ -990,6 +1092,7 @@ function undoRedoToggle() {
   // Change undo/redo state buttons
   var disableUndo = dataStack[currentDataStackIndex - 1] ? false : true;
   var disableRedo = dataStack[currentDataStackIndex + 1] ? false : true;
+
   $('[data-action="undo"]').prop('disabled', disableUndo);
   $('[data-action="redo"]').prop('disabled', disableRedo);
 }
@@ -1043,11 +1146,13 @@ $('#toolbar')
   .on('click', '[data-action="remove-row"]', function removeRow() {
     var index = s[0] < s[2] ? s[0] : s[2];
     var amount = Math.abs(s[0] - s[2]) + 1;
+
     hot.alter('remove_row', index, amount, 'Toolbar.removeRow');
   })
   .on('click', '[data-action="remove-column"]', function removeColumn() {
     var index = s[1] < s[3] ? s[1] : s[3];
     var amount = Math.abs(s[1] - s[3]) + 1;
+
     hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
   .on('click', '[data-action="undo"]', undo)

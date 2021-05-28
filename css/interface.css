@@ -18,6 +18,16 @@ body {
   align-items: center;
 }
 
+.desc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f161";
+}
+
+.asc.sorted::after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f160";
+}
+
 .btn.disabled {
   pointer-events: none;
   cursor: default;
@@ -280,6 +290,7 @@ a[data-back] {
   max-height: 110px;
   min-height: 100%;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .mce-ico {
@@ -591,6 +602,11 @@ td.align-baseline {
   vertical-align: baseline;
 }
 
+td.column-header-cell {
+  font-weight: bold;
+  background-color: #e4e4e4;
+}
+
 #configure-rule h5 {
   font-weight: bold;
   font-size: 16px;
@@ -725,4 +741,33 @@ td.align-baseline {
 
 td.data-source-apps {
   min-width: 200px;
+}
+
+/* Sort UI */
+
+.handsontable .columnSorting {
+  margin-left: 20px;
+}
+
+.handsontable .columnSorting:after {
+  font: normal normal normal 14px/1 FontAwesome;
+  content: "\f0dc";
+  opacity: 0.2;
+  width: 20px;
+  display: inline-block;
+  position: relative !important;
+  right: 0 !important;
+}
+
+.handsontable .columnSorting.ascending:after,
+.handsontable .columnSorting.descending:after {
+  opacity: 1;
+}
+
+.handsontable .columnSorting.ascending:after {
+  content: "\f0de";
+}
+
+.handsontable .columnSorting.descending:after {
+  content: "\f0dd";
 }

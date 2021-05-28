@@ -13,7 +13,8 @@ var $noResults = $('.no-results-found');
 var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
-
+var $activeDataSourceTable = $('#data-sources');
+var $activeSortedColumn;
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
@@ -34,6 +35,7 @@ var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
+var initialLoad = true;
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -92,6 +94,7 @@ function getDataSources() {
 
         // Filters data sources
         var filteredDataSources = [];
+
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
             return dataSource.appId === copyData.appId || app.id === copyData.appId;
@@ -121,6 +124,7 @@ function getDataSources() {
 
       // Start rendering process
       renderDataSources(orderedDataSources);
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     })
     .catch(function(error) {
       renderError({
@@ -134,6 +138,7 @@ function getDataSources() {
 
       if (!(error instanceof Error)) {
         Raven.captureMessage('Error loading data sources', { extra: { error: error } });
+
         return;
       }
 
@@ -154,12 +159,21 @@ function renderDataSources(dataSources) {
   $('#trash-sources').hide();
 }
 
-function sortColumn($element, column, data) {
+function sortColumn($element, column, data, defaultOrder) {
   var isOrderedByAsc = $element.hasClass('asc');
-  var newOrder = isOrderedByAsc ? 'desc' : 'asc';
+  var newOrder;
 
-  $element.toggleClass('desc', isOrderedByAsc);
-  $element.toggleClass('asc', !isOrderedByAsc);
+  if ($element.hasClass('sorted')) {
+    newOrder = isOrderedByAsc ? 'desc' : 'asc';
+
+    $element.toggleClass('desc', isOrderedByAsc);
+    $element.toggleClass('asc', !isOrderedByAsc);
+  } else {
+    newOrder = defaultOrder;
+
+    $element.removeClass('asc desc');
+    $element.toggleClass(defaultOrder, true);
+  }
 
   return sortDataSources(column, newOrder, data);
 }
@@ -183,12 +197,14 @@ function renderError(options) {
 
   options = options || {};
   options.message = options.message || 'Unexpected error';
+
   var parsedError = Fliplet.parseError(options.error);
 
   if (!parsedError) {
     Fliplet.Modal.alert({
       message: options.message
     });
+
     return;
   }
 
@@ -220,6 +236,7 @@ function fetchCurrentDataSourceDetails() {
   return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
+
     if (!dataSource.bundle) {
       $('#bundle').prop('checked', true);
     }
@@ -244,6 +261,7 @@ function fetchCurrentDataSourceUsers() {
       var html = tpl({
         users: users
       });
+
       $usersContents.html(html);
     });
   });
@@ -257,6 +275,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
+
       currentDataSourceUpdatedAt = moment(dataSource.updatedAt).fromNow();
 
       $sourceContents.find('.editing-data-source-name').html(sourceName);
@@ -291,26 +310,46 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       $('#show-versions').show();
 
-      // Let's make sure we get all the columns checking all rows
-      // and add any missing column to the datasource columns
-      rows.forEach(function addMissingColumns(row) {
-        Object.keys(row.data).forEach(function addColumn(column) {
-          if (columns.indexOf(column) > -1) {
-            return;
-          }
+      // Add an empty object in the beginning for _.extend
+      rows.unshift({});
 
-          columns.push(column);
-        });
-      });
+      var computedColumns = _.keys(_.extend.apply({}, rows.map(function(row) {
+        return row.data;
+      })));
+
+      // Remove the first entry
+      rows.shift();
+
+      if (computedColumns.length !== columns.length) {
+        // TODO: Add tracking to verify how often this happens and why
+        // Missing column found
+      }
+
+      columns = _.uniq(_.concat(columns, computedColumns));
     }
 
     currentDataSourceRowsCount = rows.length;
     currentDataSourceColumnsCount = columns.length;
 
-    table = spreadsheet({ columns: columns, rows: rows });
-    $('.table-entries').css('visibility', 'visible');
+    // On initial load, create an empty spreadsheet as this speeds up subsequent loads
+    if (initialLoad) {
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-    $('#versions').removeClass('hidden');
+      setTimeout(function() {
+        table.destroy();
+        initialLoad = false;
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
+    } else {
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
+    }
   })
     .catch(function onFetchError(error) {
       var message = error;
@@ -324,6 +363,7 @@ function fetchCurrentDataSourceEntries(entries) {
       } else if (typeof Raven !== 'undefined') {
         Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
       }
+
       $('.entries-message').html('<br>' + message);
     });
 }
@@ -381,6 +421,7 @@ function fetchCurrentDataSourceVersions() {
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
         version.columnsCount = version.data.columns.length;
+
         return version;
       });
 
@@ -395,7 +436,9 @@ function fetchCurrentDataSourceVersions() {
         columnsCount: currentDataSourceColumnsCount,
         versions: versions
       });
+
       $versionsContents.html(html);
+      $('#versions-details').removeClass('hidden');
     }).catch(function(err) {
       console.error(err);
 
@@ -420,6 +463,14 @@ function trimColumns(columns) {
   return _.filter(columns, function(column) {
     return column !== null;
   });
+}
+
+function toggleSortedIcon(column) {
+  if ($activeSortedColumn) {
+    $activeSortedColumn.removeClass('sorted');
+  }
+
+  $activeSortedColumn = column.addClass('sorted');
 }
 
 function getEmptyColumns(columns, entries) {
@@ -456,15 +507,18 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
     entry.data = _.omitBy(entry.data, function(value, key) {
       return emptyColumns.includes(key);
     });
+
     return entry;
   });
 }
 
 function saveCurrentData() {
   var columns;
+
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').removeClass('hidden').html('Saving...');
   $('.name-wrapper').addClass('saved');
+
   var entries = table.getData();
 
   // If we don't have data we might also have no columns
@@ -472,6 +526,7 @@ function saveCurrentData() {
   // This way next load will load demo data
   if (!entries.length) {
     columns = table.getColumns({ raw: true });
+
     if (_.some(columns)) {
       columns = table.getColumns();
     } else {
@@ -523,6 +578,7 @@ function getDataSourceRender(data) {
   }
 
   html = tpl(data);
+
   return html;
 }
 
@@ -531,6 +587,7 @@ function getTrashSourceRender(data) {
   var html = '';
 
   html = tpl(data);
+
   return html;
 }
 
@@ -578,6 +635,7 @@ function browseDataSource(id) {
       })
         .then(function(updatedDataSources) {
           var html = [];
+
           dataSources = updatedDataSources;
           dataSources.forEach(function(dataSource) {
             html.push(getDataSourceRender(dataSource));
@@ -664,6 +722,7 @@ function createDataSource(createOptions, options) {
 
       dataSources.push(createdDataSource);
       $dataSources.append(getDataSourceRender(createdDataSource));
+
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
@@ -683,6 +742,7 @@ function activateFind() {
   // Data sources list view
   if (!$contents.hasClass('hidden')) {
     $('.search').focus();
+
     return true;
   }
 
@@ -691,6 +751,7 @@ function activateFind() {
     case 'entries':
       hot.deselectCell();
       searchField.focus();
+
       return true;
     default:
       return false;
@@ -763,6 +824,7 @@ function deleteDataSource(id, name) {
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
+
           return;
         }
       }).catch(function(error) {
@@ -773,6 +835,7 @@ function deleteDataSource(id, name) {
       });
 
       currentDataSourceId = 0;
+
       return;
     }
 
@@ -786,6 +849,7 @@ function deleteDataSource(id, name) {
     currentDataSourceId = 0;
   });
 }
+
 function deleteItem(message, dataSourceId) {
   Fliplet.Modal.confirm({
     message: message
@@ -814,6 +878,7 @@ function deleteItem(message, dataSourceId) {
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
+
         return;
       }
 
@@ -875,6 +940,7 @@ window.addEventListener('keydown', function(event) {
     if (activateFind()) {
       event.preventDefault();
     }
+
     return;
   }
 });
@@ -890,28 +956,33 @@ $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources));
+    renderDataSources(sortColumn($dataSource, 'updatedAt', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-deleted-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'deletedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-trash-date]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'updatedAt', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-order-name]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderDataSources(sortColumn($dataSource, 'name', dataSources));
+    renderDataSources(sortColumn($dataSource, 'name', dataSources, defaultOrder));
   })
   .on('click', '[data-trash-name]', function() {
     var $dataSource = $(this);
+    var defaultOrder = $(this).data('defaultOrder');
 
-    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources));
+    renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
     $('[data-show-all-source]').addClass('hidden');
@@ -977,6 +1048,10 @@ $('#app')
         getDataSources();
       });
     } else {
+      try {
+        table.destroy();
+      } catch (e) {}
+
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
@@ -989,6 +1064,10 @@ $('#app')
     $('[data-show-trash-source]').removeClass('active-source');
 
     currentDataSourceId = 0;
+
+    $activeDataSourceTable = $('#data-sources');
+    $activeSortedColumn = $activeDataSourceTable.find('th.sorted');
+
     getDataSources();
   })
   .on('click', '[data-show-trash-source]', function() {
@@ -999,6 +1078,8 @@ $('#app')
     $noResults.removeClass('show');
     $initialSpinnerLoading.addClass('animated');
     $contents.addClass('hidden');
+    $activeDataSourceTable = $('#trash-sources');
+    $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
       Fliplet.API.request({
@@ -1016,11 +1097,12 @@ $('#app')
         var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
-        trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+        trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
-        renderTrashedDataSources(_.sortBy(result.dataSources, ['name']));
+        renderTrashedDataSources(orderedDataSources);
+        toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
       });
 
       return;
@@ -1039,12 +1121,17 @@ $('#app')
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
       dataSourcesToSearch = orderedDataSources;
-      trashedDataSources = _.sortBy(result.dataSources, function(dataSource) {
+      trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
-      renderTrashedDataSources(trashedDataSources);
+
+      renderTrashedDataSources(orderedDataSources);
+      toggleSortedIcon($activeDataSourceTable.children('thead').find('.sorted'));
     });
+  })
+  .on('click', '.sortable', function() {
+    toggleSortedIcon($(this));
   })
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
@@ -1057,6 +1144,7 @@ $('#app')
       // Return to parent widget if in overlay
       if (copyData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
+
         return;
       }
 
@@ -1142,6 +1230,7 @@ $('#app')
   })
   .on('click', '[data-create-role]', function(event) {
     event.preventDefault();
+
     var _this = $(this);
     var userId;
     var permissions;
@@ -1154,6 +1243,7 @@ $('#app')
       }).then(function(result) {
         if (result === null || !result.trim()) {
           _this.removeClass('disabled').text('Add new user');
+
           return;
         }
 
@@ -1165,6 +1255,7 @@ $('#app')
         }).then(function(result) {
           if (result === null || !result.trim()) {
             _this.removeClass('disabled').text('Add new user');
+
             return;
           }
 
@@ -1172,6 +1263,7 @@ $('#app')
 
           Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
             _this.removeClass('disabled').text('Add new user');
+
             return source.addUserRole({
               userId: userId,
               permissions: permissions
@@ -1186,13 +1278,16 @@ $('#app')
   })
   .on('keyup keypress', '[data-input-name]', function(event) {
     var keyCode = event.keyCode || event.which;
+
     if (keyCode === 13) {
       event.preventDefault();
+
       return false;
     }
   })
   .on('click', '[data-revoke-role]', function(event) {
     event.preventDefault();
+
     var userId = $(this).data('revoke-role');
 
     Fliplet.Modal.confirm({
@@ -1211,16 +1306,19 @@ $('#app')
   })
   .on('submit', 'form[data-settings]', function(event) {
     event.preventDefault();
+
     var name = $settings.find('#name').val().trim();
 
     if (!name) {
       $settings.find('#name').parents(':eq(1)').addClass('has-error');
+
       return;
     }
 
     var bundle = !$('#bundle').is(':checked');
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
+
     $settings.find('#name').parents(':eq(1)').removeClass('has-error');
 
     try {
@@ -1230,6 +1328,7 @@ $('#app')
         popupTitle: 'Invalid settings',
         popupMessage: 'Definition must be a valid JSON'
       });
+
       return;
     }
 
@@ -1240,6 +1339,7 @@ $('#app')
         popupTitle: 'Invalid settings',
         popupMessage: 'Hooks must be a valid JSON'
       });
+
       return;
     }
 
@@ -1248,6 +1348,7 @@ $('#app')
         popupTitle: 'Invalid hooks',
         popupMessage: 'Hooks must be an array'
       });
+
       return;
     }
 
@@ -1274,6 +1375,7 @@ $('#app')
         popupTitle: 'Invalid hooks',
         popupMessage: e
       });
+
       return;
     }
 
@@ -1291,6 +1393,7 @@ $('#app')
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
+
           return;
         }
 
@@ -1304,6 +1407,7 @@ $('#app')
     var term = new RegExp(s, 'i');
 
     $noResults.removeClass('show');
+
     var search = dataSourcesToSearch.filter(function(dataSource) {
       return dataSource.name.match(term) || dataSource.id.toString().match(term);
     });
@@ -1380,6 +1484,7 @@ $('#app')
   })
   .on('click', '[data-version-preview]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-preview');
     var version = _.find(currentDataSourceVersions, { id: id });
 
@@ -1387,6 +1492,7 @@ $('#app')
   })
   .on('click', '[data-version-restore]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-restore');
 
     return Fliplet.Modal.confirm({
@@ -1416,6 +1522,7 @@ $('#app')
   })
   .on('click', '[data-version-copy]', function(e) {
     e.preventDefault();
+
     var id = $(this).data('version-copy');
 
     return createDataSource({
@@ -1435,6 +1542,7 @@ $('#app')
         }).then(function(result) {
           if (!result) {
             $('[aria-controls="entries"]').click();
+
             return;
           }
 
@@ -1442,6 +1550,7 @@ $('#app')
           $('[data-save]').addClass('hidden');
           $('.data-save-updated').removeClass('hidden');
           $('.name-wrapper').addClass('saved');
+
           try {
             table.destroy();
             fetchCurrentDataSourceEntries();
@@ -1498,6 +1607,7 @@ $('#add-rule').click(function(event) {
   event.preventDefault();
 
   var $modal = $('#configure-rule');
+
   $modal.find('.modal-title').text('Add new security rule');
   $modal.find('[data-save-rule]').text('Add rule');
 
@@ -1523,6 +1633,7 @@ $('body').on('click', '[data-preconfigured]', function(event) {
 
   setTimeout(function() {
     var $rule = $('#access-rules-list tbody tr:last-child');
+
     $rule.addClass('added');
 
     setTimeout(function() {
@@ -1549,6 +1660,7 @@ $('body').on('click', '[data-remove-field]', function(event) {
 
 $('body').on('change', 'select[name="required-field-type"]', function(event) {
   event.preventDefault();
+
   var value = $(this).val();
 
   $(this).closest('.required-field').find('[name="value"]').toggleClass('hidden', value === 'required');
@@ -1818,6 +1930,7 @@ $('#show-access-rules').click(function() {
         apps: rule.appId
           ? _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, { id: appId });
+
             return app && app.name;
           })).join(', ')
           : 'All apps',
@@ -2030,6 +2143,7 @@ function updateDataSourceRules() {
     // Return to parent widget if in overlay
     if (copyData.context === 'overlay') {
       Fliplet.Studio.emit('close-overlay');
+
       return;
     }
 
@@ -2048,10 +2162,3 @@ if (copyData.context === 'overlay') {
 } else {
   getDataSources();
 }
-
-// Only show versions to admins
-Fliplet.API.request('v1/user').then(function(response) {
-  if (response.user.isAdmin || response.user.isImpersonating) {
-    $('#show-versions').parent('li').removeClass('hidden');
-  }
-});
