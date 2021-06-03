@@ -155,11 +155,7 @@ var spreadsheet = function(options) {
   }
 
   function isCellEmpty(cellContent) {
-    if (cellContent === null || typeof cellContent === 'undefined') {
-      return true;
-    }
-
-    return false;
+    return cellContent === null || typeof cellContent === 'undefined';
   }
 
   /**
