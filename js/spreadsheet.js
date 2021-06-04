@@ -154,6 +154,10 @@ var spreadsheet = function(options) {
     return dataAt;
   }
 
+  function isCellEmpty(cellContent) {
+    return cellContent === null || typeof cellContent === 'undefined';
+  }
+
   /**
    * Method to get a coordinats which we need to select
    *
@@ -176,7 +180,7 @@ var spreadsheet = function(options) {
       // Looking for first col in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
       for (var i = lastCol - 1; i >= 0; i--) {
-        if (allData[startAt[0]][i] === null) {
+        if (isCellEmpty(allData[startAt[0]][i])) {
           firstCol = i;
           break;
         }
@@ -187,7 +191,7 @@ var spreadsheet = function(options) {
       // Looking for the first row in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
       for (var i = startAt[0]; i >= 0; i--) {
-        if (allData[i][firstCol] === null) {
+        if (isCellEmpty(allData[i][firstCol])) {
           firstRow = i;
           break;
         }
@@ -198,7 +202,7 @@ var spreadsheet = function(options) {
       // Looking for the last row in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
       for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
+        if (isCellEmpty(allData[i][firstCol])) {
           lastRow = i;
           break;
         }
@@ -210,14 +214,14 @@ var spreadsheet = function(options) {
       firstCol = startAt[1];
 
       for (var i = firstCol + 1; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
+        if (isCellEmpty(allData[startAt[0]][i])) {
           lastCol = i - 1;
           break;
         }
       }
 
       for (var i = startAt[0]; i > 0; i--) {
-        if (allData[i][lastCol] === null) {
+        if (isCellEmpty(allData[i][lastCol])) {
           firstRow = i ? i - 1 : i;
         }
       }
@@ -225,7 +229,7 @@ var spreadsheet = function(options) {
       firstRow = firstRow || 0;
 
       for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][lastCol] === null) {
+        if (isCellEmpty(allData[i][lastCol])) {
           lastRow = i - 1;
           break;
         }
@@ -235,7 +239,7 @@ var spreadsheet = function(options) {
       lastRow = startAt[0];
 
       for (var i = lastRow - 1; i > 0; i--) {
-        if (allData[i][startAt[1]] === null) {
+        if (isCellEmpty(allData[i][startAt[1]])) {
           firstRow = i;
           break;
         }
@@ -244,7 +248,7 @@ var spreadsheet = function(options) {
       firstRow = firstRow || 0;
 
       for (var i = startAt[1]; i > 0; i--) {
-        if (allData[firstRow][i] === null) {
+        if (isCellEmpty(allData[firstRow][i])) {
           firstCol = i ? i + 1 : i;
           break;
         }
@@ -253,7 +257,7 @@ var spreadsheet = function(options) {
       firstCol = firstCol || 0;
 
       for (var i = firstCol; i < allData.length; i++) {
-        if (allData[firstRow][i] === null) {
+        if (isCellEmpty(allData[firstRow][i])) {
           lastCol = i - 1;
           break;
         }
@@ -263,14 +267,14 @@ var spreadsheet = function(options) {
       firstRow = startAt[0];
 
       for (var i = firstRow + 1; i < allData.length; i++) {
-        if (allData[i][startAt[1]] === null) {
+        if (isCellEmpty(allData[i][startAt[1]])) {
           lastRow = i - 1;
           break;
         }
       }
 
       for (var i = startAt[1]; i > 0; i--) {
-        if (allData[lastRow][i] === null) {
+        if (isCellEmpty(allData[lastRow][i])) {
           firstCol = i + 1;
           break;
         }
@@ -279,7 +283,7 @@ var spreadsheet = function(options) {
       firstCol = firstCol || 0;
 
       for (var i = firstCol; i < allData.length; i++) {
-        if (allData[lastRow][i] === null) {
+        if (isCellEmpty(allData[lastRow][i])) {
           lastCol = i - 1;
           break;
         }
@@ -290,7 +294,7 @@ var spreadsheet = function(options) {
         firstCol = 0;
       } else {
         for (var i = startAt[1]; i > 0; i--) {
-          if (allData[startAt[0]][i] === null) {
+          if (isCellEmpty(allData[startAt[0]][i])) {
             firstCol = i + 1;
             break;
           }
@@ -300,7 +304,7 @@ var spreadsheet = function(options) {
       }
 
       for (var i = firstCol; i < allData.length; i++) {
-        if (allData[startAt[0]][i] === null) {
+        if (isCellEmpty(allData[startAt[0]][i])) {
           lastCol = i - 1;
           break;
         }
@@ -310,7 +314,7 @@ var spreadsheet = function(options) {
         firstRow = startAt[0];
       } else {
         for (var i = startAt[0]; i > 0; i--) {
-          if (allData[i][firstCol] === null) {
+          if (isCellEmpty(allData[i][firstCol])) {
             firstRow = i + 1;
             break;
           }
@@ -320,7 +324,7 @@ var spreadsheet = function(options) {
       }
 
       for (var i = firstRow; i < allData.length; i++) {
-        if (allData[i][firstCol] === null) {
+        if (isCellEmpty(allData[i][firstCol])) {
           lastRow = i - 1;
           break;
         }
