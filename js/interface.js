@@ -278,7 +278,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
       currentDataSourceUpdatedAt = moment(dataSource.updatedAt).fromNow();
 
-      $sourceContents.find('.editing-data-source-name').html(sourceName);
+      $sourceContents.find('.editing-data-source-name').text(sourceName);
       $sourceContents.find('.data-save-updated').html('All changes saved!');
 
       columns = dataSource.columns || [];
@@ -670,7 +670,7 @@ function createDataSource(createOptions, options) {
       return;
     }
 
-    var dataSourceName = result.trim();
+    var dataSourceName = result.replace(/<.+>/g, '').trim();
 
     if (!dataSourceName) {
       return Fliplet.Modal.alert({
@@ -1388,7 +1388,7 @@ $('#app')
     })
       .then(function() {
         // Update name on UI
-        $('.editing-data-source-name').html(name);
+        $('.editing-data-source-name').text(name);
 
         // Return to parent widget if in overlay
         if (copyData.context === 'overlay') {
