@@ -1681,7 +1681,8 @@ function configureAddRuleUI(rule) {
   $('.users-filter').addClass('hidden').find('.filters').html('');
   $('button.selected').removeClass('selected');
   $('input[name="type"]:checked').prop('checked', false);
-
+  
+  $('input[name="exclude"]').tokenfield('destroy');
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
       source: _.compact(columns) || [],
