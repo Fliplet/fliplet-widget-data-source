@@ -1682,6 +1682,7 @@ function configureAddRuleUI(rule) {
   $('button.selected').removeClass('selected');
   $('input[name="type"]:checked').prop('checked', false);
 
+  $('input[name="exclude"]').tokenfield('destroy');
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
       source: _.compact(columns) || [],
