@@ -171,11 +171,11 @@ this["Fliplet"]["Widget"]["Templates"]["templates.version"] = Handlebars.templat
 this["Fliplet"]["Widget"]["Templates"]["templates.versions"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "      <tr>\r\n        <td><span class=\"label label-default\">Version "
+  return "      <tr>\r\n        <td><span class=\"label label-info\" title=\"Version "
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
-    + "</span> saved "
+    + "\">"
     + alias4(((helper = (helper = helpers.createdAt || (depth0 != null ? depth0.createdAt : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"createdAt","hash":{},"data":data}) : helper)))
-    + "</td>\r\n        <td>"
+    + "</span></td>\r\n        <td>"
     + alias4(((helper = (helper = helpers.action || (depth0 != null ? depth0.action : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"action","hash":{},"data":data}) : helper)))
     + "</td>\r\n        <td>"
     + alias4(((helper = (helper = helpers.entriesCount || (depth0 != null ? depth0.entriesCount : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"entriesCount","hash":{},"data":data}) : helper)))
@@ -197,9 +197,9 @@ this["Fliplet"]["Widget"]["Templates"]["templates.versions"] = Handlebars.templa
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "<table class=\"table\">\r\n  <thead>\r\n    <th>Version</th>\r\n    <th>Modified by</th>\r\n    <th>Entries</th>\r\n    <th>Columns</th>\r\n    <th>Actions</th>\r\n  </thead>\r\n  <tbody>\r\n    <tr class=\"success\">\r\n      <td><span class=\"label label-success\">Current</span> modified "
+  return "<table class=\"table\">\r\n  <thead>\r\n    <th>Saved at</th>\r\n    <th>Description</th>\r\n    <th>Entries</th>\r\n    <th>Columns</th>\r\n    <th>Actions</th>\r\n  </thead>\r\n  <tbody>\r\n    <tr class=\"success\">\r\n      <td><span class=\"label label-success\" title=\"This is the current version of the Data Source\">"
     + alias4(((helper = (helper = helpers.updatedAt || (depth0 != null ? depth0.updatedAt : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"updatedAt","hash":{},"data":data}) : helper)))
-    + "</td>\r\n      <td>"
+    + "</span></td>\r\n      <td>"
     + alias4(((helper = (helper = helpers.action || (depth0 != null ? depth0.action : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"action","hash":{},"data":data}) : helper)))
     + "</td>\r\n      <td>"
     + alias4(((helper = (helper = helpers.entriesCount || (depth0 != null ? depth0.entriesCount : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"entriesCount","hash":{},"data":data}) : helper)))
@@ -207,5 +207,5 @@ this["Fliplet"]["Widget"]["Templates"]["templates.versions"] = Handlebars.templa
     + alias4(((helper = (helper = helpers.columnsCount || (depth0 != null ? depth0.columnsCount : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"columnsCount","hash":{},"data":data}) : helper)))
     + "</td>\r\n      <td>-</td>\r\n    </tr>\r\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.versions : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
-    + "  </tbody>\r\n</table>";
+    + "  </tbody>\r\n</table>\r\n<br />\r\n";
 },"useData":true});
