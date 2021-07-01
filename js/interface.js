@@ -276,7 +276,7 @@ function fetchCurrentDataSourceEntries(entries) {
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
-      currentDataSourceUpdatedAt = moment(dataSource.updatedAt).fromNow();
+      currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
       $sourceContents.find('.data-save-updated').html('All changes saved!');
@@ -398,7 +398,7 @@ function getVersionActionDescription(version) {
 
   switch (version.data.action) {
     case 'commit':
-      return 'Modified by ' + version.user.fullName;
+      return 'Changes made by ' + version.user.fullName;
     case 'pre-restore':
       return 'Version restored by ' + version.user.fullName;
     case 'current':
@@ -416,7 +416,7 @@ function fetchCurrentDataSourceVersions() {
       currentDataSourceVersions = result.versions;
 
       var versions = currentDataSourceVersions.map(function(version, i) {
-        version.createdAt = moment(version.createdAt).fromNow();
+        version.createdAt = moment(version.createdAt).format('MMM Do YYYY, HH:mm');
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
@@ -561,7 +561,7 @@ function saveCurrentData() {
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
-  currentDataSourceUpdatedAt = moment().fromNow();
+  currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
   return currentDataSource.commit(entries, columns);
 }
