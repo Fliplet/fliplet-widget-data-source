@@ -1682,6 +1682,7 @@ function configureAddRuleUI(rule) {
   $('button.selected').removeClass('selected');
   $('input[name="type"]:checked').prop('checked', false);
 
+  $('input[name="exclude"]').tokenfield('destroy');
   $('input[name="exclude"]').tokenfield({
     autocomplete: {
       source: _.compact(columns) || [],
@@ -1777,6 +1778,22 @@ function updateSaveRuleValidation() {
   } else {
     $('[data-save-rule]').attr('disabled', true);
   }
+
+  function hasType(type) {
+    return types.indexOf(type) !== -1;
+  }
+
+  var msg;
+
+  if (hasType('select') && (hasType('insert') || hasType('update'))) {
+    msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
+  } else if (hasType('insert') || hasType('update')) {
+    msg = 'Specify columns that should never be writable by users when this rule is matched.';
+  } else {
+    msg = 'Specify columns that should never be readable by users when this rule is matched.';
+  }
+
+  $('[data-exclude-description]').text(msg);
 }
 
 $typeCheckbox.click(updateSaveRuleValidation);
