@@ -14,11 +14,15 @@
         </div>
     </a>
   </td>
-  <td class="align-baseline">{{{allow}}}</td>
-  <td class="align-baseline">{{{type}}}</td>
-  <td class="align-baseline">{{{require}}}</td>
-  <td class="align-baseline">{{{exclude}}}</td>
-  <td class="align-baseline">{{apps}}</td>
+  {{#if hasScript}}
+    <td colspan="5" class="align-baseline"><span class="label label-info"><i class="fa fa-code"></i> Custom rule</span> {{name}}</td>
+  {{else}}
+    <td class="align-baseline">{{{allow}}}</td>
+    <td class="align-baseline">{{{type}}}</td>
+    <td class="align-baseline">{{{require}}}</td>
+    <td class="align-baseline">{{{exclude}}}</td>
+    <td class="align-baseline">{{apps}}</td>
+  {{/if}}
   <td class="align-baseline">
     <button class="btn btn-default btn-sm" data-rule-edit>Edit</button>
     <button class="btn btn-danger btn-sm" data-rule-delete>Delete</button>
