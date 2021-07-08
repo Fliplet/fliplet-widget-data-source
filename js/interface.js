@@ -61,6 +61,11 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
   mode: 'javascript'
 });
 
+var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
+  lineNumbers: true,
+  mode: 'javascript'
+});
+
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
 // Fetch all data sources
@@ -1615,6 +1620,18 @@ $('#add-rule').click(function(event) {
   showModal($modal);
 });
 
+$('#add-custom-rule').click(function(event) {
+  event.preventDefault();
+
+  var $modal = $('#configure-rule');
+
+  $modal.find('.modal-title').text('Add advanced custom security rule');
+  $modal.find('[data-save-rule]').text('Add rule');
+
+  configureAddRuleUI({ script: '' });
+  showModal($modal);
+});
+
 preconfiguredRules.forEach(function(rule, idx) {
   $('.preconfigured-rules').append('<li><a href="#" data-preconfigured="' + idx + '">' + rule.name + '</a></li>');
 });
@@ -1671,99 +1688,113 @@ function configureAddRuleUI(rule) {
     type: []
   };
 
+  var isCustomRule = typeof rule.script === 'string';
   var selectedAppType = rule.appId ? 'filter' : 'all';
   var $apps = $('.apps-list');
+  var $customRuleForm = $('[data-rule-custom]');
 
-  // Cleanup
-  $appsBtnFilter.removeClass('selected');
-  $apps.html('').hide();
-  $('.required-fields').html('');
-  $('.users-filter').addClass('hidden').find('.filters').html('');
-  $('button.selected').removeClass('selected');
-  $('input[name="type"]:checked').prop('checked', false);
+  if (isCustomRule) {
+    $('[data-save-rule]').removeAttr('disabled');
+    $('[data-rule-standard').addClass('hidden');
 
-  $('input[name="exclude"]').tokenfield('destroy');
-  $('input[name="exclude"]').tokenfield({
-    autocomplete: {
-      source: _.compact(columns) || [],
-      delay: 100
-    },
-    showAutocompleteOnFocus: true
-  });
-
-  $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
-
-  rule.type.forEach(function(type) {
-    $('input[name="type"][value="' + type + '"]').prop('checked', true);
-  });
-
-  if (rule.allow) {
-    if (typeof rule.allow === 'string') {
-      $('[data-allow="' + rule.allow + '"]').click();
-    } else {
-      $('.filters').html('');
-      $('[data-allow="filter"]').click();
-
-      _.forIn(rule.allow.user, function(operation, column) {
-        var $field = $('.filters .required-field').last();
-        var operationType = Object.keys(operation)[0];
-        var value = operation[operationType];
-
-        $field.find('[name="column"]').val(column);
-        $field.find('select').val(operationType);
-        $field.find('[name="value"]').val(value);
-
-        $('[data-add-user-filter]').click();
-      });
-
-      $('.filters .required-field').last().remove();
-    }
+    $customRuleForm.removeClass('hidden');
+    $customRuleForm.find('[name="name"]').val(rule.name || 'Untitled custom rule');
+    customRuleEditor.setValue(rule.script || '');
   } else {
-    $('[data-allow="all"]').click();
-  }
+    $('[data-rule-custom').addClass('hidden');
+    $('[data-rule-standard').removeClass('hidden');
 
-  if (rule.require) {
-    rule.require.forEach(function(field) {
-      $('[data-add-filter]').click();
+    // Cleanup
+    $appsBtnFilter.removeClass('selected');
+    $apps.html('').hide();
+    $('.required-fields').html('');
+    $('.users-filter').addClass('hidden').find('.filters').html('');
+    $('button.selected').removeClass('selected');
+    $('input[name="type"]:checked').prop('checked', false);
 
-      var $field = $('.required-fields .required-field').last();
+    $('input[name="exclude"]').tokenfield('destroy');
+    $('input[name="exclude"]').tokenfield({
+      autocomplete: {
+        source: _.compact(columns) || [],
+        delay: 100
+      },
+      showAutocompleteOnFocus: true
+    });
 
-      if (typeof field === 'string') {
-        $field.find('[name="field"]').val(field);
-        $field.find('select').val('required');
+    $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
+
+    rule.type.forEach(function(type) {
+      $('input[name="type"][value="' + type + '"]').prop('checked', true);
+    });
+
+    if (rule.allow) {
+      if (typeof rule.allow === 'string') {
+        $('[data-allow="' + rule.allow + '"]').click();
       } else {
-        var column = Object.keys(field)[0];
-        var operation = field[column];
-        var operationType = Object.keys(operation)[0];
-        var value = operation[operationType];
+        $('.filters').html('');
+        $('[data-allow="filter"]').click();
 
-        $field.find('[name="field"]').val(column);
-        $field.find('select').val(operationType);
-        $field.find('[name="value"]').val(value);
+        _.forIn(rule.allow.user, function(operation, column) {
+          var $field = $('.filters .required-field').last();
+          var operationType = Object.keys(operation)[0];
+          var value = operation[operationType];
+
+          $field.find('[name="column"]').val(column);
+          $field.find('select').val(operationType);
+          $field.find('[name="value"]').val(value);
+
+          $('[data-add-user-filter]').click();
+        });
+
+        $('.filters .required-field').last().remove();
       }
+    } else {
+      $('[data-allow="all"]').click();
+    }
 
-      $field.find('select').trigger('change');
+    if (rule.require) {
+      rule.require.forEach(function(field) {
+        $('[data-add-filter]').click();
+
+        var $field = $('.required-fields .required-field').last();
+
+        if (typeof field === 'string') {
+          $field.find('[name="field"]').val(field);
+          $field.find('select').val('required');
+        } else {
+          var column = Object.keys(field)[0];
+          var operation = field[column];
+          var operationType = Object.keys(operation)[0];
+          var value = operation[operationType];
+
+          $field.find('[name="field"]').val(column);
+          $field.find('select').val(operationType);
+          $field.find('[name="value"]').val(value);
+        }
+
+        $field.find('select').trigger('change');
+      });
+    }
+
+    // Setup
+    updateSaveRuleValidation();
+
+    $appsBtnFilter.filter('[data-apps="' + selectedAppType + '"]').click();
+
+    getApps.then(function(apps) {
+      var tpl = Fliplet.Widget.Templates['templates.checkbox'];
+
+      apps.forEach(function(app) {
+        var checkbox = tpl({
+          id: app.id,
+          name: app.name,
+          checked: rule.appId && rule.appId.indexOf(app.id) !== -1 ? 'checked' : ''
+        });
+
+        $apps.append('<div class="app">' + checkbox + '</div>');
+      });
     });
   }
-
-  // Setup
-  updateSaveRuleValidation();
-
-  $appsBtnFilter.filter('[data-apps="' + selectedAppType + '"]').click();
-
-  getApps.then(function(apps) {
-    var tpl = Fliplet.Widget.Templates['templates.checkbox'];
-
-    apps.forEach(function(app) {
-      var checkbox = tpl({
-        id: app.id,
-        name: app.name,
-        checked: rule.appId && rule.appId.indexOf(app.id) !== -1 ? 'checked' : ''
-      });
-
-      $apps.append('<div class="app">' + checkbox + '</div>');
-    });
-  });
 }
 
 function updateSaveRuleValidation() {
@@ -1889,11 +1920,15 @@ $('#show-access-rules').click(function() {
 
       if (typeof rule.type === 'string') {
         rule.type = [rule.type];
+      } else if (!rule.type) {
+        rule.type = [];
       }
 
       $tbody.append(tpl({
+        name: rule.name || ('Untitled rule' + (index + 1)),
         index: index,
         enabled: rule.enabled,
+        hasScript: typeof rule.script === 'string',
         type: rule.type.map(function(type) {
           var description;
 
@@ -1975,108 +2010,118 @@ $('#show-access-rules').click(function() {
 $('[data-save-rule]').click(function(event) {
   event.preventDefault();
 
-  var rule = {
-    type: []
-  };
-
-  $typeCheckbox.filter(':checked').each(function() {
-    rule.type.push($(this).val());
-  });
-
-  var $allow = $('.selected[data-allow]');
-
+  var rule;
   var error;
 
-  if ($allow.data('allow') === 'filter') {
-    var user = {};
+  var isCustomRule = $('[data-rule-standard]').hasClass('hidden');
 
-    $('.users-filter .required-field').each(function() {
-      var column = $(this).find('[name="column"]').val();
+  if (isCustomRule) {
+    rule = {
+      name: $('[data-rule-custom] [name="name"]').val(),
+      script: customRuleEditor.getValue()
+    };
+
+    customRuleEditor.setValue('');
+  } else {
+    rule = { type: [] };
+
+    $typeCheckbox.filter(':checked').each(function() {
+      rule.type.push($(this).val());
+    });
+
+    var $allow = $('.selected[data-allow]');
+
+    if ($allow.data('allow') === 'filter') {
+      var user = {};
+
+      $('.users-filter .required-field').each(function() {
+        var column = $(this).find('[name="column"]').val();
+        var value = $(this).find('[name="value"]').val();
+        var operationType = $(this).find('select').val();
+
+        if (column && value) {
+          try {
+            Handlebars.compile(value)();
+          } catch (err) {
+            error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
+          }
+
+          var query = {};
+
+          query[operationType] = value;
+          user[column] = query;
+        }
+      });
+
+      rule.allow = { user: user };
+    } else {
+      rule.allow = $allow.data('allow');
+    }
+
+    var $apps = $('.selected[data-apps]');
+
+    if ($apps.data('apps') === 'filter') {
+      var appId = [];
+
+      $('.apps-list .app input[type="checkbox"]:checked').each(function() {
+        appId.push(parseInt($(this).val(), 10));
+      });
+
+      if (appId.length) {
+        rule.appId = appId;
+      }
+    }
+
+    var requiredFields = [];
+
+    $('.required-fields .required-field').each(function() {
+      var column = $(this).find('[name="field"]').val();
       var value = $(this).find('[name="value"]').val();
       var operationType = $(this).find('select').val();
 
-      if (column && value) {
-        try {
-          Handlebars.compile(value)();
-        } catch (err) {
-          error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
+      if (!column) {
+        return;
+      }
+
+      // Ensure multiple fields for the same column name are skipped
+      if (_.find(requiredFields, function(field) {
+        if (typeof field === 'string') {
+          return field === column;
         }
 
-        var query = {};
-
-        query[operationType] = value;
-        user[column] = query;
-      }
-    });
-
-    rule.allow = { user: user };
-  } else {
-    rule.allow = $allow.data('allow');
-  }
-
-  var $apps = $('.selected[data-apps]');
-
-  if ($apps.data('apps') === 'filter') {
-    var appId = [];
-
-    $('.apps-list .app input[type="checkbox"]:checked').each(function() {
-      appId.push(parseInt($(this).val(), 10));
-    });
-
-    if (appId.length) {
-      rule.appId = appId;
-    }
-  }
-
-  var requiredFields = [];
-
-  $('.required-fields .required-field').each(function() {
-    var column = $(this).find('[name="field"]').val();
-    var value = $(this).find('[name="value"]').val();
-    var operationType = $(this).find('select').val();
-
-    if (!column) {
-      return;
-    }
-
-    // Ensure multiple fields for the same column name are skipped
-    if (_.find(requiredFields, function(field) {
-      if (typeof field === 'string') {
-        return field === column;
+        return Object.keys(field)[0] === column;
+      })) {
+        return;
       }
 
-      return Object.keys(field)[0] === column;
-    })) {
-      return;
+      if (operationType === 'required') {
+        return requiredFields.push(column);
+      }
+
+      try {
+        Handlebars.compile(value)();
+      } catch (err) {
+        error = 'The value for the required field "' + column + '" is not a valid Handlebars expression.';
+      }
+
+      var field = {};
+      var query = {};
+
+      query[operationType] = value;
+      field[column] = query;
+
+      requiredFields.push(field);
+    });
+
+    if (requiredFields.length) {
+      rule.require = requiredFields;
     }
 
-    if (operationType === 'required') {
-      return requiredFields.push(column);
+    var exclude = _.compact($('input[name="exclude"]').val().split(','));
+
+    if (exclude.length) {
+      rule.exclude = exclude;
     }
-
-    try {
-      Handlebars.compile(value)();
-    } catch (err) {
-      error = 'The value for the required field "' + column + '" is not a valid Handlebars expression.';
-    }
-
-    var field = {};
-    var query = {};
-
-    query[operationType] = value;
-    field[column] = query;
-
-    requiredFields.push(field);
-  });
-
-  if (requiredFields.length) {
-    rule.require = requiredFields;
-  }
-
-  var exclude = _.compact($('input[name="exclude"]').val().split(','));
-
-  if (exclude.length) {
-    rule.exclude = exclude;
   }
 
   if (error) {
@@ -2141,6 +2186,10 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 });
 
 function showModal($modal) {
+  $modal.on('shown.bs.modal', function() {
+    customRuleEditor.refresh();
+  });
+
   $modal.modal();
 }
 
