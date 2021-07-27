@@ -294,6 +294,10 @@ a[data-back] {
   word-break: break-word;
 }
 
+textarea.handsontableInput {
+  max-width: 400px !important;
+}
+
 .mce-ico {
   display: inline-block;
   font: normal normal normal 14px/1 tinymce;
