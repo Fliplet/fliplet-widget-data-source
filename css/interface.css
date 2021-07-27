@@ -290,9 +290,8 @@ a[data-back] {
 
 .cell-wrapper {
   min-height: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  max-height: 0;
+  word-break: break-word;
 }
 
 .mce-ico {
