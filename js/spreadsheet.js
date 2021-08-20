@@ -407,7 +407,7 @@ var spreadsheet = function(options) {
     selectionMode: 'range',
     cells: function(row) {
       if (row !== 0) {
-        // eslint-disable-next-line
+        // eslint-disable-next-line consistent-return
         return;
       }
 
