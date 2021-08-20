@@ -407,10 +407,10 @@ var spreadsheet = function(options) {
     selectionMode: 'range',
     cells: function(row) {
       if (row !== 0) {
-        return; // eslint-disable-line consistent-return
+        return;
       }
 
-      return { // eslint-disable-line consistent-return
+      return {
         renderer: columnValueRenderer
       };
     },
