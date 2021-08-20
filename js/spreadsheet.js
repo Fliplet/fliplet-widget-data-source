@@ -406,12 +406,11 @@ var spreadsheet = function(options) {
     sortIndicator: true,
     selectionMode: 'range',
     cells: function(row) {
-      /* eslint-disable consistent-return */
       if (row !== 0) {
-        return;
+        return; // eslint-disable-line consistent-return
       }
 
-      return {
+      return { // eslint-disable-line consistent-return
         renderer: columnValueRenderer
       };
     },
