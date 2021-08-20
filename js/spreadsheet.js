@@ -410,7 +410,7 @@ var spreadsheet = function(options) {
         return;
       }
 
-      // eslint-disable-next-line consistent-return
+      // eslint-disable-next-line
       return {
         renderer: columnValueRenderer
       };
