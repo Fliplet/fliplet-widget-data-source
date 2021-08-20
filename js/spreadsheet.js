@@ -406,8 +406,8 @@ var spreadsheet = function(options) {
     sortIndicator: true,
     selectionMode: 'range',
     cells: function(row) {
+      /* eslint-disable consistent-return */
       if (row !== 0) {
-        // eslint-disable-next-line consistent-return
         return;
       }
 
