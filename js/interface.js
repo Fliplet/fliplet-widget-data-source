@@ -895,7 +895,7 @@ function deleteItem(message, dataSourceId) {
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
-  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll) {
+  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll && key !== 'deletedAt') {
     toBeOrderedDataSources = allDataSources;
   }
 
