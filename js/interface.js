@@ -14,6 +14,7 @@ var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
+var $btnShowAllSource = $('[data-show-all-source]');
 var $activeSortedColumn;
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
@@ -88,7 +89,7 @@ function getDataSources() {
         // Changes UI text
         isShowingAll = false;
 
-        $('[data-show-all-source]').removeClass('hidden');
+        $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
 
@@ -895,7 +896,7 @@ function deleteItem(message, dataSourceId) {
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
-  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll) {
+  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll && key !== 'deletedAt') {
     toBeOrderedDataSources = allDataSources;
   }
 
@@ -985,7 +986,7 @@ $('#app')
     renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
-    $('[data-show-all-source]').addClass('hidden');
+    $btnShowAllSource.addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
 
@@ -1006,7 +1007,7 @@ $('#app')
     isShowingAll = false;
 
     $('[data-app-source]').addClass('hidden');
-    $('[data-show-all-source]').removeClass('hidden');
+    $btnShowAllSource.removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
@@ -1082,12 +1083,18 @@ $('#app')
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
-      Fliplet.API.request({
+      var api = {
         url: 'v1/data-sources/deleted/',
-        method: 'GET',
-        data: { appId: copyData.appId }
-      }).then(function(result) {
+        method: 'GET'
+      };
+
+      if (!$btnShowAllSource.hasClass('hidden')) {
+        api.data = { appId: copyData.appId };
+      }
+
+      Fliplet.API.request(api).then(function(result) {
         if (!result.dataSources.length) {
+          $noResults.removeClass('hidden');
           $noResults.addClass('show');
         }
 
