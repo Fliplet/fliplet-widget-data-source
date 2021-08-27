@@ -1078,17 +1078,17 @@ $('#app')
     $activeDataSourceTable = $('#trash-sources');
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
-    var propApi = {
-      url: 'v1/data-sources/deleted/',
-      method: 'GET'
-    };
-
-    if (!isShowingAll) {
-      propApi.data = { appId: copyData.appId };
-    }
-
     if (copyData.context === 'app-overlay') {
-      Fliplet.API.request(propApi).then(function(result) {
+      var api = {
+        url: 'v1/data-sources/deleted/',
+        method: 'GET'
+      };
+
+      if (!isShowingAll) {
+        api.data = { appId: copyData.appId };
+      }
+
+      Fliplet.API.request(api).then(function(result) {
         if (!result.dataSources.length) {
           $noResults.removeClass('hidden');
           $noResults.addClass('show');
