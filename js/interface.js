@@ -988,14 +988,11 @@ $('#app')
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
+    isShowingAll = true;
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
-      isShowingAll = false;
-
       $('[data-show-trash-source]').click();
     } else {
-      isShowingAll = true;
-
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
 
       dataSourcesToSearch = orderedDataSources;
@@ -1081,13 +1078,19 @@ $('#app')
     $activeDataSourceTable = $('#trash-sources');
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
+    var propApi = {
+      url: 'v1/data-sources/deleted/',
+      method: 'GET'
+    };
+
+    if (!isShowingAll) {
+      propApi.data = { appId: copyData.appId };
+    }
+
     if (copyData.context === 'app-overlay') {
-      Fliplet.API.request({
-        url: 'v1/data-sources/deleted/',
-        method: 'GET',
-        data: { appId: copyData.appId }
-      }).then(function(result) {
+      Fliplet.API.request(propApi).then(function(result) {
         if (!result.dataSources.length) {
+          $noResults.removeClass('hidden');
           $noResults.addClass('show');
         }
 
