@@ -988,11 +988,14 @@ $('#app')
     $('[data-show-all-source]').addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
-    isShowingAll = true;
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
+      isShowingAll = false;
+
       $('[data-show-trash-source]').click();
     } else {
+      isShowingAll = true;
+
       var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
 
       dataSourcesToSearch = orderedDataSources;
@@ -1084,7 +1087,7 @@ $('#app')
         method: 'GET'
       };
 
-      if (!isShowingAll) {
+      if (!$('[data-show-all-source]').hasClass('hidden')) {
         api.data = { appId: copyData.appId };
       }
 
