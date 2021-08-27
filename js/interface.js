@@ -1083,16 +1083,16 @@ $('#app')
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
-      var api = {
+      var request = {
         url: 'v1/data-sources/deleted/',
         method: 'GET'
       };
 
       if (!$btnShowAllSource.hasClass('hidden')) {
-        api.data = { appId: copyData.appId };
+        request.data = { appId: copyData.appId };
       }
 
-      Fliplet.API.request(api).then(function(result) {
+      Fliplet.API.request(request).then(function(result) {
         if (!result.dataSources.length) {
           $noResults.removeClass('hidden');
           $noResults.addClass('show');
