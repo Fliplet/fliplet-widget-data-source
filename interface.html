@@ -240,6 +240,10 @@
             </div>
             <div role="tabpanel" class="tab-pane" id="access-rules">
               <br />
+              <div class="managed-data-source-rules callout callout-primary hidden">
+                <h4>System generated data source</h4>
+                <p>Security for this data source is managed by the system.</p>
+              </div>
               <div class="dropdown">
                 <button class="btn btn-default dropdown-toggle" type="button" id="add-rules-dropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
                   Add new rule
@@ -259,10 +263,6 @@
                 <div class="empty-data-source-rules callout callout-primary hidden">
                   <h4>No security rules found</h4>
                   <p>Apps will not be able to access this data source until security rules are added.</p>
-                </div>
-                <div class="managed-data-source-rules callout callout-primary hidden">
-                  <h4>System generated data source</h4>
-                  <p>Security for this data source is managed by the system.</p>
                 </div>
                 <table class="table-hover">
                   <thead>
