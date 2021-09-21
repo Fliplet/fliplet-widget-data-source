@@ -1878,9 +1878,10 @@ $('#show-access-rules').click(function() {
 
   var isManagedDataSource = ['bookmarks', 'likes', 'comments'].indexOf(currentDataSourceType) !== -1;
 
+  $('#add-rules-dropdown').toggleClass('hidden', isManagedDataSource);
   $('.managed-data-source-rules').toggleClass('hidden', !isManagedDataSource);
   $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0 || isManagedDataSource);
-  $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
+  $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length || isManagedDataSource);
 
   function operatorDescription(operation) {
     switch (operation) {
