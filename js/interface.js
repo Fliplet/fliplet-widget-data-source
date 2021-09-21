@@ -20,6 +20,7 @@ var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
+var currentDataSourceType;
 var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
@@ -242,6 +243,7 @@ function fetchCurrentDataSourceDetails() {
       $('#bundle').prop('checked', true);
     }
 
+    currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
@@ -1874,7 +1876,10 @@ $('#show-access-rules').click(function() {
     rule.enabled = rule.enabled === false ? false : true;
   });
 
-  $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
+  var isManagedDataSource = ['bookmarks', 'likes', 'comments'].indexOf(currentDataSourceType) !== -1;
+
+  $('.managed-data-source-rules').toggleClass('hidden', !isManagedDataSource);
+  $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0 || isManagedDataSource);
   $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
 
   function operatorDescription(operation) {
