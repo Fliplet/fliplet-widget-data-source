@@ -9,6 +9,7 @@ var $versionContents = $('#version-preview');
 var $accessRulesList = $('#access-rules-list');
 var $tableContents;
 var $settings = $('form[data-settings]');
+var $noDataSources = $('.no-data-sources-found');
 var $noResults = $('.no-results-found');
 var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
@@ -1121,7 +1122,7 @@ $('#app')
 
     Fliplet.API.request('v1/data-sources/deleted/').then(function(result) {
       if (!result.dataSources.length) {
-        $noResults.addClass('show');
+        $noDataSources.addClass('show');
       }
 
       $('#data-sources').hide();
@@ -1415,6 +1416,7 @@ $('#app')
     var s = this.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     var term = new RegExp(s, 'i');
 
+    $noDataSources.addClass('hidden');
     $noResults.removeClass('show');
 
     var search = dataSourcesToSearch.filter(function(dataSource) {

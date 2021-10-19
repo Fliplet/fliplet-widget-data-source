@@ -281,6 +281,13 @@ a[data-back] {
   display: inline-block;
 }
 
+.no-data-sources-found {
+  display: none;
+  text-align: center;
+  -webkit-transition: all 0.25s ease;
+  transition: all 0.25s ease;
+}
+
 .no-results-found {
   display: none;
   text-align: center;
