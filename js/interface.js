@@ -71,6 +71,7 @@ function getDataSources() {
   $initialSpinnerLoading.addClass('animated');
   $contents.addClass('hidden');
   $noResults.removeClass('show');
+  $noDataSources.removeClass('show');
   $sourceContents.addClass('hidden');
   $('[data-save]').addClass('hidden');
   $('.search').val(''); // Reset search
