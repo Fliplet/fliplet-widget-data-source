@@ -2,6 +2,7 @@ var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
 var $dataSources = $('#data-sources > tbody');
+var $helpIcon = $('.help-icon');
 var $trashedDataSources = $('#trash-sources > tbody');
 var $usersContents = $('#users');
 var $versionsContents = $('#versions-list');
@@ -93,6 +94,7 @@ function getDataSources() {
         $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
+        $helpIcon.addClass('hidden');
 
         // Filters data sources
         var filteredDataSources = [];
