@@ -5,6 +5,7 @@
     "Raven": "readonly",
     "spreadsheet": "readonly",
     "jsdoc": "readonly",
-    "hot": "readonly"
+    "hot": "readonly",
+    "Handsontable": "readonly"
   }
 }

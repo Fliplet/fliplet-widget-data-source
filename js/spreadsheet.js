@@ -36,6 +36,7 @@ var spreadsheet = function(options) {
    * @param {Array} columns
    * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    */
+
   function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header, index) {
@@ -796,15 +797,26 @@ var spreadsheet = function(options) {
           var entry = { id: physical[i].id, data: {} };
 
           headers.forEach(function(header, index) {
-            if (header === null) {
+            if (arrayColumns.indexOf(header) === -1 || header === null) {
               return;
             }
 
             entry.data[header] = visualRow[index];
             entry.order = order;
+            var isObject = false;
+
+            try {
+              var parsingResult = JSON.parse('[' + entry.data[header] + ']');
+              if (typeof parsingResult[0] === 'object') {
+                entry.data[header] = parsingResult;
+                isObject = true;
+              }
+            } catch (e) {
+              // nothing
+            }
 
             // Cast CSV to String
-            if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+            if (typeof entry.data[header] === 'string' && !isObject) {
               try {
                 entry.data[header] = Papa.parse(entry.data[header]).data[0];
                 entry.data[header] = entry.data[header].map(function(val) {
@@ -813,18 +825,6 @@ var spreadsheet = function(options) {
               } catch (e) {
                 // nothing
               }
-            }
-
-            // Cast string to object
-            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-              entry.data[header] = validateJsonString(entry.data[header]);
-            }
-
-            // Validate nested arrays
-            if (Array.isArray(entry.data[header])) {
-              entry.data[header] = entry.data[header].map(function(val) {
-                return validateJsonString(val);
-              });
             }
           });
 
@@ -840,18 +840,6 @@ var spreadsheet = function(options) {
 
     return entries;
   };
-
-  function validateJsonString(str) {
-    var validatedString;
-
-    try {
-      validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
-    } catch (e) {
-      validatedString = str;
-    }
-
-    return validatedString;
-  }
 
   return {
     getData: getData,
