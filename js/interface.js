@@ -284,7 +284,6 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = dataSource.columns || [];
 
       if (entries) {
-        console.log(entries);
         return Promise.resolve(entries);
       }
 
@@ -293,7 +292,6 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    console.log('row', rows);
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
       $('#show-versions').hide();
 
