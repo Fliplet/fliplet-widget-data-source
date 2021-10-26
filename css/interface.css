@@ -81,13 +81,15 @@ body {
 #app,
 #contents {
   height: 100%;
-  padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
+  padding-bottom: 120px;
+  /* Compensate for the top part of the Studio UI */
 }
 
 #app,
 #contents {
   height: 100%;
-  padding-bottom: 120px; /* Compensate for the top part of the Studio UI */
+  padding-bottom: 120px;
+  /* Compensate for the top part of the Studio UI */
 }
 
 .data-source-table {
@@ -287,10 +289,13 @@ a[data-back] {
 }
 
 .cell-wrapper {
-  max-height: 110px;
   min-height: 100%;
-  overflow: hidden;
+  max-height: 0;
   word-break: break-word;
+}
+
+textarea.handsontableInput {
+  max-width: 400px !important;
 }
 
 .mce-ico {
@@ -498,11 +503,11 @@ a[data-back] {
   cursor: pointer;
 }
 
-#toolbar .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
+#toolbar .btn-group>.btn:first-child:not(:last-child):not(.dropdown-toggle) {
   border-bottom-left-radius: 0;
 }
 
-#toolbar .btn-group > .btn:last-child:not(:first-child) {
+#toolbar .btn-group>.btn:last-child:not(:first-child) {
   border-bottom-right-radius: 0;
 }
 
@@ -642,7 +647,7 @@ td.column-header-cell {
   margin-right: 22px;
 }
 
-#configure-rule .side .checkbox + .checkbox {
+#configure-rule .side .checkbox+.checkbox {
   margin-top: 10px;
   margin-bottom: 10px;
 }
@@ -694,7 +699,8 @@ td.column-header-cell {
   border-bottom: 1px solid #eee;
 }
 
-.required-field input, .required-field .select-proxy-display {
+.required-field input,
+.required-field .select-proxy-display {
   margin: 0 10px 0 0;
   width: 150px;
 }
@@ -723,12 +729,15 @@ td.column-header-cell {
 }
 
 .token-input {
-  width: 300px !important; /* overwrite value from autocomplete */
+  width: 300px !important;
+  /* overwrite value from autocomplete */
 }
 
 .ui-autocomplete {
-  z-index: 9999; /* goes above modal */
-  max-height: 200px; /* Prevent dropdown from being clipped within the overlay frame */
+  z-index: 9999;
+  /* goes above modal */
+  max-height: 200px;
+  /* Prevent dropdown from being clipped within the overlay frame */
   overflow-y: scroll;
   overflow-x: hidden;
 }
