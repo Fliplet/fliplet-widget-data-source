@@ -823,28 +823,9 @@ var spreadsheet = function(options) {
 
             entry.data[header] = visualRow[index];
             entry.order = order;
-            var isObject = false;
 
-            try {
-              var parsingResult = JSON.parse('[' + entry.data[header] + ']');
-              if (typeof parsingResult[0] === 'object') {
-                entry.data[header] = parsingResult;
-                isObject = true;
-              }
-            } catch (e) {
-              // nothing
-            }
-
-            // Cast CSV to String
-            if (typeof entry.data[header] === 'string' && !isObject) {
-              try {
-                entry.data[header] = Papa.parse(entry.data[header]).data[0];
-                entry.data[header] = entry.data[header].map(function(val) {
-                  return typeof val === 'string' ? val.trim() : val;
-                });
-              } catch (e) {
-                // nothing
-              }
+            if (typeof entry.data[header] === 'string') {
+              entry.data[header] = getColumnValue(entry.data[header]);
             }
           });
 
@@ -860,6 +841,32 @@ var spreadsheet = function(options) {
 
     return entries;
   };
+
+  function getColumnValue(str) {
+    try {
+      var parsingResult = JSON.parse('[' + str + ']');
+      if (typeof parsingResult[0] === 'object') {
+        return parsingResult;
+      }
+
+      return parsingCSV(str);
+    } catch (e) {
+      return parsingCSV(str);
+    }
+  }
+
+  // Cast CSV to String
+  function parsingCSV(str) {
+    try {
+      str = Papa.parse(str).data[0];
+      str = str.map(function(val) {
+        return typeof val === 'string' ? val.trim() : val;
+      });
+      return str;
+    } catch (e) {
+      // nothing
+    }
+  }
 
   return {
     getData: getData,

@@ -6,6 +6,7 @@
     "spreadsheet": "readonly",
     "jsdoc": "readonly",
     "hot": "readonly",
-    "Handsontable": "readonly"
+    "Handsontable": "readonly",
+    "Papa": "readonly"
   }
 }
