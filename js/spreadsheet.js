@@ -817,7 +817,7 @@ var spreadsheet = function(options) {
           var entry = { id: physical[i].id, data: {} };
 
           headers.forEach(function(header, index) {
-            if (arrayColumns.indexOf(header) !== -1 || header === null) {
+            if (arrayColumns.indexOf(header) === -1 || header === null) {
               return;
             }
 
