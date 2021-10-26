@@ -797,7 +797,7 @@ var spreadsheet = function(options) {
           var entry = { id: physical[i].id, data: {} };
 
           headers.forEach(function(header, index) {
-            if (header === null) {
+            if (arrayColumns.indexOf(header) !== -1 || header === null) {
               return;
             }
 
@@ -816,7 +816,7 @@ var spreadsheet = function(options) {
             }
 
             // Cast CSV to String
-            if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string' && !isObject) {
+            if (typeof entry.data[header] === 'string' && !isObject) {
               try {
                 entry.data[header] = Papa.parse(entry.data[header]).data[0];
                 entry.data[header] = entry.data[header].map(function(val) {
