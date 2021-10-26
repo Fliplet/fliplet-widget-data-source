@@ -849,14 +849,14 @@ var spreadsheet = function(options) {
         return parsingResult;
       }
 
-      return parsingCSV(str);
+      return getString(str);
     } catch (e) {
-      return parsingCSV(str);
+      return getString(str);
     }
   }
 
   // Cast CSV to String
-  function parsingCSV(str) {
+  function getString(str) {
     try {
       str = Papa.parse(str).data[0];
       str = str.map(function(val) {
@@ -864,7 +864,7 @@ var spreadsheet = function(options) {
       });
       return str;
     } catch (e) {
-      // nothing
+      return str;
     }
   }
 
