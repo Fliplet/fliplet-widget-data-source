@@ -14,11 +14,13 @@ var $appsBtnFilter = $('button[data-apps]');
 var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
+var $btnShowAllSource = $('[data-show-all-source]');
 var $activeSortedColumn;
 var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
+var currentDataSourceType;
 var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
@@ -88,7 +90,7 @@ function getDataSources() {
         // Changes UI text
         isShowingAll = false;
 
-        $('[data-show-all-source]').removeClass('hidden');
+        $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
         $('[data-back]').text('See all my app\'s data sources');
 
@@ -241,6 +243,7 @@ function fetchCurrentDataSourceDetails() {
       $('#bundle').prop('checked', true);
     }
 
+    currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
@@ -276,7 +279,7 @@ function fetchCurrentDataSourceEntries(entries) {
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
-      currentDataSourceUpdatedAt = moment(dataSource.updatedAt).fromNow();
+      currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
       $sourceContents.find('.data-save-updated').html('All changes saved!');
@@ -398,7 +401,7 @@ function getVersionActionDescription(version) {
 
   switch (version.data.action) {
     case 'commit':
-      return 'Modified by ' + version.user.fullName;
+      return 'Changes made by ' + version.user.fullName;
     case 'pre-restore':
       return 'Version restored by ' + version.user.fullName;
     case 'current':
@@ -416,7 +419,7 @@ function fetchCurrentDataSourceVersions() {
       currentDataSourceVersions = result.versions;
 
       var versions = currentDataSourceVersions.map(function(version, i) {
-        version.createdAt = moment(version.createdAt).fromNow();
+        version.createdAt = moment(version.createdAt).format('MMM Do YYYY, HH:mm');
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
@@ -561,7 +564,7 @@ function saveCurrentData() {
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
-  currentDataSourceUpdatedAt = moment().fromNow();
+  currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
   return currentDataSource.commit(entries, columns);
 }
@@ -895,7 +898,7 @@ function deleteItem(message, dataSourceId) {
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
-  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll) {
+  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll && key !== 'deletedAt') {
     toBeOrderedDataSources = allDataSources;
   }
 
@@ -985,7 +988,7 @@ $('#app')
     renderTrashedDataSources(sortColumn($dataSource, 'name', trashedDataSources, defaultOrder));
   })
   .on('click', '[data-show-all-source]', function() {
-    $('[data-show-all-source]').addClass('hidden');
+    $btnShowAllSource.addClass('hidden');
     $('[data-app-source]').removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
 
@@ -1006,7 +1009,7 @@ $('#app')
     isShowingAll = false;
 
     $('[data-app-source]').addClass('hidden');
-    $('[data-show-all-source]').removeClass('hidden');
+    $btnShowAllSource.removeClass('hidden');
     $noResults.toggleClass('hidden', dataSources.length);
 
     if ($('[data-show-trash-source]').hasClass('active-source')) {
@@ -1082,12 +1085,18 @@ $('#app')
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
     if (copyData.context === 'app-overlay') {
-      Fliplet.API.request({
+      var request = {
         url: 'v1/data-sources/deleted/',
-        method: 'GET',
-        data: { appId: copyData.appId }
-      }).then(function(result) {
+        method: 'GET'
+      };
+
+      if (!$btnShowAllSource.hasClass('hidden')) {
+        request.data = { appId: copyData.appId };
+      }
+
+      Fliplet.API.request(request).then(function(result) {
         if (!result.dataSources.length) {
+          $noResults.removeClass('hidden');
           $noResults.addClass('show');
         }
 
@@ -1867,8 +1876,12 @@ $('#show-access-rules').click(function() {
     rule.enabled = rule.enabled === false ? false : true;
   });
 
-  $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0);
-  $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length);
+  var isManagedDataSource = ['bookmarks', 'likes', 'comments'].indexOf(currentDataSourceType) !== -1;
+
+  $('#add-rules-dropdown').toggleClass('hidden', isManagedDataSource);
+  $('.managed-data-source-rules').toggleClass('hidden', !isManagedDataSource);
+  $('.empty-data-source-rules').toggleClass('hidden', currentDataSourceRules.length > 0 || isManagedDataSource);
+  $('#access-rules-list table').toggleClass('hidden', !currentDataSourceRules.length || isManagedDataSource);
 
   function operatorDescription(operation) {
     switch (operation) {
