@@ -343,7 +343,7 @@ var spreadsheet = function(options) {
   /**
    * Style the first row (columns headings)
    */
-  function columnValueRenderer(instance, td, row, col, prop, value, cellProperties) {
+  function columnValueRenderer(instance, td, row, col, prop, value) {
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
@@ -406,7 +406,7 @@ var spreadsheet = function(options) {
     undo: false,
     sortIndicator: true,
     selectionMode: 'range',
-    cells: function(row, col, prop) {
+    cells: function(row) {
       if (row !== 0) {
         return;
       }
@@ -420,7 +420,7 @@ var spreadsheet = function(options) {
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
-    beforeChange: function(changes, source) {
+    beforeChange: function(changes) {
       onChanges();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
@@ -480,7 +480,7 @@ var spreadsheet = function(options) {
 
       undoRedoToggle();
     },
-    afterRemoveRow: function(index, amount) {
+    afterRemoveRow: function() {
       onChanges();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
@@ -518,7 +518,7 @@ var spreadsheet = function(options) {
       removeLastEmptyColumn(data);
       removeLastEmptyRow(data);
     },
-    beforeRemoveCol: function(index, amount) {
+    beforeRemoveCol: function() {
       // Set current widths to get them after column column is removed
       colWidths = getColWidths();
     },
@@ -531,6 +531,26 @@ var spreadsheet = function(options) {
       }
 
       colWidths = getColWidths();
+    },
+    beforeColumnMove: function(items, index) {
+      colWidths = getColWidths();
+
+      var length = items.length;
+      var colsToMove = colWidths.splice(items[0], length);
+
+      if (index < items[0]) {
+        for (var i = 0; i < length; i++) {
+          colWidths.splice(index + i, 0, colsToMove[i]);
+        }
+      } else {
+        var newIndex = index - length;
+
+        for (var i = 0; i < length; i++) {
+          colWidths.splice(newIndex + i, 0, colsToMove[i]);
+        }
+      }
+
+      hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function() {
       onChanges();
@@ -549,7 +569,7 @@ var spreadsheet = function(options) {
     afterRowMove: function() {
       onChanges();
     },
-    afterCreateRow: function(index, amount) {
+    afterCreateRow: function() {
       onChanges();
     },
     afterCreateCol: function(index, amount, source) {
