@@ -8,8 +8,6 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
-var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
-
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
 
@@ -845,6 +843,7 @@ var spreadsheet = function(options) {
   function getColumnValue(str) {
     try {
       var parsingResult = JSON.parse('[' + str + ']');
+
       if (typeof parsingResult[0] === 'object') {
         return parsingResult;
       }
@@ -862,6 +861,7 @@ var spreadsheet = function(options) {
       str = str.map(function(val) {
         return typeof val === 'string' ? val.trim() : val;
       });
+
       return str;
     } catch (e) {
       return str;
