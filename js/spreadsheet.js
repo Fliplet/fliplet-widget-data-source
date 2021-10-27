@@ -842,10 +842,10 @@ var spreadsheet = function(options) {
 
   function getColumnValue(str) {
     try {
-      var parsingResult = JSON.parse('[' + str + ']');
+      var parsedResult = JSON.parse('[' + str + ']');
 
-      if (typeof parsingResult[0] === 'object') {
-        return parsingResult;
+      if (typeof parsedResult[0] === 'object') {
+        return parsedResult;
       }
 
       return getString(str);
