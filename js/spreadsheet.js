@@ -40,7 +40,7 @@ var spreadsheet = function(options) {
         var value = row.data[header];
 
         // Stringify value only for the first render for nested objects
-        if (typeof value === 'object' && isFirstRender) {
+        if (isFirstRender && typeof value === 'object') {
           if (objColumns.indexOf(header) === -1) {
             objColumns.push(header);
           }
