@@ -15,7 +15,6 @@ var spreadsheet = function(options) {
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
-  var arrayColumns = [];
   var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
@@ -37,27 +36,25 @@ var spreadsheet = function(options) {
 
   function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
-      var dataRow = columns.map(function(header, index) {
+      var dataRow = columns.map(function(header) {
         var value = row.data[header];
 
-        if (Array.isArray(value)) {
-          if (arrayColumns.indexOf(header) === -1) {
-            arrayColumns.push(header);
-          }
-
-          // Add double quotes to the string if it contains a comma
-          value = value.map(function(val) {
-            // Stringify value only for the first render for nested arrays
-            if (isFirstRender && value && typeof val !== 'string') {
-              return JSON.stringify(val);
-            }
-
-            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
-          }).join(', ');
         // Stringify value only for the first render for nested objects
-        } else if (isFirstRender && value && typeof value === 'object') {
+        if (typeof value === 'object' && isFirstRender) {
           if (objColumns.indexOf(header) === -1) {
             objColumns.push(header);
+          }
+
+          if (Array.isArray(value)) {
+            // Add double quotes to the string if it contains a comma
+            value = value.map(function(val) {
+              // Stringify value only for the first render for nested arrays
+              if (value && typeof val !== 'string') {
+                return val;
+              }
+
+              return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
+            });
           }
 
           value = JSON.stringify(value);
@@ -808,21 +805,21 @@ var spreadsheet = function(options) {
       var sortedVisual = _.clone(visualRow).sort();
 
       // Loop through the physical items to get the id
-      for (i = 0; i < physical.length; i++) {
+      for (var i = 0; i < physical.length; i++) {
         var sortedPhysical = _.clone(physical[i]).sort();
 
         if (_.isEqual(sortedVisual, sortedPhysical)) {
           var entry = { id: physical[i].id, data: {} };
 
           headers.forEach(function(header, index) {
-            if (arrayColumns.indexOf(header) === -1 || header === null) {
+            if (header === null) {
               return;
             }
 
             entry.data[header] = visualRow[index];
             entry.order = order;
 
-            if (typeof entry.data[header] === 'string') {
+            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
               entry.data[header] = getColumnValue(entry.data[header]);
             }
           });
@@ -842,9 +839,9 @@ var spreadsheet = function(options) {
 
   function getColumnValue(str) {
     try {
-      var parsedResult = JSON.parse('[' + str + ']');
+      var parsedResult = JSON.parse(str);
 
-      if (typeof parsedResult[0] === 'object') {
+      if (typeof parsedResult === 'object') {
         return parsedResult;
       }
 
@@ -860,7 +857,7 @@ var spreadsheet = function(options) {
       str = Papa.parse(str).data[0];
       str = str.map(function(val) {
         return typeof val === 'string' ? val.trim() : val;
-      });
+      }).toString();
 
       return str;
     } catch (e) {
