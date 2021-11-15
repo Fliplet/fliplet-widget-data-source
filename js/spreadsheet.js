@@ -39,25 +39,13 @@ var spreadsheet = function(options) {
       var dataRow = columns.map(function(header) {
         var value = row.data[header];
 
-        // Stringify value only for the first render for nested objects
-        if (isFirstRender && typeof value === 'object') {
-          if (objColumns.indexOf(header) === -1) {
+        // Stringify values for rendering objects for the first rendering and when undoing changes to the table (Ctrl + Z in the table cell)
+        if (typeof value === 'object' && value !== null) {
+          if (isFirstRender && objColumns.indexOf(header) === -1) {
             objColumns.push(header);
           }
 
-          if (Array.isArray(value)) {
-            // Add double quotes to the string if it contains a comma
-            value = value.map(function(val) {
-              // Stringify value only for the first render for nested arrays
-              if (value && typeof val !== 'string') {
-                return val;
-              }
-
-              return val;
-            });
-          }
-
-          value = typeof value === 'string' ? value : JSON.stringify(value);
+          value = JSON.stringify(value);
         }
 
         return value;
@@ -851,9 +839,9 @@ var spreadsheet = function(options) {
     }
   }
 
-  // Cast CSV to String
   function getString(str) {
     try {
+      // Cast CSV to String
       str = Papa.parse(str).data[0];
       str = str.map(function(val) {
         return typeof val === 'string' ? val.trim() : val;
