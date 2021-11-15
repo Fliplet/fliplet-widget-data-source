@@ -53,11 +53,11 @@ var spreadsheet = function(options) {
                 return val;
               }
 
-              return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
+              return val;
             });
           }
 
-          value = JSON.stringify(value);
+          value = typeof value === 'string' ? value : JSON.stringify(value);
         }
 
         return value;
