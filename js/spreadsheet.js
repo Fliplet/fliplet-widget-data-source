@@ -833,20 +833,6 @@ var spreadsheet = function(options) {
         return parsedResult;
       }
 
-      return getString(str);
-    } catch (e) {
-      return getString(str);
-    }
-  }
-
-  function getString(str) {
-    try {
-      // Cast CSV to String
-      str = Papa.parse(str).data[0];
-      str = str.map(function(val) {
-        return typeof val === 'string' ? val.trim() : val;
-      }).toString();
-
       return str;
     } catch (e) {
       return str;
