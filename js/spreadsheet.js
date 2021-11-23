@@ -48,6 +48,14 @@ var spreadsheet = function(options) {
           value = JSON.stringify(value);
         }
 
+        if (value === -0) {
+          return 0;
+        }
+
+        if (Number.isNaN(value)) {
+          return undefined;
+        }
+
         return value;
       });
 
@@ -830,13 +838,27 @@ var spreadsheet = function(options) {
       var parsedResult = JSON.parse(str);
 
       if (typeof parsedResult === 'object') {
-        return parsedResult;
+        return parsedResult === null ? undefined : parsedResult;
       }
 
-      return str;
+      return parsedResult === -0 ? 0 : getValue(parsedResult);
     } catch (e) {
-      return str;
+      return getValue(str);
     }
+  }
+
+  function getValue(value) {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    var str = value.trim();
+
+    if (str === 'undefined' || str === '' || str === 'NaN') {
+      return undefined;
+    }
+
+    return str;
   }
 
   return {
