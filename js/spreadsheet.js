@@ -8,8 +8,6 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
-var jsonObjRegExp = /^[\s]*({|\[).*(}|\])[\s]*$/;
-
 var spreadsheet = function(options) {
   ENTRY_ID_LABEL = 'ID';
 
@@ -17,7 +15,6 @@ var spreadsheet = function(options) {
   var columns = options.columns || [];
   var connection = options.connection;
   var dataLoaded = false;
-  var arrayColumns = [];
   var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
@@ -36,32 +33,27 @@ var spreadsheet = function(options) {
    * @param {Array} columns
    * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    */
+
   function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
-      var dataRow = columns.map(function(header, index) {
+      var dataRow = columns.map(function(header) {
         var value = row.data[header];
 
-        if (Array.isArray(value)) {
-          if (arrayColumns.indexOf(header) === -1) {
-            arrayColumns.push(header);
-          }
-
-          // Add double quotes to the string if it contains a comma
-          value = value.map(function(val) {
-            // Stringify value only for the first render for nested arrays
-            if (isFirstRender && value && typeof val !== 'string') {
-              return JSON.stringify(val);
-            }
-
-            return typeof val === 'string' && val.indexOf(',') !== -1 ? '"' + val + '"' : val;
-          }).join(', ');
-        // Stringify value only for the first render for nested objects
-        } else if (isFirstRender && value && typeof value === 'object') {
-          if (objColumns.indexOf(header) === -1) {
+        // Stringify values for rendering objects for the first rendering and when undoing changes to the table (Ctrl + Z in the table cell)
+        if (typeof value === 'object' && value !== null) {
+          if (isFirstRender && objColumns.indexOf(header) === -1) {
             objColumns.push(header);
           }
 
           value = JSON.stringify(value);
+        }
+
+        if (value === -0) {
+          return 0;
+        }
+
+        if (Number.isNaN(value)) {
+          return undefined;
         }
 
         return value;
@@ -809,7 +801,7 @@ var spreadsheet = function(options) {
       var sortedVisual = _.clone(visualRow).sort();
 
       // Loop through the physical items to get the id
-      for (i = 0; i < physical.length; i++) {
+      for (var i = 0; i < physical.length; i++) {
         var sortedPhysical = _.clone(physical[i]).sort();
 
         if (_.isEqual(sortedVisual, sortedPhysical)) {
@@ -823,28 +815,8 @@ var spreadsheet = function(options) {
             entry.data[header] = visualRow[index];
             entry.order = order;
 
-            // Cast CSV to String
-            if (arrayColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-              try {
-                entry.data[header] = Papa.parse(entry.data[header]).data[0];
-                entry.data[header] = entry.data[header].map(function(val) {
-                  return typeof val === 'string' ? val.trim() : val;
-                });
-              } catch (e) {
-                // nothing
-              }
-            }
-
-            // Cast string to object
             if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-              entry.data[header] = validateJsonString(entry.data[header]);
-            }
-
-            // Validate nested arrays
-            if (Array.isArray(entry.data[header])) {
-              entry.data[header] = entry.data[header].map(function(val) {
-                return validateJsonString(val);
-              });
+              entry.data[header] = getColumnValue(entry.data[header]);
             }
           });
 
@@ -861,16 +833,32 @@ var spreadsheet = function(options) {
     return entries;
   };
 
-  function validateJsonString(str) {
-    var validatedString;
-
+  function getColumnValue(str) {
     try {
-      validatedString = jsonObjRegExp.test(str) ? JSON.parse(str) : str;
+      var parsedResult = JSON.parse(str);
+
+      if (typeof parsedResult === 'object') {
+        return parsedResult === null ? undefined : parsedResult;
+      }
+
+      return parsedResult === -0 ? 0 : getValue(parsedResult);
     } catch (e) {
-      validatedString = str;
+      return getValue(str);
+    }
+  }
+
+  function getValue(value) {
+    if (typeof value !== 'string') {
+      return value;
     }
 
-    return validatedString;
+    var str = value.trim();
+
+    if (str === 'undefined' || str === '' || str === 'NaN') {
+      return undefined;
+    }
+
+    return str;
   }
 
   return {
