@@ -972,6 +972,8 @@ function search(action, options) {
 
     hot.render();
   } else if (action === 'next' || action === 'prev') {
+    hot.selection.selectedHeader.cols = false;
+
     if (action === 'next') {
       queryResultIndex++;
 
