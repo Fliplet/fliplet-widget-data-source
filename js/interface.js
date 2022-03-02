@@ -1853,7 +1853,8 @@ $('[data-add-user-filter]').click(function(event) {
   $('#configure-rule [data-toggle="tooltip"]').tooltip({
     hide: false,
     show: false,
-    html: true
+    html: true,
+    trigger: 'hover'
   });
 });
 
@@ -1866,7 +1867,8 @@ $('[data-add-filter]').click(function(event) {
   $('#configure-rule [data-toggle="tooltip"]').tooltip({
     hide: false,
     show: false,
-    html: true
+    html: true,
+    trigger: 'hover'
   });
 });
 

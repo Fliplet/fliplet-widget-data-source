@@ -1193,9 +1193,17 @@ $('#toolbar')
 
 $('#entries [data-toggle="tooltip"]').tooltip({
   hide: false,
-  show: false
+  show: false,
+  container: 'body',
+  trigger: 'hover'
 });
 
 $('#entries [data-toggle="tooltip"]').on('click', function() {
-  $(this).tooltip('close');
+  try {
+    // jQuery UI API
+    $(this).tooltip('close');
+  } catch (e) {
+    // Bootstrap API
+    $(this).tooltip('hide');
+  }
 });
