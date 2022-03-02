@@ -1850,7 +1850,9 @@ $('[data-add-user-filter]').click(function(event) {
   var tpl = Fliplet.Widget.Templates['templates.userMatch'];
 
   $('.users-filter .filters').append(tpl());
-  $('[data-toggle="tooltip"]').bsTooltip({
+  $('#configure-rule [data-toggle="tooltip"]').tooltip({
+    hide: false,
+    show: false,
     html: true
   });
 });
@@ -1861,7 +1863,9 @@ $('[data-add-filter]').click(function(event) {
   var tpl = Fliplet.Widget.Templates['templates.requiredField'];
 
   $('.required-fields').append(tpl());
-  $('[data-toggle="tooltip"]').bsTooltip({
+  $('#configure-rule [data-toggle="tooltip"]').tooltip({
+    hide: false,
+    show: false,
     html: true
   });
 });
