@@ -1191,11 +1191,11 @@ $('#toolbar')
     openOverlay();
   });
 
-$('[data-toggle="tooltip"]').tooltip({
+$('[data-toggle="tooltip"]').bsTooltip({
   container: 'body',
   trigger: 'hover'
 });
 
 $('[data-toggle="tooltip"]').on('click', function() {
-  $(this).tooltip('hide');
+  $(this).bsTooltip('hide');
 });
