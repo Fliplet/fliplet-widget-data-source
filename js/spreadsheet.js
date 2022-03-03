@@ -1191,11 +1191,19 @@ $('#toolbar')
     openOverlay();
   });
 
-$('[data-toggle="tooltip"]').tooltip({
+$('#entries [data-toggle="tooltip"]').tooltip({
+  hide: false,
+  show: false,
   container: 'body',
   trigger: 'hover'
 });
 
-$('[data-toggle="tooltip"]').on('click', function() {
-  $(this).tooltip('hide');
+$('#entries [data-toggle="tooltip"]').on('click', function() {
+  try {
+    // jQuery UI API
+    $(this).tooltip('close');
+  } catch (e) {
+    // Bootstrap API
+    $(this).tooltip('hide');
+  }
 });
