@@ -570,7 +570,11 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
-  return currentDataSource.commit(entries, columns);
+  return currentDataSource.commit({
+    entries: entries,
+    columns: columns,
+    returnEntries: true
+  });
 }
 
 // Append a data source to the DOM
