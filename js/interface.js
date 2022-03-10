@@ -38,6 +38,10 @@ var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
+var entryMap = {
+  original: [],
+  entries: []
+};
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -272,9 +276,15 @@ function fetchCurrentDataSourceUsers() {
   });
 }
 
-function fetchCurrentDataSourceEntries(entries) {
-  columns;
+function cacheOriginalEntries(entries) {
+  entryMap.original = {};
 
+  _.forEach(entries, function(entry) {
+    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+  });
+}
+
+function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     currentDataSource = source;
 
@@ -297,6 +307,11 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    // Cache entries in a new thread
+    setTimeout(function() {
+      cacheOriginalEntries(rows);
+    }, 0);
+
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
       $('#show-versions').hide();
 
@@ -494,13 +509,19 @@ function getEmptyColumns(columns, entries) {
       return false;
     }
 
-    for (var i = emptyColumns.length - 1; i >= 0; i--) {
-      if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
-        var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+    var column;
 
-        if (notEmptyColumnIndex !== -1) {
-          emptyColumns.splice(notEmptyColumnIndex, 1);
-        }
+    for (var i = emptyColumns.length - 1; i >= 0; i--) {
+      column = emptyColumns[i];
+
+      if ([null, undefined, ''].indexOf(entry.data[column]) !== -1) {
+        continue;
+      }
+
+      var notEmptyColumnIndex = emptyColumns.indexOf(column);
+
+      if (notEmptyColumnIndex !== -1) {
+        emptyColumns.splice(notEmptyColumnIndex, 1);
       }
     }
   });
@@ -516,6 +537,59 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
 
     return entry;
   });
+}
+
+/**
+ * Computes payload for the commit API by comparing a list of entries against the cached original entries
+ * @param {Array} entries - Latest entries to be committed
+ * @returns {Object} List of new/updated entries and deleted IDs
+ */
+function getCommitPayload(entries) {
+  var inserted = [];
+  var updated = [];
+  var deleted = [];
+
+  entryMap.entries = {};
+
+  _.forEach(entries, function(entry) {
+    // Add new entries to inserted array
+    if (typeof entry.id === 'undefined') {
+      inserted.push(entry);
+
+      return;
+    }
+
+    // Add a recovered entry as a new entry
+    if (!entryMap.original[entry.id]) {
+      delete entry.id;
+      inserted.push(entry);
+
+      return;
+    }
+
+    entryMap.entries[entry.id] = entry;
+  });
+
+  _.forIn(entryMap.original, function(original) {
+    var entry = entryMap.entries[original.id];
+
+    if (!entry) {
+      deleted.push(original.id);
+
+      return;
+    }
+
+    if (_.isMatch(entry, original)) {
+      return;
+    }
+
+    updated.push(entry);
+  });
+
+  return {
+    entries: updated.concat(inserted),
+    delete: deleted
+  };
 }
 
 function saveCurrentData() {
@@ -542,8 +616,10 @@ function saveCurrentData() {
     columns = trimColumns(table.getColumns());
   }
 
+  // Get the empty columns from assessing all entries
   var emptyColumns = getEmptyColumns(columns, entries);
 
+  // Remove empty columns from the table
   _.forEach(emptyColumns, function(column) {
     var columnIndex = columns.indexOf(column);
 
@@ -553,6 +629,7 @@ function saveCurrentData() {
     }
   });
 
+  // Remove empty columns in entries
   if (entries.length && emptyColumns.length) {
     entries = removeEmptyColumnsInEntries(entries, emptyColumns);
   }
@@ -569,10 +646,17 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
 
+  var payload = getCommitPayload(entries);
+
   return currentDataSource.commit({
-    entries: entries,
+    entries: payload.entries,
+    delete: payload.delete,
     columns: columns,
-    returnEntries: true
+    append: true,
+    returnEntries: false
+  }).then(function() {
+    // Cache latest entries as original entries
+    cacheOriginalEntries(entries);
   });
 }
 
