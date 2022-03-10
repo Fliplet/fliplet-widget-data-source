@@ -1,15 +1,19 @@
 // Used for undo/redo feature
-var dataStack;
-var currentDataStackIndex;
+var historyStack = [];
+var currentHistoryStackIndex = 0;
 
 var hot;
 var copyPastePlugin;
-var data;
+var spreadsheetData;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
+function cloneSpreadsheetData(data) {
+  return _.cloneDeep(data);
+}
+
 // eslint-disable-next-line no-unused-vars
-var spreadsheet = function(options) {
+function spreadsheet(options) {
   var rows = options.rows || [];
   var columns = options.columns || [];
   var dataLoaded = false;
@@ -17,21 +21,14 @@ var spreadsheet = function(options) {
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
 
-  dataStack = [];
-  currentDataStackIndex = 0;
-
-  // Don't bind data to data source object
-  // Data as an array
-  data = prepareData(rows, columns, true);
-
   /**
    * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
-   * @param {Array} rows
-   * @param {Array} columns
+   * @param {Array} rows - Entries to be processed
+   * @param {Array} columns - List of columns
    * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
+   * @returns {Array} Data to be loaded into Handsontable
    */
-
   function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header) {
@@ -69,12 +66,14 @@ var spreadsheet = function(options) {
   }
 
   function onChanges() {
-    if (dataLoaded) {
-      dataSourceEntriesHasChanged = true;
-      $('[data-save]').removeClass('hidden');
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
+    if (!dataLoaded) {
+      return;
     }
+
+    dataSourceEntriesHasChanged = true;
+    $('[data-save]').removeClass('hidden');
+    $('.data-save-updated').addClass('hidden');
+    $('.name-wrapper').removeClass('saved');
   }
 
   /**
@@ -347,11 +346,19 @@ var spreadsheet = function(options) {
     td.classList.add('column-header-cell');
   }
 
-  var getColWidths = function() {
+  function getColWidths() {
     return hot.getColHeader().map(function(header, index) {
       return hot.getColWidth(index);
     });
-  };
+  }
+
+  // Reset history stack
+  historyStack = [];
+  currentHistoryStackIndex = 0;
+
+  // Don't bind data to data source object
+  // Data as an array
+  spreadsheetData = prepareData(rows, columns, true);
 
   var hotSettings = {
     stretchH: 'all',
@@ -412,7 +419,7 @@ var spreadsheet = function(options) {
         renderer: columnValueRenderer
       };
     },
-    data: data,
+    data: spreadsheetData,
     renderer: addMaxHeightToCells,
     minSpareRows: 40,
     minSpareCols: 10,
@@ -460,13 +467,13 @@ var spreadsheet = function(options) {
       var preparedData = prepareData(data, columns);
 
       // Clear all after current index to reset redo
-      if (currentDataStackIndex + 1 < dataStack.length) {
-        dataStack.splice(currentDataStackIndex + 1);
+      if (currentHistoryStackIndex + 1 < historyStack.length) {
+        historyStack.splice(currentHistoryStackIndex + 1);
       }
 
       // Add current change to stack
-      dataStack.push({ data: preparedData });
-      currentDataStackIndex = currentDataStackIndex + 1;
+      historyStack.push({ data: preparedData });
+      currentHistoryStackIndex = currentHistoryStackIndex + 1;
 
       // Re-execute search without changing cell selection
       search('find', {
@@ -660,7 +667,7 @@ var spreadsheet = function(options) {
     hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
 
-  dataStack.push({ data: _.cloneDeep(data) });
+  historyStack.push(cloneSpreadsheetData(spreadsheetData));
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Initialize colWidths if they wasn't stored locally
@@ -772,11 +779,11 @@ var spreadsheet = function(options) {
    */
   function isNotEmpty(row) {
     return row.some(function(field) {
-      return field;
+      return [null, undefined, ''].indexOf(field) === -1;
     });
   }
 
-  var getData = function(options) {
+  function getData(options) {
     options = options || { removeEmptyRows: true };
 
     var headers = getColumns();
@@ -791,55 +798,64 @@ var spreadsheet = function(options) {
     var visual = hot.getData().slice(1);
 
     // Get data from the source and exclude columns row.
-    // For example moving rows doesn't keep the visual/physical order in sync
-    var physical = hot.getSourceData().slice(1);
+    // For example moving rows doesn't keep the visual/source order in sync
+    var source = hot.getSourceData().slice(1);
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
-      physical = physical.filter(isNotEmpty);
+      source = source.filter(isNotEmpty);
     }
 
-    // And finally we pick the id's to visual from physical
+    // And finally we pick the IDs to visual from source
     visual.forEach(function(visualRow, order) {
-      // We need to sort bot visual and physical because column
-      // move also doesn't keep the physical data in order
+      // We need to sort both visual and source rows because
+      // moving columns doesn't keep the source data in order
       var sortedVisual = _.clone(visualRow).sort();
-      var sortedPhysical;
+      var sortedSource;
       var entry;
 
-      // Loop through the physical items to get the id
-      for (var i = 0; i < physical.length; i++) {
-        sortedPhysical = _.clone(physical[i]).sort();
+      // Loop through the source columns to get the ID
+      for (var i = 0; i < source.length; i++) {
+        sortedSource = _.clone(source[i]).sort();
 
-        if (_.isEqual(sortedVisual, sortedPhysical)) {
-          entry = { id: physical[i].id, data: {} };
-
-          // eslint-disable-next-line no-loop-func
-          headers.forEach(function(header, index) {
-            if (header === null) {
-              return;
-            }
-
-            entry.data[header] = visualRow[index];
-            entry.order = order;
-
-            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-              entry.data[header] = getColumnValue(entry.data[header]);
-            }
-          });
-
-          entries.push(entry);
-
-          // We found our entry, we may now remove it from physical so the array
-          // Keeps getting smaller for each iteration and get off the loop
-          physical.splice(i, 1);
-          break;
+        // If the visual and source rows aren't the same,
+        if (!_.isEqual(sortedVisual, sortedSource)) {
+          // Next loop
+          continue;
         }
+
+        // Assume the entry ID based on source and visual data being the same
+        // QUESTION: What if there is more than 1 entry with the same data? Does the latter one not get written?
+        entry = { id: source[i].id, data: {} };
+
+        // Build entry data
+        // eslint-disable-next-line no-loop-func
+        headers.forEach(function(header, index) {
+          if (header === null) {
+            return;
+          }
+
+          entry.data[header] = visualRow[index];
+          entry.order = order;
+
+          if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+            entry.data[header] = getColumnValue(entry.data[header]);
+          }
+        });
+
+        entries.push(entry);
+
+        // Entry is found. Remove it from source so the array
+        // gets smaller through each iteration and shortens the loop
+        source.splice(i, 1);
+
+        // Stop the for-loop
+        break;
       }
     });
 
     return entries;
-  };
+  }
 
   function getColumnValue(str) {
     try {
@@ -879,7 +895,7 @@ var spreadsheet = function(options) {
       return hot.destroy();
     }
   };
-};
+}
 
 // Search
 var searchField = document.getElementById('search-field');
@@ -1113,8 +1129,8 @@ function openOverlay() {
 
 function undoRedoToggle() {
   // Change undo/redo state buttons
-  var disableUndo = dataStack[currentDataStackIndex - 1] ? false : true;
-  var disableRedo = dataStack[currentDataStackIndex + 1] ? false : true;
+  var disableUndo = historyStack[currentHistoryStackIndex - 1] ? false : true;
+  var disableRedo = historyStack[currentHistoryStackIndex + 1] ? false : true;
 
   $('[data-action="undo"]').prop('disabled', disableUndo);
   $('[data-action="redo"]').prop('disabled', disableRedo);
@@ -1158,23 +1174,22 @@ document.addEventListener('keydown', function(event) {
 });
 
 function redo() {
-  if (!dataStack[currentDataStackIndex + 1]) {
+  if (!historyStack[currentHistoryStackIndex + 1]) {
     return;
   }
 
-  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex + 1].data));
-  currentDataStackIndex = currentDataStackIndex + 1;
+  hot.loadData(cloneSpreadsheetData(historyStack[currentHistoryStackIndex + 1]));
+  currentHistoryStackIndex = currentHistoryStackIndex + 1;
   undoRedoToggle();
 }
 
 function undo() {
-  if (!dataStack[currentDataStackIndex - 1]) {
+  if (!historyStack[currentHistoryStackIndex - 1]) {
     return;
   }
 
-
-  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex - 1].data));
-  currentDataStackIndex = currentDataStackIndex - 1;
+  hot.loadData(cloneSpreadsheetData(historyStack[currentHistoryStackIndex - 1]));
+  currentHistoryStackIndex = currentHistoryStackIndex - 1;
   undoRedoToggle();
 }
 
