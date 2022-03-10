@@ -8,7 +8,6 @@ var $usersContents = $('#users');
 var $versionsContents = $('#versions-list');
 var $versionContents = $('#version-preview');
 var $accessRulesList = $('#access-rules-list');
-var $tableContents;
 var $settings = $('form[data-settings]');
 var $noDataSources = $('.no-data-sources-found');
 var $noResults = $('.no-results-found');
@@ -18,11 +17,11 @@ var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
 var $btnShowAllSource = $('[data-show-all-source]');
 var $activeSortedColumn;
-var organizationId = Fliplet.Env.get('organizationId');
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
 var currentDataSourceType;
+// eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
@@ -30,7 +29,6 @@ var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
-var currentEditor;
 var dataSources;
 var trashedDataSources;
 var allDataSources;
@@ -362,7 +360,7 @@ function fetchCurrentDataSourceEntries(entries) {
       var message = error;
 
       if (error instanceof Error) {
-        var message = 'Error loading data source.';
+        message = 'Error loading data source.';
 
         if (typeof Raven !== 'undefined') {
           Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
@@ -422,7 +420,7 @@ function fetchCurrentDataSourceVersions() {
     .then(function(result) {
       currentDataSourceVersions = result.versions;
 
-      var versions = currentDataSourceVersions.map(function(version, i) {
+      var versions = currentDataSourceVersions.map(function(version) {
         version.createdAt = moment(version.createdAt).format('MMM Do YYYY, HH:mm');
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
@@ -463,8 +461,9 @@ Fliplet.Widget.onSaveRequest(function() {
 });
 
 /**
- * We must remove null values of the row that we do not save padding columns
- * @param {array} columns
+ * Remove null values of the row that we do not save padding columns
+ * @param {Array} columns - Columns to be assessed
+ * @returns {Array} Columns to be saved
  */
 function trimColumns(columns) {
   return _.filter(columns, function(column) {
@@ -700,7 +699,9 @@ function createDataSource(createOptions, options) {
 
       try {
         table.destroy();
-      } catch (e) {}
+      } catch (e) {
+        // Fail silently
+      }
 
       dataSourceEntriesHasChanged = false;
 
@@ -937,7 +938,7 @@ Handlebars.registerHelper('momentCalendar', function(date) {
 
 // Events
 
-// Prevent Cmd + F default behaviour and use our find
+// Prevent Cmd + F default behavior and use our find
 window.addEventListener('keydown', function(event) {
   // Just the modifiers
   if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
@@ -1048,7 +1049,9 @@ $('#app')
 
         try {
           table.destroy();
-        } catch (e) {}
+        } catch (e) {
+          // Fail silently
+        }
 
         dataSourceEntriesHasChanged = false;
 
@@ -1061,7 +1064,9 @@ $('#app')
     } else {
       try {
         table.destroy();
-      } catch (e) {}
+      } catch (e) {
+        // Fail silently
+      }
 
       $('.data-save-updated').addClass('hidden');
       $('.name-wrapper').removeClass('saved');
@@ -1572,7 +1577,9 @@ $('#app')
           try {
             table.destroy();
             fetchCurrentDataSourceEntries();
-          } catch (e) {}
+          } catch (e) {
+            // Fail silently
+          }
         });
       }
     } else {

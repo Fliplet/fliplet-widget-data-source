@@ -7,6 +7,12 @@
     "jsdoc": "readonly",
     "hot": "readonly",
     "Handsontable": "readonly",
-    "Papa": "readonly"
+    "Papa": "readonly",
+    "dataSourceEntriesHasChanged": true,
+    "currentDataSourceId": true,
+    "searchField": true,
+    "$sourceContents": true,
+    "$initialSpinnerLoading": true,
+    "currentDataSourceDefinition": true
   }
 }

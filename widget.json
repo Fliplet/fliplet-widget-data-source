@@ -34,7 +34,6 @@
       "vendor/overlay.js",
       "vendor/bootstrap-tokenfield.min.js",
 
-      "js/undo-redo.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/interface.js",
