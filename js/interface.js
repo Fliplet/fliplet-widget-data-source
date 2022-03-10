@@ -54,8 +54,7 @@ var getApps = Fliplet.Apps.get().then(function(apps) {
 });
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
-var data = Fliplet.Widget.getData(widgetId) || {};
-var copyData = data;
+var widgetData = Fliplet.Widget.getData(widgetId) || {};
 
 var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
   lineNumbers: true,
@@ -91,7 +90,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (copyData.context === 'app-overlay' || copyData.appId) {
+      if (widgetData.context === 'app-overlay' || widgetData.appId) {
         // Changes UI text
         isShowingAll = false;
 
@@ -105,10 +104,10 @@ function getDataSources() {
 
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
-            return dataSource.appId === copyData.appId || app.id === copyData.appId;
+            return dataSource.appId === widgetData.appId || app.id === widgetData.appId;
           });
 
-          if (dataSource.appId === copyData.appId && !dataSource.apps.length) {
+          if (dataSource.appId === widgetData.appId && !dataSource.apps.length) {
             matchedApp = true;
           }
 
@@ -719,7 +718,7 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
-    if (copyData.context === 'overlay') {
+    if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
         roles: 'publisher,editor',
@@ -737,7 +736,7 @@ function browseDataSource(id) {
           $dataSources.html(html.join(''));
 
           // Show security rules
-          if (copyData.view === 'access-rules') {
+          if (widgetData.view === 'access-rules') {
             $('#show-access-rules').click();
           }
         });
@@ -795,9 +794,9 @@ function createDataSource(createOptions, options) {
     }
 
     Fliplet.Organizations.get().then(function(organizations) {
-      if (copyData.appId) {
+      if (widgetData.appId) {
         _.extend(createOptions, {
-          appId: copyData.appId,
+          appId: widgetData.appId,
           name: dataSourceName
         });
       } else {
@@ -918,7 +917,7 @@ function deleteDataSource(id, name) {
         });
 
         // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
+        if (widgetData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
 
           return;
@@ -972,7 +971,7 @@ function deleteItem(message, dataSourceId) {
       }
 
       // Return to parent widget if in overlay
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
 
         return;
@@ -991,7 +990,7 @@ function deleteItem(message, dataSourceId) {
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
-  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll && key !== 'deletedAt') {
+  if ((widgetData.context === 'app-overlay' || widgetData.appId) && isShowingAll && key !== 'deletedAt') {
     toBeOrderedDataSources = allDataSources;
   }
 
@@ -1181,14 +1180,14 @@ $('#app')
     $activeDataSourceTable = $('#trash-sources');
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
-    if (copyData.context === 'app-overlay') {
+    if (widgetData.context === 'app-overlay') {
       var request = {
         url: 'v1/data-sources/deleted/',
         method: 'GET'
       };
 
       if (!$btnShowAllSource.hasClass('hidden')) {
-        request.data = { appId: copyData.appId };
+        request.data = { appId: widgetData.appId };
       }
 
       Fliplet.API.request(request).then(function(result) {
@@ -1248,7 +1247,7 @@ $('#app')
 
     saveData.then(function() {
       // Return to parent widget if in overlay
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
 
         return;
@@ -1497,7 +1496,7 @@ $('#app')
         $('.editing-data-source-name').text(name);
 
         // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
+        if (widgetData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
 
           return;
@@ -1690,7 +1689,7 @@ $('#app')
       $('.back-name-holder').addClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings').addClass('data-roles');
 
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         $('.save-btn').addClass('hidden');
         $('.back-name-holder').addClass('hide-date');
       }
@@ -2277,7 +2276,7 @@ function updateDataSourceRules() {
     accessRules: currentDataSourceRules
   }).then(function() {
     // Return to parent widget if in overlay
-    if (copyData.context === 'overlay') {
+    if (widgetData.context === 'overlay') {
       Fliplet.Studio.emit('close-overlay');
 
       return;
@@ -2289,12 +2288,12 @@ function updateDataSourceRules() {
   });
 }
 
-if (copyData.context === 'overlay') {
+if (widgetData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
   $('[data-save]').addClass('hidden');
   $('.data-save-updated').addClass('hidden');
   $('.name-wrapper').removeClass('saved');
-  browseDataSource(copyData.dataSourceId);
+  browseDataSource(widgetData.dataSourceId);
 } else {
   getDataSources();
 }
