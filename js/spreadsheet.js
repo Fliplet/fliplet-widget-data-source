@@ -8,12 +8,10 @@ var data;
 var colWidths = [];
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
+// eslint-disable-next-line no-unused-vars
 var spreadsheet = function(options) {
-  ENTRY_ID_LABEL = 'ID';
-
   var rows = options.rows || [];
   var columns = options.columns || [];
-  var connection = options.connection;
   var dataLoaded = false;
   var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
@@ -80,11 +78,11 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * We user this method to determine where is closest data is lokated from the selected cell
+   * We user this method to determine where is closest data is located from the selected cell
    *
-   * @param {Array} selectedCell - array of the coordinat of the selected cell reacived throw the hot.getSelected() method
+   * @param {Array} selectedCell - array of the coordinate of the selected cell received throw the hot.getSelected() method
    *
-   * @returns {Object} - object of the directions where data is placed occording to the selected cell
+   * @returns {Object} - object of the directions where data is placed according to the selected cell
    */
   function closestData(selectedCell) {
     selectedCell = selectedCell[0];
@@ -102,13 +100,13 @@ var spreadsheet = function(options) {
     var row = selectedCell[0];
     var selectedCellData = hot.getDataAtCell(row, col);
     // At this block we getting an index of the nearest cells from the selected cell
-    // If we selected first row it ID is 0 already and if we - 1 from it we will reacive an error in the hot.getDataAtCell() method
+    // If we selected first row it ID is 0 already and if we - 1 from it we will receive an error in the hot.getDataAtCell() method
     var top = row ? row - 1 : row;
     var bottom = row + 1;
     // Same as in top variable
     var left = col ? col - 1 : col;
     var right = col + 1;
-    // At this block we reacive the nearest cells value from the selected cell
+    // At this block we receive the nearest cells value from the selected cell
     var leftValue = hot.getDataAtCell(row, left);
     var rightValue = hot.getDataAtCell(row, right);
     var topValue = hot.getDataAtCell(top, col);
@@ -122,7 +120,7 @@ var spreadsheet = function(options) {
       hasData: false
     };
 
-    // If there is a data in the selected cell we should select data releated to this cell
+    // If there is a data in the selected cell we should select data related to this cell
     if (selectedCellData !== null) {
       dataAt.hasData = true;
 
@@ -151,15 +149,20 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * Method to get a coordinats which we need to select
+   * Method to get a coordinates which we need to select
    *
-   * @param {Array} startAt - array of the selected coordinats
+   * @param {Array} startAt - array of the selected coordinates
    * @param {Object} moveTo - object that returned from closestData() function
    *
-   * @returns {Array} - coordinats that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
+   * @returns {Array} - coordinates that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
    */
-  function coordinatsToSelect(startAt, moveTo) {
-    var firstCol; var lastCol; var firstRow; var lastRow; var allData;
+  function coordinatesToSelect(startAt, moveTo) {
+    var firstCol;
+    var lastCol;
+    var firstRow;
+    var lastRow;
+    var allData;
+    var i;
 
     // Returns array of the data from the table with handsontable API
     allData = hot.getData();
@@ -171,7 +174,7 @@ var spreadsheet = function(options) {
 
       // Looking for first col in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
-      for (var i = lastCol - 1; i >= 0; i--) {
+      for (i = lastCol - 1; i >= 0; i--) {
         if (isCellEmpty(allData[startAt[0]][i])) {
           firstCol = i;
           break;
@@ -182,7 +185,7 @@ var spreadsheet = function(options) {
 
       // Looking for the first row in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
-      for (var i = startAt[0]; i >= 0; i--) {
+      for (i = startAt[0]; i >= 0; i--) {
         if (isCellEmpty(allData[i][firstCol])) {
           firstRow = i;
           break;
@@ -193,7 +196,7 @@ var spreadsheet = function(options) {
 
       // Looking for the last row in the array of allData
       // When we got a null value in the cell it means that we reached the range borders
-      for (var i = firstRow; i < allData.length; i++) {
+      for (i = firstRow; i < allData.length; i++) {
         if (isCellEmpty(allData[i][firstCol])) {
           lastRow = i;
           break;
@@ -205,14 +208,14 @@ var spreadsheet = function(options) {
       // When data located on the right of the selected cell
       firstCol = startAt[1];
 
-      for (var i = firstCol + 1; i < allData.length; i++) {
+      for (i = firstCol + 1; i < allData.length; i++) {
         if (isCellEmpty(allData[startAt[0]][i])) {
           lastCol = i - 1;
           break;
         }
       }
 
-      for (var i = startAt[0]; i > 0; i--) {
+      for (i = startAt[0]; i > 0; i--) {
         if (isCellEmpty(allData[i][lastCol])) {
           firstRow = i ? i - 1 : i;
         }
@@ -220,7 +223,7 @@ var spreadsheet = function(options) {
 
       firstRow = firstRow || 0;
 
-      for (var i = firstRow; i < allData.length; i++) {
+      for (i = firstRow; i < allData.length; i++) {
         if (isCellEmpty(allData[i][lastCol])) {
           lastRow = i - 1;
           break;
@@ -230,7 +233,7 @@ var spreadsheet = function(options) {
       // When data located on the top of the selected cell
       lastRow = startAt[0];
 
-      for (var i = lastRow - 1; i > 0; i--) {
+      for (i = lastRow - 1; i > 0; i--) {
         if (isCellEmpty(allData[i][startAt[1]])) {
           firstRow = i;
           break;
@@ -239,7 +242,7 @@ var spreadsheet = function(options) {
 
       firstRow = firstRow || 0;
 
-      for (var i = startAt[1]; i > 0; i--) {
+      for (i = startAt[1]; i > 0; i--) {
         if (isCellEmpty(allData[firstRow][i])) {
           firstCol = i ? i + 1 : i;
           break;
@@ -248,7 +251,7 @@ var spreadsheet = function(options) {
 
       firstCol = firstCol || 0;
 
-      for (var i = firstCol; i < allData.length; i++) {
+      for (i = firstCol; i < allData.length; i++) {
         if (isCellEmpty(allData[firstRow][i])) {
           lastCol = i - 1;
           break;
@@ -258,14 +261,14 @@ var spreadsheet = function(options) {
       // When data located on the bottom of the selected cell
       firstRow = startAt[0];
 
-      for (var i = firstRow + 1; i < allData.length; i++) {
+      for (i = firstRow + 1; i < allData.length; i++) {
         if (isCellEmpty(allData[i][startAt[1]])) {
           lastRow = i - 1;
           break;
         }
       }
 
-      for (var i = startAt[1]; i > 0; i--) {
+      for (i = startAt[1]; i > 0; i--) {
         if (isCellEmpty(allData[lastRow][i])) {
           firstCol = i + 1;
           break;
@@ -274,7 +277,7 @@ var spreadsheet = function(options) {
 
       firstCol = firstCol || 0;
 
-      for (var i = firstCol; i < allData.length; i++) {
+      for (i = firstCol; i < allData.length; i++) {
         if (isCellEmpty(allData[lastRow][i])) {
           lastCol = i - 1;
           break;
@@ -285,7 +288,7 @@ var spreadsheet = function(options) {
       if (startAt[1] === 0) {
         firstCol = 0;
       } else {
-        for (var i = startAt[1]; i > 0; i--) {
+        for (i = startAt[1]; i > 0; i--) {
           if (isCellEmpty(allData[startAt[0]][i])) {
             firstCol = i + 1;
             break;
@@ -295,7 +298,7 @@ var spreadsheet = function(options) {
         firstCol = firstCol || 0;
       }
 
-      for (var i = firstCol; i < allData.length; i++) {
+      for (i = firstCol; i < allData.length; i++) {
         if (isCellEmpty(allData[startAt[0]][i])) {
           lastCol = i - 1;
           break;
@@ -305,7 +308,7 @@ var spreadsheet = function(options) {
       if (startAt[0] === 0) {
         firstRow = startAt[0];
       } else {
-        for (var i = startAt[0]; i > 0; i--) {
+        for (i = startAt[0]; i > 0; i--) {
           if (isCellEmpty(allData[i][firstCol])) {
             firstRow = i + 1;
             break;
@@ -315,7 +318,7 @@ var spreadsheet = function(options) {
         firstRow = firstRow || 0;
       }
 
-      for (var i = firstRow; i < allData.length; i++) {
+      for (i = firstRow; i < allData.length; i++) {
         if (isCellEmpty(allData[i][firstCol])) {
           lastRow = i - 1;
           break;
@@ -333,8 +336,11 @@ var spreadsheet = function(options) {
 
   /**
    * Style the first row (columns headings)
+   * @returns {undefined}
    */
-  function columnValueRenderer(instance, td, row, col, prop, value) {
+  function columnValueRenderer() {
+    var td = arguments[1];
+    var value = arguments[5];
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
@@ -528,15 +534,16 @@ var spreadsheet = function(options) {
 
       var length = items.length;
       var colsToMove = colWidths.splice(items[0], length);
+      var i;
 
       if (index < items[0]) {
-        for (var i = 0; i < length; i++) {
+        for (i = 0; i < length; i++) {
           colWidths.splice(index + i, 0, colsToMove[i]);
         }
       } else {
         var newIndex = index - length;
 
-        for (var i = 0; i < length; i++) {
+        for (i = 0; i < length; i++) {
           colWidths.splice(newIndex + i, 0, colsToMove[i]);
         }
       }
@@ -584,7 +591,7 @@ var spreadsheet = function(options) {
     },
     afterRender: function(isForced) {
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
-      // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
+      // rendered < 3 is show as that we do not need to access this if more than 3 times.
       // Because we trigger afterRender event 2 times before UI show as a table it self.
       if (isForced && rendered < 3 ) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
@@ -633,17 +640,13 @@ var spreadsheet = function(options) {
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         var selectedCell = hot.getSelected();
         var whereToLook = closestData(selectedCell);
-        var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+        var selectedRange = coordinatesToSelect(selectedCell, whereToLook);
 
         if (!selectedRange) {
           return;
         }
 
         event.stopImmediatePropagation();
-
-        var cols = getColumns().filter(function(column) {
-          return column;
-        }).length;
 
         hot.deselectCell();
         hot.selectCells(selectedRange, false, false);
@@ -668,15 +671,14 @@ var spreadsheet = function(options) {
   copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
-    var random = (new Date()).getTime().toString().slice(10);
-    var headers = hot.getDataAtRow(0);
-
-    return headers;
+    return hot.getDataAtRow(0);
   }
 
   /**
    * Generates a column name in the form
    * Column 1, Column 2, and so on...
+   * @param {String} [name] - Custom name
+   * @returns {String} Name of column
    */
   function generateColumnName(name) {
     name = name || 'Column ';
@@ -737,6 +739,8 @@ var spreadsheet = function(options) {
   /**
    * Fixes column name for the user
    * There can't be duplicated column names
+   * @param {String} name - Column name
+   * @returns {Boolean} Validated name
    */
   function validateOrFixColumnName(name) {
     var headers = getColumns();
@@ -750,7 +754,7 @@ var spreadsheet = function(options) {
     return name;
   }
 
-  function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
+  function addMaxHeightToCells(instance, td) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
 
     var wrapper = document.createElement('div');
@@ -763,7 +767,8 @@ var spreadsheet = function(options) {
 
   /**
    * Check is a row is not empty. Empty means that all elements doesn't have a value
-   * @param {Array} row
+   * @param {Array} row - Row to be assessed
+   * @returns {Boolean} Returns TRUE if the row isn't empty
    */
   function isNotEmpty(row) {
     return row.some(function(field) {
@@ -799,14 +804,17 @@ var spreadsheet = function(options) {
       // We need to sort bot visual and physical because column
       // move also doesn't keep the physical data in order
       var sortedVisual = _.clone(visualRow).sort();
+      var sortedPhysical;
+      var entry;
 
       // Loop through the physical items to get the id
       for (var i = 0; i < physical.length; i++) {
-        var sortedPhysical = _.clone(physical[i]).sort();
+        sortedPhysical = _.clone(physical[i]).sort();
 
         if (_.isEqual(sortedVisual, sortedPhysical)) {
-          var entry = { id: physical[i].id, data: {} };
+          entry = { id: physical[i].id, data: {} };
 
+          // eslint-disable-next-line no-loop-func
           headers.forEach(function(header, index) {
             if (header === null) {
               return;
@@ -823,7 +831,7 @@ var spreadsheet = function(options) {
           entries.push(entry);
 
           // We found our entry, we may now remove it from physical so the array
-          // Keeps getting smaller for each iteraction and get off the loop
+          // Keeps getting smaller for each iteration and get off the loop
           physical.splice(i, 1);
           break;
         }
@@ -1079,7 +1087,8 @@ function isMac() {
 
 function openOverlay() {
   var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
-  var copyCutPasteOverlay = new Fliplet.Utils.Overlay(htmlContent, {
+
+  new Fliplet.Utils.Overlay(htmlContent, {
     title: 'Copying and pasting',
     size: 'small',
     classes: 'copy-cut-paste-overlay',
@@ -1089,7 +1098,7 @@ function openOverlay() {
       $('.mac').removeClass('active');
       $('.win').removeClass('active');
 
-      // Change shorcut keys based on system (Win/Mac)
+      // Change shortcut keys based on system (Win/Mac)
       if (isMac()) {
         $('.mac').addClass('active');
 
@@ -1109,6 +1118,32 @@ function undoRedoToggle() {
 
   $('[data-action="undo"]').prop('disabled', disableUndo);
   $('[data-action="redo"]').prop('disabled', disableRedo);
+}
+
+function undoRedo(event) {
+  var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
+
+  if (!ctrlDown) {
+    return '';
+  }
+
+  if (event.keyCode === 89 || (event.shiftKey && event.keyCode === 90)) { // CTRL + Y or CTRL + SHIFT + Z
+    return 'redo';
+  }
+
+  if (event.keyCode === 90) { // CTRL + Z
+    return 'undo';
+  }
+
+  return '';
+}
+
+function isUndo(event) {
+  return undoRedo(event) === 'undo';
+}
+
+function isRedo(event) {
+  return undoRedo(event) === 'redo';
 }
 
 // Capture undo/redo shortcuts
@@ -1143,9 +1178,9 @@ function undo() {
   undoRedoToggle();
 }
 
-// Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
+// Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
-  .on('click', '[data-action="insert-row-before"]', function(e) {
+  .on('click', '[data-action="insert-row-before"]', function() {
     hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
   })
   .on('click', '[data-action="insert-row-after"]', function() {
