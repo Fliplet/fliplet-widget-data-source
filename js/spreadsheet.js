@@ -78,11 +78,11 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * We user this method to determine where is closest data is lokated from the selected cell
+   * We user this method to determine where is closest data is located from the selected cell
    *
-   * @param {Array} selectedCell - array of the coordinat of the selected cell reacived throw the hot.getSelected() method
+   * @param {Array} selectedCell - array of the coordinate of the selected cell received throw the hot.getSelected() method
    *
-   * @returns {Object} - object of the directions where data is placed occording to the selected cell
+   * @returns {Object} - object of the directions where data is placed according to the selected cell
    */
   function closestData(selectedCell) {
     selectedCell = selectedCell[0];
@@ -100,13 +100,13 @@ var spreadsheet = function(options) {
     var row = selectedCell[0];
     var selectedCellData = hot.getDataAtCell(row, col);
     // At this block we getting an index of the nearest cells from the selected cell
-    // If we selected first row it ID is 0 already and if we - 1 from it we will reacive an error in the hot.getDataAtCell() method
+    // If we selected first row it ID is 0 already and if we - 1 from it we will receive an error in the hot.getDataAtCell() method
     var top = row ? row - 1 : row;
     var bottom = row + 1;
     // Same as in top variable
     var left = col ? col - 1 : col;
     var right = col + 1;
-    // At this block we reacive the nearest cells value from the selected cell
+    // At this block we receive the nearest cells value from the selected cell
     var leftValue = hot.getDataAtCell(row, left);
     var rightValue = hot.getDataAtCell(row, right);
     var topValue = hot.getDataAtCell(top, col);
@@ -120,7 +120,7 @@ var spreadsheet = function(options) {
       hasData: false
     };
 
-    // If there is a data in the selected cell we should select data releated to this cell
+    // If there is a data in the selected cell we should select data related to this cell
     if (selectedCellData !== null) {
       dataAt.hasData = true;
 
@@ -149,14 +149,14 @@ var spreadsheet = function(options) {
   }
 
   /**
-   * Method to get a coordinats which we need to select
+   * Method to get a coordinates which we need to select
    *
-   * @param {Array} startAt - array of the selected coordinats
+   * @param {Array} startAt - array of the selected coordinates
    * @param {Object} moveTo - object that returned from closestData() function
    *
-   * @returns {Array} - coordinats that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
+   * @returns {Array} - coordinates that needs to be selected. Example of the returned data: [[startRow, startCol, endRow, endCol]]
    */
-  function coordinatsToSelect(startAt, moveTo) {
+  function coordinatesToSelect(startAt, moveTo) {
     var firstCol;
     var lastCol;
     var firstRow;
@@ -591,7 +591,7 @@ var spreadsheet = function(options) {
     },
     afterRender: function(isForced) {
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
-      // rendered < 3 is show as that we do not need to acesses this if more than 3 times.
+      // rendered < 3 is show as that we do not need to access this if more than 3 times.
       // Because we trigger afterRender event 2 times before UI show as a table it self.
       if (isForced && rendered < 3 ) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
@@ -640,7 +640,7 @@ var spreadsheet = function(options) {
       if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
         var selectedCell = hot.getSelected();
         var whereToLook = closestData(selectedCell);
-        var selectedRange = coordinatsToSelect(selectedCell, whereToLook);
+        var selectedRange = coordinatesToSelect(selectedCell, whereToLook);
 
         if (!selectedRange) {
           return;
@@ -831,7 +831,7 @@ var spreadsheet = function(options) {
           entries.push(entry);
 
           // We found our entry, we may now remove it from physical so the array
-          // Keeps getting smaller for each iteraction and get off the loop
+          // Keeps getting smaller for each iteration and get off the loop
           physical.splice(i, 1);
           break;
         }
@@ -1178,7 +1178,7 @@ function undo() {
   undoRedoToggle();
 }
 
-// Toolbar Feature hotSelection sturcture: [r, c, r2, c2];
+// Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
   .on('click', '[data-action="insert-row-before"]', function() {
     hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
