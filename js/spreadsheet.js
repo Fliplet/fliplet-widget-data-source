@@ -472,7 +472,7 @@ function spreadsheet(options) {
       }
 
       // Add current change to stack
-      historyStack.push({ data: preparedData });
+      historyStack.push(preparedData);
       currentHistoryStackIndex = currentHistoryStackIndex + 1;
 
       // Re-execute search without changing cell selection
