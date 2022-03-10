@@ -42,6 +42,7 @@ var entryMap = {
   original: [],
   entries: []
 };
+var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -290,7 +291,7 @@ function fetchCurrentDataSourceEntries(entries) {
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
-      currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
+      currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
       $sourceContents.find('.data-save-updated').html('All changes saved!');
@@ -435,7 +436,7 @@ function fetchCurrentDataSourceVersions() {
       currentDataSourceVersions = result.versions;
 
       var versions = currentDataSourceVersions.map(function(version) {
-        version.createdAt = moment(version.createdAt).format('MMM Do YYYY, HH:mm');
+        version.createdAt = TD(version.createdAt, { format: 'lll', locale: locale });
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
@@ -643,7 +644,7 @@ function saveCurrentData() {
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
-  currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
+  currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
   var payload = getCommitPayload(entries);
 
@@ -1016,7 +1017,7 @@ function sortDataSources(key, order, data) {
 }
 
 Handlebars.registerHelper('momentCalendar', function(date) {
-  return moment(date).format(moment.localeData().longDateFormat('lll'));
+  return TD(date, { format: 'lll', locale: locale });
 });
 
 // Events
