@@ -1242,11 +1242,16 @@ $('#app')
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
-    var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
+    // Wait for the current thread to apply changes to Handsontable
+    return new Promise(function(resolve) {
+      setTimeout(resolve, 0);
+    }).then(function() {
+      if (dataSourceEntriesHasChanged) {
+        dataSourceEntriesHasChanged = false;
 
-    dataSourceEntriesHasChanged = false;
-
-    saveData.then(function() {
+        return saveCurrentData();
+      }
+    }).then(function() {
       // Return to parent widget if in overlay
       if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
