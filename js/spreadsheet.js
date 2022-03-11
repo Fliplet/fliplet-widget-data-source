@@ -340,7 +340,7 @@ function spreadsheet(options) {
   }
 
   function getColWidths() {
-    return hot.getColHeader().map(function(header, index) {
+    return hot.getColHeader().map(function getColWithFromHeader(header, index) {
       return hot.getColWidth(index);
     });
   }
@@ -793,7 +793,7 @@ function spreadsheet(options) {
     }
 
     // And finally we pick the IDs to visual from source
-    visual.forEach(function(visualRow, order) {
+    visual.forEach(function findSourceEntry(visualRow, order) {
       // We need to sort both visual and source rows because
       // moving columns doesn't keep the source data in order
       var sortedVisual = _.clone(visualRow).sort();
@@ -816,7 +816,7 @@ function spreadsheet(options) {
 
         // Build entry data
         // eslint-disable-next-line no-loop-func
-        headers.forEach(function(header, index) {
+        headers.forEach(function buildDataEntry(header, index) {
           if (header === null) {
             return;
           }
