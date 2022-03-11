@@ -1,16 +1,9 @@
-// Used for undo/redo feature
-var historyStack = [];
-var currentHistoryStackIndex = 0;
-
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
 var colWidths = [];
+var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
-
-function cloneSpreadsheetData(data) {
-  return _.cloneDeep(data);
-}
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -353,8 +346,7 @@ function spreadsheet(options) {
   }
 
   // Reset history stack
-  historyStack = [];
-  currentHistoryStackIndex = 0;
+  HistoryStack.reset();
 
   // Don't bind data to data source object
   // Data as an array
@@ -462,18 +454,12 @@ function spreadsheet(options) {
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
-      var data = getData({ removeEmptyRows: false });
+      var data = getData({ removeEmptyRows: false, useSourceData: true });
       var columns = getColumns();
       var preparedData = prepareData(data, columns);
 
-      // Clear all after current index to reset redo
-      if (currentHistoryStackIndex + 1 < historyStack.length) {
-        historyStack.splice(currentHistoryStackIndex + 1);
-      }
-
       // Add current change to stack
-      historyStack.push(preparedData);
-      currentHistoryStackIndex = currentHistoryStackIndex + 1;
+      HistoryStack.add(preparedData);
 
       // Re-execute search without changing cell selection
       search('find', {
@@ -481,8 +467,6 @@ function spreadsheet(options) {
         force: true,
         focusSearch: false
       });
-
-      undoRedoToggle();
     },
     afterRemoveRow: function() {
       onChanges();
@@ -667,7 +651,7 @@ function spreadsheet(options) {
     hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
 
-  historyStack.push(cloneSpreadsheetData(spreadsheetData));
+  HistoryStack.add(spreadsheetData);
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Initialize colWidths if they wasn't stored locally
@@ -799,7 +783,9 @@ function spreadsheet(options) {
 
     // Get data from the source and exclude columns row.
     // For example moving rows doesn't keep the visual/source order in sync
-    var source = hot.getSourceData().slice(1);
+    var source = options.useSourceData
+      ? hot.getSourceData().slice(1)
+      : HistoryStack.getCurrent().slice(1);
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
@@ -819,7 +805,7 @@ function spreadsheet(options) {
         sortedSource = _.clone(source[i]).sort();
 
         // If the visual and source rows aren't the same,
-        if (!_.isEqual(sortedVisual, sortedSource)) {
+        if (!_.isEqual(_.compact(sortedVisual), _.compact(sortedSource))) {
           // Next loop
           continue;
         }
@@ -835,7 +821,10 @@ function spreadsheet(options) {
             return;
           }
 
-          entry.data[header] = visualRow[index];
+          if (!_.isNil(visualRow[index])) {
+            entry.data[header] = visualRow[index];
+          }
+
           entry.order = order;
 
           if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
@@ -1127,16 +1116,7 @@ function openOverlay() {
   });
 }
 
-function undoRedoToggle() {
-  // Change undo/redo state buttons
-  var disableUndo = historyStack[currentHistoryStackIndex - 1] ? false : true;
-  var disableRedo = historyStack[currentHistoryStackIndex + 1] ? false : true;
-
-  $('[data-action="undo"]').prop('disabled', disableUndo);
-  $('[data-action="redo"]').prop('disabled', disableRedo);
-}
-
-function undoRedo(event) {
+function getEventType(event) {
   var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
 
   if (!ctrlDown) {
@@ -1154,44 +1134,16 @@ function undoRedo(event) {
   return '';
 }
 
-function isUndo(event) {
-  return undoRedo(event) === 'undo';
-}
-
-function isRedo(event) {
-  return undoRedo(event) === 'redo';
-}
-
 // Capture undo/redo shortcuts
 document.addEventListener('keydown', function(event) {
-  if (isUndo(event)) {
-    undo();
+  if (getEventType(event) === 'undo') {
+    HistoryStack.back();
   }
 
-  if (isRedo(event)) {
-    redo();
+  if (getEventType(event) === 'redo') {
+    HistoryStack.forward();
   }
 });
-
-function redo() {
-  if (!historyStack[currentHistoryStackIndex + 1]) {
-    return;
-  }
-
-  hot.loadData(cloneSpreadsheetData(historyStack[currentHistoryStackIndex + 1]));
-  currentHistoryStackIndex = currentHistoryStackIndex + 1;
-  undoRedoToggle();
-}
-
-function undo() {
-  if (!historyStack[currentHistoryStackIndex - 1]) {
-    return;
-  }
-
-  hot.loadData(cloneSpreadsheetData(historyStack[currentHistoryStackIndex - 1]));
-  currentHistoryStackIndex = currentHistoryStackIndex - 1;
-  undoRedoToggle();
-}
 
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
@@ -1219,8 +1171,8 @@ $('#toolbar')
 
     hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
-  .on('click', '[data-action="undo"]', undo)
-  .on('click', '[data-action="redo"]', redo)
+  .on('click', '[data-action="undo"]', HistoryStack.back)
+  .on('click', '[data-action="redo"]', HistoryStack.forward)
   .on('click', '[data-action="copy"]', function() {
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
