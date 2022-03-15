@@ -542,14 +542,30 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
 /**
  * Computes payload for the commit API by comparing a list of entries against the cached original entries
  * @param {Array} entries - Latest entries to be committed
+ * @param {Object} options - A map of options for the function
+ * @param {Boolean} [options.replace] - If TRUE, commit payload will be create to delete all existing entries and replace them with new ones
  * @returns {Object} List of new/updated entries and deleted IDs
  */
-function getCommitPayload(entries) {
+function getCommitPayload(entries, options) {
   var inserted = [];
   var updated = [];
   var deleted = [];
 
   entryMap.entries = {};
+
+  if (options.replace) {
+    deleted = _.map(entries, 'id');
+    inserted = _.map(entries, function(entry) {
+      delete entry.id;
+
+      return entry;
+    });
+
+    return {
+      entries: inserted,
+      delete: deleted
+    };
+  }
 
   _.forEach(entries, function(entry) {
     // Add new entries to inserted array
@@ -646,7 +662,8 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
-  var payload = getCommitPayload(entries);
+  var replace = false; // Set to TRUE to commit the changes by replacing all existing entries
+  var payload = getCommitPayload(entries, { replace: replace });
 
   return currentDataSource.commit({
     entries: payload.entries,
@@ -655,8 +672,14 @@ function saveCurrentData() {
     append: true,
     returnEntries: false
   }).then(function() {
-    // Cache latest entries as original entries
-    cacheOriginalEntries(entries);
+    if (!replace) {
+      // Cache latest entries as original entries
+      cacheOriginalEntries(entries);
+
+      return;
+    }
+
+    return fetchCurrentDataSourceEntries();
   });
 }
 
