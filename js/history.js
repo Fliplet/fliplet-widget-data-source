@@ -22,7 +22,9 @@ Fliplet.Registry.set('history-stack', (function() {
     });
   }
 
-  function add(data) {
+  function add(state) {
+    state = state || {};
+
     // Clear all after current index to reset redo
     if (currentIndex + 1 < stack.length) {
       stack.splice(currentIndex + 1);
@@ -30,7 +32,8 @@ Fliplet.Registry.set('history-stack', (function() {
 
     // Add current change to stack
     stack.push({
-      data: cloneSpreadsheetData(data)
+      data: cloneSpreadsheetData(state.data),
+      colWidths: state.colWidths
     });
 
     // Don't increment current index for first insert
@@ -52,18 +55,22 @@ Fliplet.Registry.set('history-stack', (function() {
       return;
     }
 
-    return cloneSpreadsheetData(stack[index].data);
+    return {
+      data: cloneSpreadsheetData(stack[index].data),
+      colWidths: stack[index].colWidths
+    };
   }
 
   function loadCurrent() {
-    var data = getCurrent();
+    var state = getCurrent();
 
-    if (!data) {
+    if (!state) {
       return;
     }
 
     // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(_.cloneDeep(data));
+    hot.loadData(_.cloneDeep(state.data));
+    hot.updateSettings({ colWidths: state.colWidths });
   }
 
   function back() {

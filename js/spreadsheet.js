@@ -464,7 +464,10 @@ function spreadsheet(options) {
       var preparedData = prepareData(data, columns);
 
       // Add current change to stack
-      HistoryStack.add(preparedData);
+      HistoryStack.add({
+        data: preparedData,
+        colWidths: colWidths
+      });
 
       // Re-execute search without changing cell selection
       search('find', {
@@ -665,13 +668,17 @@ function spreadsheet(options) {
     hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
 
-  HistoryStack.add(spreadsheetData);
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Initialize colWidths if they wasn't stored locally
   if (!colWidths || !colWidths.length) {
     colWidths = getColWidths();
   }
+
+  HistoryStack.add({
+    data: spreadsheetData,
+    colWidths: colWidths
+  });
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
@@ -799,7 +806,7 @@ function spreadsheet(options) {
     // For example moving rows doesn't keep the visual/source order in sync
     var source = options.useSourceData
       ? hot.getSourceData().slice(1)
-      : HistoryStack.getCurrent().slice(1);
+      : HistoryStack.getCurrent().data.slice(1);
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);

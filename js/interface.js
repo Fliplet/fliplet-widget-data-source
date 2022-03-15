@@ -1,6 +1,3 @@
-// TODO: Undo/redo isn't tracking column width (try adding column then undo) -- check which column hooks are fired
-// TODO: Undo/redo isn't tracking row order
-// TODO: Undo/redo isn't triggering "Save" UI changes
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
