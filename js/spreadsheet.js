@@ -10,6 +10,7 @@ function spreadsheet(options) {
   var rows = options.rows || [];
   var columns = options.columns || [];
   var dataLoaded = false;
+  var dataHasChanges = false;
   var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
@@ -58,15 +59,15 @@ function spreadsheet(options) {
     return preparedData;
   }
 
-  function onChanges() {
+  function onChange() {
     if (!dataLoaded) {
       return;
     }
 
-    dataSourceEntriesHasChanged = true;
-    $('[data-save]').removeClass('hidden');
-    $('.data-save-updated').addClass('hidden');
-    $('.name-wrapper').removeClass('saved');
+    setChanges(true);
+
+    $('.save-btn').removeClass('hidden');
+    $('.data-save-status').addClass('hidden');
   }
 
   /**
@@ -417,7 +418,9 @@ function spreadsheet(options) {
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
-      onChanges();
+      console.log('beforeChange');
+
+      onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
       // We shouldn't add a column title
@@ -453,6 +456,8 @@ function spreadsheet(options) {
       });
     },
     afterChangesObserved: function() {
+      console.log('afterChangesObserved');
+
       // Deal with the undo/redo stack
       var data = getData({ removeEmptyRows: false, useSourceData: true });
       var columns = getColumns();
@@ -469,9 +474,12 @@ function spreadsheet(options) {
       });
     },
     afterRemoveRow: function() {
-      onChanges();
+      onChange();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
+      console.log('afterRemoveCol');
+      // TODO: Check this is working correctly
+
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -481,7 +489,7 @@ function spreadsheet(options) {
       hot.updateSettings({});
 
       if (source !== 'removeEmptyColumn') {
-        onChanges();
+        onChange();
       }
     },
     beforePaste: function(data, coords) {
@@ -542,9 +550,13 @@ function spreadsheet(options) {
       hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function() {
-      onChanges();
+      console.log('afterColumnMove');
+      // TODO: Add similar checks to avoid column width screwing up
+      onChange();
     },
     afterColumnResize: function() {
+      // TODO: Check this is working correctly
+      console.log('afterColumnResize');
       colWidths = getColWidths();
 
       // Update column sizes in background
@@ -556,12 +568,14 @@ function spreadsheet(options) {
       }).catch(console.error);
     },
     afterRowMove: function() {
-      onChanges();
+      onChange();
     },
     afterCreateRow: function() {
-      onChanges();
+      onChange();
     },
     afterCreateCol: function(index, amount, source) {
+      console.log('afterCreateCol');
+
       // Source auto means that column was created by lib to add empty col at the end of the table
       if (source === 'auto') {
         return true;
@@ -578,7 +592,7 @@ function spreadsheet(options) {
       colWidths.splice(index, 0, 50);
       hot.updateSettings({ colWidths: colWidths });
 
-      onChanges();
+      onChange();
     },
     afterRender: function(isForced) {
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
@@ -874,15 +888,51 @@ function spreadsheet(options) {
     return str;
   }
 
+  function onSave() {
+    $('.save-btn').addClass('hidden');
+    $('.data-save-status').removeClass('hidden').html('Saving...');
+  }
+
+  function onSaveComplete() {
+    // Update save status
+    $('.data-save-status').html('All changes saved!');
+  }
+
+  function hasChanges() {
+    return dataHasChanges;
+  }
+
+  function setChanges(value) {
+    dataHasChanges = typeof value !== 'undefined' ? !!value : false;
+  }
+
+  function reset(resetHistory) {
+    search('clear');
+    setChanges(false);
+
+    $('.save-btn').addClass('hidden');
+    $('.data-save-status').addClass('hidden');
+
+    if (resetHistory) {
+      HistoryStack.reset();
+    }
+  }
+
   return {
     getData: getData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
-      search('clear');
+      reset(true);
 
       return hot.destroy();
-    }
+    },
+    reset: reset,
+    onSave: onSave,
+    onSaveComplete: onSaveComplete,
+    hasChanges: hasChanges,
+    setChanges: setChanges,
+    onChange: onChange
   };
 }
 

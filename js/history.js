@@ -41,10 +41,6 @@ Fliplet.Registry.set('history-stack', (function() {
     toggleUndoRedo();
   }
 
-  function get() {
-    return stack;
-  }
-
   function getCurrent(offset) {
     if (typeof offset === 'undefined') {
       offset = 0;
@@ -57,10 +53,6 @@ Fliplet.Registry.set('history-stack', (function() {
     }
 
     return cloneSpreadsheetData(stack[index].data);
-  }
-
-  function getCurrentIndex() {
-    return currentIndex;
   }
 
   function loadCurrent() {

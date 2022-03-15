@@ -1,3 +1,6 @@
+// TODO: Undo/redo isn't tracking column width (try adding column then undo) -- check which column hooks are fired
+// TODO: Undo/redo isn't tracking row order
+// TODO: Undo/redo isn't triggering "Save" UI changes
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -33,7 +36,6 @@ var dataSources;
 var trashedDataSources;
 var allDataSources;
 var table;
-var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
@@ -76,7 +78,6 @@ function getDataSources() {
   $noResults.removeClass('show');
   $noDataSources.removeClass('show');
   $sourceContents.addClass('hidden');
-  $('[data-save]').addClass('hidden');
   $('.search').val(''); // Reset search
   $('#search-field').val(''); // Reset filter
   $('#data-sources').show();
@@ -294,7 +295,6 @@ function fetchCurrentDataSourceEntries(entries) {
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
-      $sourceContents.find('.data-save-updated').html('All changes saved!');
 
       columns = dataSource.columns || [];
 
@@ -611,9 +611,7 @@ function getCommitPayload(entries, options) {
 function saveCurrentData() {
   var columns;
 
-  $('[data-save]').addClass('hidden');
-  $('.data-save-updated').removeClass('hidden').html('Saving...');
-  $('.name-wrapper').addClass('saved');
+  table.onSave();
 
   var entries = table.getData();
 
@@ -810,10 +808,6 @@ function createDataSource(createOptions, options) {
         // Fail silently
       }
 
-      dataSourceEntriesHasChanged = false;
-
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
     }
 
@@ -1146,7 +1140,7 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    if (dataSourceEntriesHasChanged) {
+    if (table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
       }).then(function(result) {
@@ -1160,10 +1154,6 @@ $('#app')
           // Fail silently
         }
 
-        dataSourceEntriesHasChanged = false;
-
-        $('.data-save-updated').addClass('hidden');
-        $('.name-wrapper').removeClass('saved');
         $('[data-order-date]').removeClass('asc').addClass('desc');
 
         getDataSources();
@@ -1175,8 +1165,6 @@ $('#app')
         // Fail silently
       }
 
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
@@ -1269,8 +1257,8 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      if (dataSourceEntriesHasChanged) {
-        dataSourceEntriesHasChanged = false;
+      if (table.hasChanges()) {
+        table.setChanges(false);
 
         return saveCurrentData();
       }
@@ -1283,18 +1271,15 @@ $('#app')
       }
 
       $('#show-versions').show();
-      $('.data-save-updated').html('All changes saved!');
+      table.onSaveComplete();
     }).catch(function(err) {
       Fliplet.Modal.alert({
         title: 'Error saving data source',
         message: Fliplet.parseError(err)
       });
 
-      dataSourceEntriesHasChanged = true;
-
-      $('[data-save]').removeClass('hidden');
-      $('.data-save-updated').addClass('hidden').html('');
-      $('.name-wrapper').removeClass('saved');
+      table.setChanges(true);
+      table.onSaveComplete();
     });
   })
   .on('click', '[save-settings]', function() {
@@ -1671,20 +1656,16 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (dataSourceEntriesHasChanged) {
+      if (table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
+          // Continue editing data source entries
           if (!result) {
             $('[aria-controls="entries"]').click();
 
             return;
           }
-
-          dataSourceEntriesHasChanged = false;
-          $('[data-save]').addClass('hidden');
-          $('.data-save-updated').removeClass('hidden');
-          $('.name-wrapper').addClass('saved');
 
           try {
             table.destroy();
@@ -1699,7 +1680,12 @@ $('#app')
         hot.render();
       }
 
-      $('.save-btn').removeClass('hidden');
+      if (table.hasChanges()) {
+        table.onChange();
+      } else {
+        table.reset();
+      }
+
       $('.back-name-holder').removeClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings data-roles');
     }
@@ -2319,9 +2305,7 @@ function updateDataSourceRules() {
 
 if (widgetData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
-  $('[data-save]').addClass('hidden');
-  $('.data-save-updated').addClass('hidden');
-  $('.name-wrapper').removeClass('saved');
+  table.reset();
   browseDataSource(widgetData.dataSourceId);
 } else {
   getDataSources();
