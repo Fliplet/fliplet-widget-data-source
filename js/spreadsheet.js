@@ -553,13 +553,11 @@ function spreadsheet(options) {
       hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function() {
-      console.log('afterColumnMove');
       // TODO: Add similar checks to avoid column width screwing up
       onChange();
     },
     afterColumnResize: function() {
       // TODO: Check this is working correctly
-      console.log('afterColumnResize');
       colWidths = getColWidths();
 
       // Update column sizes in background
@@ -577,8 +575,6 @@ function spreadsheet(options) {
       onChange();
     },
     afterCreateCol: function(index, amount, source) {
-      console.log('afterCreateCol');
-
       // Source auto means that column was created by lib to add empty col at the end of the table
       if (source === 'auto') {
         return true;
