@@ -1,3 +1,4 @@
+// A set of APIs for managing the UI history states
 Fliplet.Registry.set('history-stack', (function() {
   var stack = [];
   var currentIndex = 0;
