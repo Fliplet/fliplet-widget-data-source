@@ -418,8 +418,6 @@ function spreadsheet(options) {
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
-      console.log('beforeChange');
-
       onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
@@ -456,8 +454,6 @@ function spreadsheet(options) {
       });
     },
     afterChangesObserved: function() {
-      console.log('afterChangesObserved');
-
       // Deal with the undo/redo stack
       var data = getData({ removeEmptyRows: false, useSourceData: true });
       var columns = getColumns();
@@ -480,9 +476,6 @@ function spreadsheet(options) {
       onChange();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
-      console.log('afterRemoveCol');
-      // TODO: Check this is working correctly
-
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -557,7 +550,6 @@ function spreadsheet(options) {
       onChange();
     },
     afterColumnResize: function() {
-      // TODO: Check this is working correctly
       colWidths = getColWidths();
 
       // Update column sizes in background
