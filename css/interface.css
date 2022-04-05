@@ -199,7 +199,7 @@ a[data-back] {
 }
 
 .mce-item-table tr:first-child td {
-  background-color: #EEE;
+  background-color: #eee;
   font-weight: bold;
   min-width: 50px;
 }
@@ -245,12 +245,12 @@ a[data-back] {
   align-items: flex-end;
 }
 
-.data-save-updated {
+.data-save-status {
   color: #999999;
   margin-left: 5px;
 }
 
-.back-name-holder.hide-date .data-save-updated {
+.back-name-holder.hide-date .data-save-status {
   display: none;
 }
 
@@ -267,7 +267,7 @@ a[data-back] {
 }
 
 .save-btn.disabled [data-save],
-.save-btn.disabled .data-save-updated {
+.save-btn.disabled .data-save-status {
   opacity: 0;
   pointer-events: none;
 }
@@ -510,11 +510,11 @@ textarea.handsontableInput {
   cursor: pointer;
 }
 
-#toolbar .btn-group>.btn:first-child:not(:last-child):not(.dropdown-toggle) {
+#toolbar .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
   border-bottom-left-radius: 0;
 }
 
-#toolbar .btn-group>.btn:last-child:not(:first-child) {
+#toolbar .btn-group > .btn:last-child:not(:first-child) {
   border-bottom-right-radius: 0;
 }
 
@@ -587,7 +587,7 @@ textarea.handsontableInput {
 }
 
 #access-rules-list tbody {
-  background: #FFF;
+  background: #fff;
 }
 
 #access-rules-list tr {
@@ -599,7 +599,7 @@ textarea.handsontableInput {
 }
 
 #access-rules-list tr.added {
-  background-color: #FFEC84;
+  background-color: #ffec84;
 }
 
 #access-rules-list tr.disabled a[data-toggle-status] {
@@ -654,7 +654,7 @@ td.column-header-cell {
   margin-right: 22px;
 }
 
-#configure-rule .side .checkbox+.checkbox {
+#configure-rule .side .checkbox + .checkbox {
   margin-top: 10px;
   margin-bottom: 10px;
 }
@@ -670,7 +670,7 @@ td.column-header-cell {
 
 #configure-rule form .btn.selected {
   background-color: #474974;
-  color: #FFF;
+  color: #fff;
 }
 
 #configure-rule .apps-list {

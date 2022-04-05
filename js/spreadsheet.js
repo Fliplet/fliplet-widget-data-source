@@ -1,37 +1,28 @@
-// Used for undo/redo feature
-var dataStack;
-var currentDataStackIndex;
-
 var hot;
 var copyPastePlugin;
-var data;
+var spreadsheetData;
 var colWidths = [];
+var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
 // eslint-disable-next-line no-unused-vars
-var spreadsheet = function(options) {
+function spreadsheet(options) {
   var rows = options.rows || [];
   var columns = options.columns || [];
   var dataLoaded = false;
+  var dataHasChanges = false;
   var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
 
-  dataStack = [];
-  currentDataStackIndex = 0;
-
-  // Don't bind data to data source object
-  // Data as an array
-  data = prepareData(rows, columns, true);
-
   /**
    * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
-   * @param {Array} rows
-   * @param {Array} columns
+   * @param {Array} rows - Entries to be processed
+   * @param {Array} columns - List of columns
    * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
+   * @returns {Array} Data to be loaded into Handsontable
    */
-
   function prepareData(rows, columns, isFirstRender) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header) {
@@ -68,13 +59,15 @@ var spreadsheet = function(options) {
     return preparedData;
   }
 
-  function onChanges() {
-    if (dataLoaded) {
-      dataSourceEntriesHasChanged = true;
-      $('[data-save]').removeClass('hidden');
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
+  function onChange() {
+    if (!dataLoaded) {
+      return;
     }
+
+    setChanges(true);
+
+    $('.save-btn').removeClass('hidden');
+    $('.data-save-status').addClass('hidden');
   }
 
   /**
@@ -347,11 +340,18 @@ var spreadsheet = function(options) {
     td.classList.add('column-header-cell');
   }
 
-  var getColWidths = function() {
-    return hot.getColHeader().map(function(header, index) {
+  function getColWidths() {
+    return hot.getColHeader().map(function getColWithFromHeader(header, index) {
       return hot.getColWidth(index);
     });
-  };
+  }
+
+  // Reset history stack
+  HistoryStack.reset();
+
+  // Don't bind data to data source object
+  // Data as an array
+  spreadsheetData = prepareData(rows, columns, true);
 
   var hotSettings = {
     stretchH: 'all',
@@ -412,13 +412,13 @@ var spreadsheet = function(options) {
         renderer: columnValueRenderer
       };
     },
-    data: data,
+    data: spreadsheetData,
     renderer: addMaxHeightToCells,
     minSpareRows: 40,
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
-      onChanges();
+      onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
       // We shouldn't add a column title
@@ -455,18 +455,15 @@ var spreadsheet = function(options) {
     },
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
-      var data = getData({ removeEmptyRows: false });
+      var data = getData({ removeEmptyRows: false, useSourceData: true });
       var columns = getColumns();
       var preparedData = prepareData(data, columns);
 
-      // Clear all after current index to reset redo
-      if (currentDataStackIndex + 1 < dataStack.length) {
-        dataStack.splice(currentDataStackIndex + 1);
-      }
-
       // Add current change to stack
-      dataStack.push({ data: preparedData });
-      currentDataStackIndex = currentDataStackIndex + 1;
+      HistoryStack.add({
+        data: preparedData,
+        colWidths: colWidths
+      });
 
       // Re-execute search without changing cell selection
       search('find', {
@@ -474,11 +471,9 @@ var spreadsheet = function(options) {
         force: true,
         focusSearch: false
       });
-
-      undoRedoToggle();
     },
     afterRemoveRow: function() {
-      onChanges();
+      onChange();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
       // Remove columns widths from the widths array
@@ -490,7 +485,7 @@ var spreadsheet = function(options) {
       hot.updateSettings({});
 
       if (source !== 'removeEmptyColumn') {
-        onChanges();
+        onChange();
       }
     },
     beforePaste: function(data, coords) {
@@ -551,7 +546,8 @@ var spreadsheet = function(options) {
       hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function() {
-      onChanges();
+      // TODO: Add similar checks to avoid column width screwing up
+      onChange();
     },
     afterColumnResize: function() {
       colWidths = getColWidths();
@@ -565,10 +561,10 @@ var spreadsheet = function(options) {
       }).catch(console.error);
     },
     afterRowMove: function() {
-      onChanges();
+      onChange();
     },
     afterCreateRow: function() {
-      onChanges();
+      onChange();
     },
     afterCreateCol: function(index, amount, source) {
       // Source auto means that column was created by lib to add empty col at the end of the table
@@ -587,7 +583,7 @@ var spreadsheet = function(options) {
       colWidths.splice(index, 0, 50);
       hot.updateSettings({ colWidths: colWidths });
 
-      onChanges();
+      onChange();
     },
     afterRender: function(isForced) {
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
@@ -660,13 +656,17 @@ var spreadsheet = function(options) {
     hotSettings.colWidths = currentDataSourceDefinition.columnsWidths;
   }
 
-  dataStack.push({ data: _.cloneDeep(data) });
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   // Initialize colWidths if they wasn't stored locally
   if (!colWidths || !colWidths.length) {
     colWidths = getColWidths();
   }
+
+  HistoryStack.add({
+    data: spreadsheetData,
+    colWidths: colWidths
+  });
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
@@ -772,11 +772,11 @@ var spreadsheet = function(options) {
    */
   function isNotEmpty(row) {
     return row.some(function(field) {
-      return field;
+      return [null, undefined, ''].indexOf(field) === -1;
     });
   }
 
-  var getData = function(options) {
+  function getData(options) {
     options = options || { removeEmptyRows: true };
 
     var headers = getColumns();
@@ -791,55 +791,69 @@ var spreadsheet = function(options) {
     var visual = hot.getData().slice(1);
 
     // Get data from the source and exclude columns row.
-    // For example moving rows doesn't keep the visual/physical order in sync
-    var physical = hot.getSourceData().slice(1);
+    // For example moving rows doesn't keep the visual/source order in sync
+    var source = options.useSourceData
+      ? hot.getSourceData().slice(1)
+      : HistoryStack.getCurrent().data.slice(1);
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
-      physical = physical.filter(isNotEmpty);
+      source = source.filter(isNotEmpty);
     }
 
-    // And finally we pick the id's to visual from physical
-    visual.forEach(function(visualRow, order) {
-      // We need to sort bot visual and physical because column
-      // move also doesn't keep the physical data in order
+    // And finally we pick the IDs to visual from source
+    visual.forEach(function findSourceEntry(visualRow, order) {
+      // We need to sort both visual and source rows because
+      // moving columns doesn't keep the source data in order
       var sortedVisual = _.clone(visualRow).sort();
-      var sortedPhysical;
+      var sortedSource;
       var entry;
 
-      // Loop through the physical items to get the id
-      for (var i = 0; i < physical.length; i++) {
-        sortedPhysical = _.clone(physical[i]).sort();
+      // Loop through the source columns to get the ID
+      for (var i = 0; i < source.length; i++) {
+        sortedSource = _.clone(source[i]).sort();
 
-        if (_.isEqual(sortedVisual, sortedPhysical)) {
-          entry = { id: physical[i].id, data: {} };
-
-          // eslint-disable-next-line no-loop-func
-          headers.forEach(function(header, index) {
-            if (header === null) {
-              return;
-            }
-
-            entry.data[header] = visualRow[index];
-            entry.order = order;
-
-            if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-              entry.data[header] = getColumnValue(entry.data[header]);
-            }
-          });
-
-          entries.push(entry);
-
-          // We found our entry, we may now remove it from physical so the array
-          // Keeps getting smaller for each iteration and get off the loop
-          physical.splice(i, 1);
-          break;
+        // If the visual and source rows aren't the same,
+        if (!_.isEqual(_.compact(sortedVisual), _.compact(sortedSource))) {
+          // Next loop
+          continue;
         }
+
+        // Assume the entry ID based on source and visual data being the same
+        // QUESTION: What if there is more than 1 entry with the same data? Does the latter one not get written?
+        entry = { id: source[i].id, data: {} };
+
+        // Build entry data
+        // eslint-disable-next-line no-loop-func
+        headers.forEach(function buildDataEntry(header, index) {
+          if (header === null) {
+            return;
+          }
+
+          if (!_.isNil(visualRow[index])) {
+            entry.data[header] = visualRow[index];
+          }
+
+          entry.order = order;
+
+          if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+            entry.data[header] = getColumnValue(entry.data[header]);
+          }
+        });
+
+        entries.push(entry);
+
+        // Entry is found. Remove it from source so the array
+        // gets smaller through each iteration and shortens the loop
+        source.splice(i, 1);
+
+        // Stop the for-loop
+        break;
       }
     });
 
     return entries;
-  };
+  }
 
   function getColumnValue(str) {
     try {
@@ -869,17 +883,53 @@ var spreadsheet = function(options) {
     return str;
   }
 
+  function onSave() {
+    $('.save-btn').addClass('hidden');
+    $('.data-save-status').removeClass('hidden').html('Saving...');
+  }
+
+  function onSaveComplete() {
+    // Update save status
+    $('.data-save-status').html('All changes saved!');
+  }
+
+  function hasChanges() {
+    return dataHasChanges;
+  }
+
+  function setChanges(value) {
+    dataHasChanges = typeof value !== 'undefined' ? !!value : false;
+  }
+
+  function reset(resetHistory) {
+    search('clear');
+    setChanges(false);
+
+    $('.save-btn').addClass('hidden');
+    $('.data-save-status').addClass('hidden');
+
+    if (resetHistory) {
+      HistoryStack.reset();
+    }
+  }
+
   return {
     getData: getData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
-      search('clear');
+      reset(true);
 
       return hot.destroy();
-    }
+    },
+    reset: reset,
+    onSave: onSave,
+    onSaveComplete: onSaveComplete,
+    hasChanges: hasChanges,
+    setChanges: setChanges,
+    onChange: onChange
   };
-};
+}
 
 // Search
 var searchField = document.getElementById('search-field');
@@ -1111,16 +1161,7 @@ function openOverlay() {
   });
 }
 
-function undoRedoToggle() {
-  // Change undo/redo state buttons
-  var disableUndo = dataStack[currentDataStackIndex - 1] ? false : true;
-  var disableRedo = dataStack[currentDataStackIndex + 1] ? false : true;
-
-  $('[data-action="undo"]').prop('disabled', disableUndo);
-  $('[data-action="redo"]').prop('disabled', disableRedo);
-}
-
-function undoRedo(event) {
+function getEventType(event) {
   var ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
 
   if (!ctrlDown) {
@@ -1138,45 +1179,16 @@ function undoRedo(event) {
   return '';
 }
 
-function isUndo(event) {
-  return undoRedo(event) === 'undo';
-}
-
-function isRedo(event) {
-  return undoRedo(event) === 'redo';
-}
-
 // Capture undo/redo shortcuts
 document.addEventListener('keydown', function(event) {
-  if (isUndo(event)) {
-    undo();
+  if (getEventType(event) === 'undo') {
+    HistoryStack.back();
   }
 
-  if (isRedo(event)) {
-    redo();
+  if (getEventType(event) === 'redo') {
+    HistoryStack.forward();
   }
 });
-
-function redo() {
-  if (!dataStack[currentDataStackIndex + 1]) {
-    return;
-  }
-
-  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex + 1].data));
-  currentDataStackIndex = currentDataStackIndex + 1;
-  undoRedoToggle();
-}
-
-function undo() {
-  if (!dataStack[currentDataStackIndex - 1]) {
-    return;
-  }
-
-
-  hot.loadData(_.cloneDeep(dataStack[currentDataStackIndex - 1].data));
-  currentDataStackIndex = currentDataStackIndex - 1;
-  undoRedoToggle();
-}
 
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
@@ -1204,8 +1216,8 @@ $('#toolbar')
 
     hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
   })
-  .on('click', '[data-action="undo"]', undo)
-  .on('click', '[data-action="redo"]', redo)
+  .on('click', '[data-action="undo"]', HistoryStack.back)
+  .on('click', '[data-action="redo"]', HistoryStack.forward)
   .on('click', '[data-action="copy"]', function() {
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);

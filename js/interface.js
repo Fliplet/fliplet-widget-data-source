@@ -33,11 +33,15 @@ var dataSources;
 var trashedDataSources;
 var allDataSources;
 var table;
-var dataSourceEntriesHasChanged = false;
 var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
+var entryMap = {
+  original: [],
+  entries: []
+};
+var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -50,8 +54,7 @@ var getApps = Fliplet.Apps.get().then(function(apps) {
 });
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
-var data = Fliplet.Widget.getData(widgetId) || {};
-var copyData = data;
+var widgetData = Fliplet.Widget.getData(widgetId) || {};
 
 var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
   lineNumbers: true,
@@ -72,7 +75,6 @@ function getDataSources() {
   $noResults.removeClass('show');
   $noDataSources.removeClass('show');
   $sourceContents.addClass('hidden');
-  $('[data-save]').addClass('hidden');
   $('.search').val(''); // Reset search
   $('#search-field').val(''); // Reset filter
   $('#data-sources').show();
@@ -87,7 +89,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (copyData.context === 'app-overlay' || copyData.appId) {
+      if (widgetData.context === 'app-overlay' || widgetData.appId) {
         // Changes UI text
         isShowingAll = false;
 
@@ -101,10 +103,10 @@ function getDataSources() {
 
         userDataSources.forEach(function(dataSource, index) {
           var matchedApp = _.find(dataSource.apps, function(app) {
-            return dataSource.appId === copyData.appId || app.id === copyData.appId;
+            return dataSource.appId === widgetData.appId || app.id === widgetData.appId;
           });
 
-          if (dataSource.appId === copyData.appId && !dataSource.apps.length) {
+          if (dataSource.appId === widgetData.appId && !dataSource.apps.length) {
             matchedApp = true;
           }
 
@@ -272,19 +274,24 @@ function fetchCurrentDataSourceUsers() {
   });
 }
 
-function fetchCurrentDataSourceEntries(entries) {
-  columns;
+function cacheOriginalEntries(entries) {
+  entryMap.original = {};
 
+  _.forEach(entries, function(entry) {
+    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+  });
+}
+
+function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
-      currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
+      currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
-      $sourceContents.find('.data-save-updated').html('All changes saved!');
 
       columns = dataSource.columns || [];
 
@@ -297,6 +304,11 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    // Cache entries in a new thread
+    setTimeout(function() {
+      cacheOriginalEntries(rows);
+    }, 0);
+
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
       $('#show-versions').hide();
 
@@ -421,7 +433,7 @@ function fetchCurrentDataSourceVersions() {
       currentDataSourceVersions = result.versions;
 
       var versions = currentDataSourceVersions.map(function(version) {
-        version.createdAt = moment(version.createdAt).format('MMM Do YYYY, HH:mm');
+        version.createdAt = TD(version.createdAt, { format: 'lll', locale: locale });
         version.action = getVersionActionDescription(version);
         version.entriesCount = version.data.entries.count;
         version.hasEntries = version.data.entries.count > 0;
@@ -494,13 +506,19 @@ function getEmptyColumns(columns, entries) {
       return false;
     }
 
-    for (var i = emptyColumns.length - 1; i >= 0; i--) {
-      if (entry.data[emptyColumns[i]] !== null && entry.data[emptyColumns[i]] !== undefined && entry.data[emptyColumns[i]] !== '') {
-        var notEmptyColumnIndex = emptyColumns.indexOf(emptyColumns[i]);
+    var column;
 
-        if (notEmptyColumnIndex !== -1) {
-          emptyColumns.splice(notEmptyColumnIndex, 1);
-        }
+    for (var i = emptyColumns.length - 1; i >= 0; i--) {
+      column = emptyColumns[i];
+
+      if ([null, undefined, ''].indexOf(entry.data[column]) !== -1) {
+        continue;
+      }
+
+      var notEmptyColumnIndex = emptyColumns.indexOf(column);
+
+      if (notEmptyColumnIndex !== -1) {
+        emptyColumns.splice(notEmptyColumnIndex, 1);
       }
     }
   });
@@ -518,12 +536,64 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
   });
 }
 
+/**
+ * Computes payload for the commit API by comparing a list of entries against the cached original entries
+ * @param {Array} entries - Latest entries to be committed
+ * @returns {Object} List of new/updated entries and deleted IDs
+ */
+function getCommitPayload(entries = []) {
+  var inserted = [];
+  var updated = [];
+  var deleted = [];
+
+  // Track entries that weren't new
+  entryMap.entries = {};
+
+  entries.forEach(function(entry) {
+    // Add new entries to inserted array
+    if (typeof entry.id === 'undefined') {
+      inserted.push(entry);
+
+      return;
+    }
+
+    // Add a recovered entry as a new entry
+    if (!entryMap.original[entry.id]) {
+      delete entry.id;
+      inserted.push(entry);
+
+      return;
+    }
+
+    entryMap.entries[entry.id] = entry;
+  });
+
+  _.forIn(entryMap.original, function(original) {
+    var entry = entryMap.entries[original.id];
+
+    if (!entry) {
+      deleted.push(original.id);
+
+      return;
+    }
+
+    if (_.isEqual(entry, original)) {
+      return;
+    }
+
+    updated.push(entry);
+  });
+
+  return {
+    entries: updated.concat(inserted),
+    delete: deleted
+  };
+}
+
 function saveCurrentData() {
   var columns;
 
-  $('[data-save]').addClass('hidden');
-  $('.data-save-updated').removeClass('hidden').html('Saving...');
-  $('.name-wrapper').addClass('saved');
+  table.onSave();
 
   var entries = table.getData();
 
@@ -542,8 +612,10 @@ function saveCurrentData() {
     columns = trimColumns(table.getColumns());
   }
 
+  // Get the empty columns from assessing all entries
   var emptyColumns = getEmptyColumns(columns, entries);
 
+  // Remove empty columns from the table
   _.forEach(emptyColumns, function(column) {
     var columnIndex = columns.indexOf(column);
 
@@ -553,6 +625,7 @@ function saveCurrentData() {
     }
   });
 
+  // Remove empty columns in entries
   if (entries.length && emptyColumns.length) {
     entries = removeEmptyColumnsInEntries(entries, emptyColumns);
   }
@@ -567,12 +640,17 @@ function saveCurrentData() {
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
-  currentDataSourceUpdatedAt = moment().format('MMM Do YYYY, HH:mm');
+  currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
+
+  var payload = getCommitPayload(entries);
 
   return currentDataSource.commit({
-    entries: entries,
+    entries: payload.entries,
+    delete: payload.delete,
     columns: columns,
-    returnEntries: true
+    returnEntries: false
+  }).then(function() {
+    cacheOriginalEntries(entries);
   });
 }
 
@@ -635,7 +713,7 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
-    if (copyData.context === 'overlay') {
+    if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
         roles: 'publisher,editor',
@@ -653,7 +731,7 @@ function browseDataSource(id) {
           $dataSources.html(html.join(''));
 
           // Show security rules
-          if (copyData.view === 'access-rules') {
+          if (widgetData.view === 'access-rules') {
             $('#show-access-rules').click();
           }
         });
@@ -703,17 +781,13 @@ function createDataSource(createOptions, options) {
         // Fail silently
       }
 
-      dataSourceEntriesHasChanged = false;
-
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
     }
 
     Fliplet.Organizations.get().then(function(organizations) {
-      if (copyData.appId) {
+      if (widgetData.appId) {
         _.extend(createOptions, {
-          appId: copyData.appId,
+          appId: widgetData.appId,
           name: dataSourceName
         });
       } else {
@@ -834,7 +908,7 @@ function deleteDataSource(id, name) {
         });
 
         // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
+        if (widgetData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
 
           return;
@@ -888,7 +962,7 @@ function deleteItem(message, dataSourceId) {
       }
 
       // Return to parent widget if in overlay
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
 
         return;
@@ -907,7 +981,7 @@ function deleteItem(message, dataSourceId) {
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
-  if ((copyData.context === 'app-overlay' || copyData.appId) && isShowingAll && key !== 'deletedAt') {
+  if ((widgetData.context === 'app-overlay' || widgetData.appId) && isShowingAll && key !== 'deletedAt') {
     toBeOrderedDataSources = allDataSources;
   }
 
@@ -933,7 +1007,7 @@ function sortDataSources(key, order, data) {
 }
 
 Handlebars.registerHelper('momentCalendar', function(date) {
-  return moment(date).format(moment.localeData().longDateFormat('lll'));
+  return TD(date, { format: 'lll', locale: locale });
 });
 
 // Events
@@ -1039,7 +1113,7 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    if (dataSourceEntriesHasChanged) {
+    if (table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
       }).then(function(result) {
@@ -1053,10 +1127,6 @@ $('#app')
           // Fail silently
         }
 
-        dataSourceEntriesHasChanged = false;
-
-        $('.data-save-updated').addClass('hidden');
-        $('.name-wrapper').removeClass('saved');
         $('[data-order-date]').removeClass('asc').addClass('desc');
 
         getDataSources();
@@ -1068,8 +1138,6 @@ $('#app')
         // Fail silently
       }
 
-      $('.data-save-updated').addClass('hidden');
-      $('.name-wrapper').removeClass('saved');
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
@@ -1097,14 +1165,14 @@ $('#app')
     $activeDataSourceTable = $('#trash-sources');
     $activeSortedColumn = $activeDataSourceTable.children('thead .sorted');
 
-    if (copyData.context === 'app-overlay') {
+    if (widgetData.context === 'app-overlay') {
       var request = {
         url: 'v1/data-sources/deleted/',
         method: 'GET'
       };
 
       if (!$btnShowAllSource.hasClass('hidden')) {
-        request.data = { appId: copyData.appId };
+        request.data = { appId: widgetData.appId };
       }
 
       Fliplet.API.request(request).then(function(result) {
@@ -1158,31 +1226,33 @@ $('#app')
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
-    var saveData = dataSourceEntriesHasChanged ? saveCurrentData() : Promise.resolve();
+    // Wait for the current thread to apply changes to Handsontable
+    return new Promise(function(resolve) {
+      setTimeout(resolve, 0);
+    }).then(function() {
+      if (table.hasChanges()) {
+        table.setChanges(false);
 
-    dataSourceEntriesHasChanged = false;
-
-    saveData.then(function() {
+        return saveCurrentData();
+      }
+    }).then(function() {
       // Return to parent widget if in overlay
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
 
         return;
       }
 
       $('#show-versions').show();
-      $('.data-save-updated').html('All changes saved!');
+      table.onSaveComplete();
     }).catch(function(err) {
       Fliplet.Modal.alert({
         title: 'Error saving data source',
         message: Fliplet.parseError(err)
       });
 
-      dataSourceEntriesHasChanged = true;
-
-      $('[data-save]').removeClass('hidden');
-      $('.data-save-updated').addClass('hidden').html('');
-      $('.name-wrapper').removeClass('saved');
+      table.setChanges(true);
+      table.onSaveComplete();
     });
   })
   .on('click', '[save-settings]', function() {
@@ -1413,7 +1483,7 @@ $('#app')
         $('.editing-data-source-name').text(name);
 
         // Return to parent widget if in overlay
-        if (copyData.context === 'overlay') {
+        if (widgetData.context === 'overlay') {
           Fliplet.Studio.emit('close-overlay');
 
           return;
@@ -1559,20 +1629,16 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (dataSourceEntriesHasChanged) {
+      if (table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
+          // Continue editing data source entries
           if (!result) {
             $('[aria-controls="entries"]').click();
 
             return;
           }
-
-          dataSourceEntriesHasChanged = false;
-          $('[data-save]').addClass('hidden');
-          $('.data-save-updated').removeClass('hidden');
-          $('.name-wrapper').addClass('saved');
 
           try {
             table.destroy();
@@ -1587,7 +1653,12 @@ $('#app')
         hot.render();
       }
 
-      $('.save-btn').removeClass('hidden');
+      if (table.hasChanges()) {
+        table.onChange();
+      } else {
+        table.reset();
+      }
+
       $('.back-name-holder').removeClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings data-roles');
     }
@@ -1606,7 +1677,7 @@ $('#app')
       $('.back-name-holder').addClass('hide-date');
       $('.controls-wrapper').removeClass('data-settings').addClass('data-roles');
 
-      if (copyData.context === 'overlay') {
+      if (widgetData.context === 'overlay') {
         $('.save-btn').addClass('hidden');
         $('.back-name-holder').addClass('hide-date');
       }
@@ -2193,7 +2264,7 @@ function updateDataSourceRules() {
     accessRules: currentDataSourceRules
   }).then(function() {
     // Return to parent widget if in overlay
-    if (copyData.context === 'overlay') {
+    if (widgetData.context === 'overlay') {
       Fliplet.Studio.emit('close-overlay');
 
       return;
@@ -2205,12 +2276,10 @@ function updateDataSourceRules() {
   });
 }
 
-if (copyData.context === 'overlay') {
+if (widgetData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
-  $('[data-save]').addClass('hidden');
-  $('.data-save-updated').addClass('hidden');
-  $('.name-wrapper').removeClass('saved');
-  browseDataSource(copyData.dataSourceId);
+  table.reset();
+  browseDataSource(widgetData.dataSourceId);
 } else {
   getDataSources();
 }
