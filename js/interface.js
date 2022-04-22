@@ -2278,7 +2278,7 @@ function updateDataSourceRules() {
 
 if (widgetData.context === 'overlay') {
   // Enter data source when the provider starts if ID exists
-  table.reset();
+  $('.save-btn, .data-save-status').addClass('hidden');
   browseDataSource(widgetData.dataSourceId);
 } else {
   getDataSources();
