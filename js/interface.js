@@ -38,8 +38,8 @@ var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
 var entryMap = {
-  original: [],
-  entries: []
+  original: {},
+  entries: {}
 };
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
@@ -274,10 +274,19 @@ function fetchCurrentDataSourceUsers() {
   });
 }
 
-function cacheOriginalEntries(entries) {
+/**
+ * Cache a list of entries as original entries for comparison when committing changes
+ * @param {Array} entries - Entries to be cached as original entries
+ * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
+ */
+function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
   _.forEach(entries, function(entry) {
+    if (!entry.id && typeof clientIdMap === 'object') {
+      entry.id = clientIdMap[entry.clientId];
+    }
+
     entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
   });
 }
@@ -552,6 +561,7 @@ function getCommitPayload(entries = []) {
   entries.forEach(function(entry) {
     // Add new entries to inserted array
     if (typeof entry.id === 'undefined') {
+      entry.clientId = Fliplet.guid();
       inserted.push(entry);
 
       return;
@@ -560,6 +570,7 @@ function getCommitPayload(entries = []) {
     // Add a recovered entry as a new entry
     if (!entryMap.original[entry.id]) {
       delete entry.id;
+      entry.clientId = Fliplet.guid();
       inserted.push(entry);
 
       return;
@@ -649,8 +660,20 @@ function saveCurrentData() {
     delete: payload.delete,
     columns: columns,
     returnEntries: false
-  }).then(function() {
-    cacheOriginalEntries(entries);
+  }).then(function(response) {
+    var clientIds = [];
+    var ids = [];
+
+    // Generate an object mapping client IDs to new entry IDs
+    _.forEach(response.clientIds, function(entry) {
+      clientIds.push(entry.clientId);
+      ids.push(entry.id);
+    });
+
+    var clientIdMap = _.zipObject(clientIds, ids);
+
+    cacheOriginalEntries(entries, clientIdMap);
+    table.setData({ columns: columns, rows: entries });
   });
 }
 
