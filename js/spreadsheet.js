@@ -794,7 +794,7 @@ function spreadsheet(options) {
     // For example moving rows doesn't keep the visual/source order in sync
     var source = options.useSourceData
       ? hot.getSourceData().slice(1)
-      : HistoryStack.getCurrent().data.slice(1);
+      : HistoryStack.getCurrent().getData().slice(1);
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
@@ -853,6 +853,18 @@ function spreadsheet(options) {
     });
 
     return entries;
+  }
+
+  function setData(options) {
+    options = options || {};
+
+    var rows = options.rows || [];
+    var columns = options.columns || [];
+    var preparedData = prepareData(rows, columns);
+
+    dataLoaded = false;
+    hot.loadData(preparedData);
+    HistoryStack.getCurrent().setData(preparedData);
   }
 
   function getColumnValue(str) {
@@ -915,6 +927,7 @@ function spreadsheet(options) {
 
   return {
     getData: getData,
+    setData: setData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {

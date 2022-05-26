@@ -51,14 +51,18 @@ Fliplet.Registry.set('history-stack', (function() {
     }
 
     var index = currentIndex + offset;
-
-    if (!stack[index]) {
-      return;
-    }
+    var currentState = stack[index];
 
     return {
-      data: cloneSpreadsheetData(stack[index].data),
-      colWidths: stack[index].colWidths
+      getData: function() {
+        return currentState ? cloneSpreadsheetData(currentState.data) : undefined;
+      },
+      getColWidths: function() {
+        return currentState ? currentState.colWidths : undefined;
+      },
+      setData: function(newData) {
+        currentState.data = cloneSpreadsheetData(newData);
+      }
     };
   }
 
@@ -70,8 +74,8 @@ Fliplet.Registry.set('history-stack', (function() {
     }
 
     // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(_.cloneDeep(state.data));
-    hot.updateSettings({ colWidths: state.colWidths });
+    hot.loadData(_.cloneDeep(state.getData()));
+    hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();
   }
