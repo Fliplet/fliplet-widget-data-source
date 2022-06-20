@@ -83,7 +83,7 @@ function getDataSources() {
   return Fliplet.DataSources.get({
     roles: 'publisher,editor',
     type: null,
-    excludeTypes: 'bookmarks,likes,comments'
+    excludeTypes: 'bookmarks,likes,comments,menu'
   }, {
     cache: false
   })
@@ -742,7 +742,7 @@ function browseDataSource(id) {
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
         roles: 'publisher,editor',
         type: null,
-        excludeTypes: 'bookmarks,likes,comments'
+        excludeTypes: 'bookmarks,likes,comments,menu'
       }, {
         cache: false
       })
