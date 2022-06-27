@@ -337,9 +337,9 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       $('#show-versions').show();
 
-      let flatObj1 = {};
-      rows.map(({data}) => data).forEach(dataItem => (flatObj1 = {...flatObj1, ...dataItem}));
-      var computedColumns = _.keys(flatObj1);
+      var flattenedColumns = {};
+      rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
+      var computedColumns = _.keys(flatColumns);
 
       if (computedColumns.length !== columns.length) {
         // TODO: Add tracking to verify how often this happens and why
