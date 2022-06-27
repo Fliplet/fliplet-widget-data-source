@@ -339,6 +339,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
       var flattenedColumns = {};
       rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
+
       var computedColumns = _.keys(flattenedColumns);
 
       if (computedColumns.length !== columns.length) {
