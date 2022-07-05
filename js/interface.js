@@ -82,6 +82,8 @@ function getDataSources() {
 
   return Fliplet.DataSources.get({
     roles: 'publisher,editor',
+    appId: isShowingAll ? undefined : widgetData.appId,
+    attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     type: null,
     excludeTypes: 'bookmarks,likes,comments,menu'
   }, {
