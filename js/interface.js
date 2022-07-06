@@ -82,6 +82,8 @@ function getDataSources() {
 
   return Fliplet.DataSources.get({
     roles: 'publisher,editor',
+    appId: isShowingAll ? undefined : widgetData.appId,
+    attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     type: null,
     excludeTypes: 'bookmarks,likes,comments,menu'
   }, {
@@ -90,7 +92,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (widgetData.context === 'app-overlay' || widgetData.appId) {
+      if ((widgetData.context === 'app-overlay' || widgetData.appId) && !isShowingAll) {
         // Changes UI text
         isShowingAll = false;
 
@@ -1101,11 +1103,7 @@ $('#app')
       $('[data-show-trash-source]').click();
     } else {
       isShowingAll = true;
-
-      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      dataSourcesToSearch = orderedDataSources;
-      renderDataSources(orderedDataSources);
+      getDataSources();
     }
   })
   .on('click', '[data-app-source]', function() {
@@ -1118,14 +1116,7 @@ $('#app')
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
-      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      if (!dataSources.length) {
-        $noResults.removeClass('hidden');
-      }
-
-      dataSourcesToSearch = orderedDataSources;
-      renderDataSources(orderedDataSources);
+      getDataSources();
     }
   })
   .on('click', '[data-back]', function(event) {
