@@ -2131,13 +2131,52 @@ $('#show-access-rules').click(function () {
               return 'All users';
           }
         })(),
-        exclude: rule.exclude ?
-          rule.exclude.map(function (exclude) {
-            return '<code>' + exclude + '</code>';
-          }).join('<code> Column excluded... </code><br />') : rule.include ?
-            rule.include.map(function (include) {
-              return '<code>' + include + '</code>';
-             }).join('<code> Column included... </code><br />') : '-',
+        include:( function () {
+          var result='';
+          var length = 0;
+          if(rule.include){
+            result = 'Include ';
+            length = rule.include.length;
+            rule.include.map(function (include,idx) {
+              if(length == 1) {
+              result = result + '<code>' + include + '</code>' + 'Only';
+              } else {
+                if(idx < length-2) {
+                  result = result + '<code>' + include + '</code>' + ' , ';
+                } else if (idx < length-1) {
+                  result = result + '<code>' + include + '</code>';
+                } else {
+                  result = result + ' and ' + '<code>' + include + '</code>';
+                }
+              }
+            })
+          } else if(rule.exclude) {
+            result = 'Exclude ';
+            length = rule.exclude.length;
+            rule.exclude.map(function (exclude,idx) {
+              if(length == 1) {
+              result = result + '<code>' + exclude + '</code>' + 'Only';
+              } else {
+                if(idx < length-2) {
+                  result = result + '<code>' + exclude + '</code>' + ' , ';
+                } else if (idx < length-1) {
+                  result = result + '<code>' + exclude + '</code>';
+                } else {
+                  result = result + ' and ' + '<code>' + exclude + '</code>';
+                }
+              }
+            })
+          } else {
+            result = '-';
+          }
+
+          return result;
+        })(),
+        // rule.include ?
+        //   rule.include.map(function (include) {
+        //     console.log('insdie', include);
+        //     return '<code>' + include + '</code>';
+        //   }).join('<br />') : '—',
         apps: rule.appId ?
           _.compact(rule.appId.map(function (appId) {
             var app = _.find(apps, {
