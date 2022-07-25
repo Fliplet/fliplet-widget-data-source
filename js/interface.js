@@ -2299,5 +2299,5 @@ $('[data-cancel]').click(function(event) {
   event.preventDefault();
 
   $('[data-dismiss="modal"]').click();
-})
+});
 
