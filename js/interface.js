@@ -2172,11 +2172,6 @@ $('#show-access-rules').click(function () {
 
           return result;
         })(),
-        // rule.include ?
-        //   rule.include.map(function (include) {
-        //     console.log('insdie', include);
-        //     return '<code>' + include + '</code>';
-        //   }).join('<br />') : '—',
         apps: rule.appId ?
           _.compact(rule.appId.map(function (appId) {
             var app = _.find(apps, {
