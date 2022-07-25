@@ -2294,3 +2294,10 @@ if (widgetData.context === 'overlay') {
 } else {
   getDataSources();
 }
+
+$('[data-cancel]').click(function(event) {
+  event.preventDefault();
+
+  $('[data-dismiss="modal"]').click();
+})
+
