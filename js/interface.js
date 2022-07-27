@@ -651,14 +651,16 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
-  var payload = getCommitPayload(entries);
+  // var payload = getCommitPayload(entries);
 
   return currentDataSource.commit({
-    entries: payload.entries,
-    delete: payload.delete,
+    entries: entries,
+    // delete: payload.delete,
     columns: columns,
     returnEntries: false
   }).then(function(response) {
+    return;
+
     var clientIds = [];
     var ids = [];
 
