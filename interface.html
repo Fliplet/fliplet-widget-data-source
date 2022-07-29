@@ -19,8 +19,7 @@
             <div class="flex col-sm-4">
               <button data-show-source class="active-source btn-round btn">All</button>
               <button data-show-trash-source class="btn-round spaced btn">Trash</button>
-              <input class="search input-round pull-right form-control" type="search"
-                placeholder="Search data sources" />
+              <input class="search input-round pull-right form-control" type="search" placeholder="Search data sources" />
               <a data-help-link href="https://help.fliplet.com/data-sources/" class="help-icon" target="_blank">
                 <i class="fa fa-question-circle-o"></i>
               </a>
@@ -97,19 +96,16 @@
               <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab"
-                data-toggle="tab">Security rules</a>
+              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab">Security rules</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
             </li>
             <li role="presentation">
-              <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version
-                history</a>
+              <a href="#versions" id="show-versions" aria-controls="versions" role="tab" data-toggle="tab">Version history</a>
             </li>
             <li role="presentation">
-              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio user
-                permissions</a>
+              <a href="#roles" id="show-users" aria-controls="roles" role="tab" data-toggle="tab">Studio user permissions</a>
             </li>
           </ul>
           <!-- Tab panes -->
@@ -125,197 +121,164 @@
                         <div class="find-next"><i class="fa fa-chevron-down"></i></div>
                         <div class="reset-find"><i class="fa fa-times-circle""></i></div>
                       </div>
-                      <div class=" find-icon"><i class="fa fa-search"></i></div>
-                        <input type="text" class="form-control" id="search-field" placeholder="Find" />
-                      </div>
+                      <div class="find-icon"><i class="fa fa-search"></i></div>
+                      <input type="text" class="form-control" id="search-field" placeholder="Find" />
                     </div>
-                    <div class="btn-group" role="group" aria-label="...">
-                      <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip"
-                        data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>
-                      <button type="button" class="btn btn-default" data-action="redo" data-toggle="tooltip"
-                        data-placement="bottom" title="Redo" disabled><i class="mce-ico mce-i-redo"></i></button>
-
-                      <button type="button" class="btn btn-default action-copy" data-action="copy" data-toggle="tooltip"
-                        data-placement="bottom" title="Copy"><i class="fa fa-files-o"></i></button>
-                      <button type="button" class="btn btn-default action-cut" data-action="cut" data-toggle="tooltip"
-                        data-placement="bottom" title="Cut"><i class="fa fa-scissors"></i></button>
-                      <button type="button" class="btn btn-default action-unavailable" data-action="paste"
-                        data-toggle="tooltip" data-placement="bottom" title="Paste"><i
-                          class="fa fa-clipboard"></i></button>
-
-                      <button type="button" class="btn btn-default" data-toggle="tooltip"
-                        data-action="insert-row-before" data-placement="bottom" title="Insert row before"><i
-                          class="mce-ico mce-i-tableinsertrowbefore"></i></button>
-                      <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-after"
-                        data-placement="bottom" title="Insert row after"><i
-                          class="mce-ico mce-i-tableinsertrowafter"></i></button>
-                      <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-row"
-                        data-placement="bottom" title="Delete row"><i class="mce-ico mce-i-tabledeleterow"></i></button>
-
-                      <button type="button" class="btn btn-default" data-toggle="tooltip"
-                        data-action="insert-column-left" data-placement="bottom" title="Insert column before"><i
-                          class="mce-ico mce-i-tableinsertcolbefore"></i></button>
-                      <button type="button" class="btn btn-default" data-toggle="tooltip"
-                        data-action="insert-column-right" data-placement="bottom" title="Insert column after"><i
-                          class="mce-ico mce-i-tableinsertcolafter"></i></button>
-                      <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-column"
-                        data-placement="bottom" title="Delete column"><i
-                          class="mce-ico mce-i-tabledeletecol"></i></button>
-                    </div>
-
                   </div>
-                  <div class="table-entries">
-                    <div class="entries-message"></div>
-                    <div id="hot"></div>
+                  <div class="btn-group" role="group" aria-label="...">
+                    <button type="button" class="btn btn-default" data-action="undo" data-toggle="tooltip" data-placement="bottom" title="Undo" disabled><i class="mce-ico mce-i-undo"></i></button>
+                    <button type="button" class="btn btn-default" data-action="redo" data-toggle="tooltip" data-placement="bottom" title="Redo" disabled><i class="mce-ico mce-i-redo"></i></button>
+
+                    <button type="button" class="btn btn-default action-copy" data-action="copy" data-toggle="tooltip" data-placement="bottom" title="Copy"><i class="fa fa-files-o"></i></button>
+                    <button type="button" class="btn btn-default action-cut" data-action="cut" data-toggle="tooltip" data-placement="bottom" title="Cut"><i class="fa fa-scissors"></i></button>
+                    <button type="button" class="btn btn-default action-unavailable" data-action="paste" data-toggle="tooltip" data-placement="bottom" title="Paste"><i class="fa fa-clipboard"></i></button>
+
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-before" data-placement="bottom" title="Insert row before"><i class="mce-ico mce-i-tableinsertrowbefore"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-row-after" data-placement="bottom" title="Insert row after"><i class="mce-ico mce-i-tableinsertrowafter"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-row" data-placement="bottom" title="Delete row"><i class="mce-ico mce-i-tabledeleterow"></i></button>
+
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-left" data-placement="bottom" title="Insert column before"><i class="mce-ico mce-i-tableinsertcolbefore"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-right" data-placement="bottom" title="Insert column after"><i class="mce-ico mce-i-tableinsertcolafter"></i></button>
+                    <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-column" data-placement="bottom" title="Delete column"><i class="mce-ico mce-i-tabledeletecol"></i></button>
                   </div>
+
+                </div>
+                <div class="table-entries">
+                  <div class="entries-message"></div>
+                  <div id="hot"></div>
                 </div>
               </div>
-              <div role="tabpanel" class="tab-pane" id="roles">
-                <br />
-                <button class="btn btn-primary" data-create-role>Add new user</button>
-                <hr />
-                <div id="users"></div>
-              </div>
-              <div role="tabpanel" class="tab-pane" id="settings">
-                <br />
-                <div class="container-fluid">
-                  <form class="form form-horizontal" data-settings>
-                    <div class="form-group">
-                      <label for="id" class="col-sm-4 control-label">Data source ID</label>
-                      <div class="col-sm-8">
-                        <p id="id" class="help-block"></p>
-                      </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="roles">
+              <br />
+              <button class="btn btn-primary" data-create-role>Add new user</button>
+              <hr />
+              <div id="users"></div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="settings">
+              <br />
+              <div class="container-fluid">
+                <form class="form form-horizontal" data-settings>
+                  <div class="form-group">
+                    <label for="id" class="col-sm-4 control-label">Data source ID</label>
+                    <div class="col-sm-8">
+                      <p id="id" class="help-block"></p>
                     </div>
-                    <div class="form-group">
-                      <label for="name" class="col-sm-4 control-label">Data source name</label>
-                      <div class="col-sm-8">
-                        <input id="name" class="form-control" name="name" maxlength="48" data-input-name />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="bundle" class="col-sm-4 control-label">Do you want to exclude this data when
-                        downloading the app?</label>
-                      <div class="col-sm-8">
-                        <div class="checkbox checkbox-icon">
-                          <input type="checkbox" id="bundle" name="bundle">
-                          <label for="bundle">
-                            <span class="check"><i class="fa fa-check"></i></span> <strong>Yes, exclude my data</strong>
-                            - Checking this option won't include the data of this data source in your app. Data will be
-                            loaded from the server separately and will require an internet connection.
-                          </label>
-                        </div>
-                        <p class="help-block"></p>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <div class="col-sm-4 control-label">
-                        <label for="definition">Data source definition</label>
-                        <p class="help-block">Definitions can be used to apply additional developer features such as
-                          security, two-factor authentication etc.<br>See <a
-                            href=http://developers.fliplet.com/API/fliplet-datasources.html>documentation</a> for how to
-                          use this feature.</p>
-                      </div>
-                      <div class="col-sm-8">
-                        <div class="checkbox checkbox-icon">
-                          <textarea class="form-control form-code" id="definition" rows="15"></textarea>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <div class="col-sm-4 control-label">
-                        <label for="hooks">Data source hooks</label>
-                        <p class="help-block">Hooks are usually set by Fliplet components such as Forms sending emails.
-                        </p>
-                      </div>
-                      <div class="col-sm-8">
-                        <div class="checkbox checkbox-icon">
-                          <textarea class="form-control form-code" id="hooks" rows="15"></textarea>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <div class="col-sm-4 control-label">
-                        <label for="definition">Bypassing validation</label>
-                        <p class="help-block">Use this option if you are using this data source in an email verification
-                          component and you want a user to be able to bypass the email verification.</p>
-                      </div>
-                      <div class="col-sm-8">
-                        <p class="help-block form-control-static show-backdoor"><a href="#" id="get-backdoor">Show
-                            bypass code</a></p>
-                        <p class="help-block form-control-static hide-backdoor"><a href="#" id="hide-backdoor">Hide
-                            bypass code</a></p>
-                        <div class="backdoor-code">
-                          <pre id="backdoor"></pre>
-                          <p class="help-block">Prefix the user email address with the bypass code (eg:
-                            <code><span id="backdoor-eg"></span>email@mail.com</code>) and use the verification code
-                            <code>999999</code> to validate without receiving emails or text messages.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <hr />
-                      <button class="btn text-danger" data-delete-source>Move to trash</button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-              <div role="tabpanel" class="tab-pane" id="versions">
-                <br />
-                <div id="versions-details">
-                  <div class="callout callout-primary">
-                    <p>When changes are made to the data source, Fliplet will store a version of every change. Fliplet
-                      stores:</p>
-                    <ul>
-                      <li>The most recent 100 versions; then</li>
-                      <li>Every 5 minutes for up to 3 hours; then</li>
-                      <li>Every hour for up to 300 versions</li>
-                    </ul>
                   </div>
-                  <div id="versions-list"></div>
-                </div>
-                <div id="version-preview" class="hidden"></div>
+                  <div class="form-group">
+                    <label for="name" class="col-sm-4 control-label">Data source name</label>
+                    <div class="col-sm-8">
+                      <input id="name" class="form-control" name="name" maxlength="48" data-input-name/>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="bundle" class="col-sm-4 control-label">Do you want to exclude this data when downloading the app?</label>
+                    <div class="col-sm-8">
+                      <div class="checkbox checkbox-icon">
+                        <input type="checkbox" id="bundle" name="bundle">
+                        <label for="bundle">
+                          <span class="check"><i class="fa fa-check"></i></span> <strong>Yes, exclude my data</strong> - Checking this option won't include the data of this data source in your app. Data will be loaded from the server separately and will require an internet connection.
+                        </label>
+                      </div>
+                      <p class="help-block"></p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="definition">Data source definition</label>
+                      <p class="help-block">Definitions can be used to apply additional developer features such as security, two-factor authentication etc.<br>See <a href="http://developers.fliplet.com/API/fliplet-datasources.html">documentation</a> for how to use this feature.</p>
+                    </div>
+                    <div class="col-sm-8">
+                      <div class="checkbox checkbox-icon">
+                        <textarea class="form-control form-code" id="definition" rows="15"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="hooks">Data source hooks</label>
+                      <p class="help-block">Hooks are usually set by Fliplet components such as Forms sending emails.</p>
+                    </div>
+                    <div class="col-sm-8">
+                      <div class="checkbox checkbox-icon">
+                        <textarea class="form-control form-code" id="hooks" rows="15"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="definition">Bypassing validation</label>
+                      <p class="help-block">Use this option if you are using this data source in an email verification component and you want a user to be able to bypass the email verification.</p>
+                    </div>
+                    <div class="col-sm-8">
+                      <p class="help-block form-control-static show-backdoor"><a href="#" id="get-backdoor">Show bypass code</a></p>
+                      <p class="help-block form-control-static hide-backdoor"><a href="#" id="hide-backdoor">Hide bypass code</a></p>
+                      <div class="backdoor-code">
+                        <pre id="backdoor"></pre>
+                        <p class="help-block">Prefix the user email address with the bypass code (eg: <code><span id="backdoor-eg"></span>email@mail.com</code>) and use the verification code <code>999999</code> to validate without receiving emails or text messages.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <hr />
+                    <button class="btn text-danger" data-delete-source>Move to trash</button>
+                  </div>
+                </form>
               </div>
-              <div role="tabpanel" class="tab-pane" id="access-rules">
-                <br />
-                <div class="managed-data-source-rules callout callout-primary hidden">
-                  <h4>System generated data source</h4>
-                  <p>Security for this data source is managed by the system.</p>
-                </div>
-                <div class="dropdown">
-                  <button class="btn btn-default dropdown-toggle" type="button" id="add-rules-dropdown"
-                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                    Add new rule
-                    <span class="caret"></span>
-                  </button>
-                  <ul class="dropdown-menu preconfigured-rules" aria-labelledby="add-rules-dropdown">
-                    <li><a href="#" id="add-rule">Create my own rule</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li class="dropdown-header">Pre-configured rules</li>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="versions">
+              <br />
+              <div id="versions-details">
+                <div class="callout callout-primary">
+                  <p>When changes are made to the data source, Fliplet will store a version of every change. Fliplet stores:</p>
+                  <ul>
+                    <li>The most recent 100 versions; then</li>
+                    <li>Every 5 minutes for up to 3 hours; then</li>
+                    <li>Every hour for up to 300 versions</li>
                   </ul>
                 </div>
+                <div id="versions-list"></div>
+              </div>
+              <div id="version-preview" class="hidden"></div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="access-rules">
+              <br />
+              <div class="managed-data-source-rules callout callout-primary hidden">
+                <h4>System generated data source</h4>
+                <p>Security for this data source is managed by the system.</p>
+              </div>
+              <div class="dropdown">
+                <button class="btn btn-default dropdown-toggle" type="button" id="add-rules-dropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                  Add new rule
+                  <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu preconfigured-rules" aria-labelledby="add-rules-dropdown">
+                  <li><a href="#" id="add-rule">Create my own rule</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li class="dropdown-header">Pre-configured rules</li>
+                </ul>
+              </div>
 
-                <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
-                <br />
-                <br />
-                <div id="access-rules-list">
-                  <div class="empty-data-source-rules callout callout-primary hidden">
-                    <h4>No security rules found</h4>
-                    <p>Apps will not be able to access this data source until security rules are added.</p>
-                  </div>
-                  <table class="table-hover">
-                    <thead>
-                      <th>Status</th>
-                      <th>Allow</th>
-                      <th>Users can</th>
-                      <th>Request data requirements</th>
-                      <th>Columns</th>
-                      <th>Applies to</th>
-                      <th>Actions</th>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+              <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
+              <br />
+              <br />
+              <div id="access-rules-list">
+                <div class="empty-data-source-rules callout callout-primary hidden">
+                  <h4>No security rules found</h4>
+                  <p>Apps will not be able to access this data source until security rules are added.</p>
                 </div>
+                <table class="table-hover">
+                  <thead>
+                    <th>Status</th>
+                    <th>Allow</th>
+                    <th>Users can</th>
+                    <th>Request data requirements</th>
+                    <th>Columns</th>
+                    <th>Applies to</th>
+                    <th>Actions</th>
+                  </thead>
+                  <tbody></tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -323,138 +286,132 @@
       </div>
     </div>
   </div>
+</div>
 
-  <div id="configure-rule" class="modal fade" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
-              aria-hidden="true">&times;</span></button>
-          <h4 class="modal-title"></h4>
-        </div>
-        <div class="modal-body">
-          <form class="form">
-            <div class="row">
-              <div class="col-md-4">
-                <h5>Allow</h5>
-                <p>Specify users affected by this rule.</p>
+<div id="configure-rule" class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title"></h4>
+      </div>
+      <div class="modal-body">
+        <form class="form">
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Allow</h5>
+              <p>Specify users affected by this rule.</p>
+            </div>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
               </div>
-              <div class="col-md-8 side vertical">
-                <div>
-                  <button data-allow="all" type="button" class="btn btn-default selected"><i
-                      class="fa fa-globe fa-fw"></i> All users</button>
-                  <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i>
-                    Logged in users</button>
-                  <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i>
-                    Specific users</button>
-                </div>
-                <div class="users-filter hidden">
-                  <div class="filters"></div>
-                  <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i>
-                    Add condition</button>
-                </div>
+              <div class="users-filter hidden">
+                <div class="filters"></div>
+                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
               </div>
             </div>
-            <hr />
-            <div class="row">
-              <div class="col-md-4">
-                <h5>Users can</h5>
-                <p>Select operations the specified users can perform.</p>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Users can</h5>
+              <p>Select operations the specified users can perform.</p>
+            </div>
+            <div class="col-md-8 side">
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-select" value="select">
+                <label for="chk-select">
+                  <span class="check"><i class="fa fa-check"></i></span> Read
+                </label>
               </div>
-              <div class="col-md-8 side">
-                <div class="checkbox checkbox-icon">
-                  <input name="type" type="checkbox" id="chk-select" value="select">
-                  <label for="chk-select">
-                    <span class="check"><i class="fa fa-check"></i></span> Read
-                  </label>
-                </div>
-                <div class="checkbox checkbox-icon">
-                  <input name="type" type="checkbox" id="chk-insert" value="insert">
-                  <label for="chk-insert">
-                    <span class="check"><i class="fa fa-check"></i></span> Write
-                  </label>
-                </div>
-                <div class="checkbox checkbox-icon">
-                  <input name="type" type="checkbox" id="chk-update" value="update">
-                  <label for="chk-update">
-                    <span class="check"><i class="fa fa-check"></i></span> Update
-                  </label>
-                </div>
-                <div class="checkbox checkbox-icon">
-                  <input name="type" type="checkbox" id="chk-delete" value="delete">
-                  <label for="chk-delete">
-                    <span class="check"><i class="fa fa-check"></i></span> Delete
-                  </label>
-                </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-insert" value="insert">
+                <label for="chk-insert">
+                  <span class="check"><i class="fa fa-check"></i></span> Write
+                </label>
+              </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-update" value="update">
+                <label for="chk-update">
+                  <span class="check"><i class="fa fa-check"></i></span> Update
+                </label>
+              </div>
+              <div class="checkbox checkbox-icon">
+                <input name="type" type="checkbox" id="chk-delete" value="delete">
+                <label for="chk-delete">
+                  <span class="check"><i class="fa fa-check"></i></span> Delete
+                </label>
               </div>
             </div>
-            <hr />
-            <div class="row">
-              <div class="col-md-4">
-                <h5>Applies to</h5>
-                <p>Select apps affected by this rule.</p>
-              </div>
-              <div class="col-md-8 side vertical">
-                <div>
-                  <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
-                  <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i>
-                    Specific apps</button>
-                </div>
-                <div class="apps-list"></div>
-              </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Applies to</h5>
+              <p>Select apps affected by this rule.</p>
             </div>
-            <hr />
-            <div class="row">
-              <div class="col-md-4">
-                <h5>Include or exclude columns</h5>
-                <p data-exclude-description></p>
+            <div class="col-md-8 side vertical">
+              <div>
+                <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
+                <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
               </div>
-              <div class="col-md-8 side">
-                <div class="tokenfield-ui">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <div class="radio radio-icon">
-                        <input type="radio" id="excludes" name="includes-excludes" value="false">
-                        <label for="excludes">
-                          <span class="check"><i class="fa fa-circle"></i></span> Exclude
-                        </label>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="radio radio-icon">
-                        <input type="radio" id="includes" name="includes-excludes" value="true" checked>
-                        <label for="includes">
-                          <span class="check"><i class="fa fa-circle"></i></span>Include
-                        </label>
-                      </div>
+              <div class="apps-list"></div>
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Include or exclude columns</h5>
+              <p data-exclude-description></p>
+            </div>
+            <div class="col-md-8 side">
+              <div class="tokenfield-ui">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="excludes" name="includes-excludes" value="false">
+                      <label for="excludes">
+                        <span class="check"><i class="fa fa-circle"></i></span> Exclude
+                      </label>
                     </div>
                   </div>
-                  <div class="row">
-                    <div class="col-md-12">
-                      <input type="text" class="form-control" name="exclude" value=""
-                        placeholder="Type the column name and press return">
+                  <div class="col-md-6">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="includes" name="includes-excludes" value="true" checked>
+                      <label for="includes">
+                        <span class="check"><i class="fa fa-circle"></i></span>Include
+                      </label>
                     </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-12">
+                    <input type="text" class="form-control" name="exclude" value=""
+                      placeholder="Type the column name and press return">
                   </div>
                 </div>
               </div>
             </div>
-            <hr />
-            <div class="row">
-              <div class="col-md-4">
-                <h5>Request data requirements</h5>
-                <p>Specify rules that data must follow.</p>
-              </div>
-              <div class="col-md-8 side vertical">
-                <div class="required-fields"></div>
-                <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data
-                  requirement</button>
-              </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-4">
+              <h5>Request data requirements</h5>
+              <p>Specify rules that data must follow.</p>
             </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button data-save-rule type="button" class="btn btn-primary" disabled>Confirm</button>
-        </div>
-      </div><!-- /.modal-content -->
-    </div><!-- /.modal-dialog -->
-  </div><!-- /.modal -->
+            <div class="col-md-8 side vertical">
+              <div class="required-fields"></div>
+              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data requirement</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button data-save-rule type="button" class="btn btn-primary" disabled>Confirm</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
