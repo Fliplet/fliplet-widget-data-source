@@ -1978,6 +1978,28 @@ function updateSaveRuleValidation() {
   $('[data-exclude-description]').text(msg);
 }
 
+/**
+ * Render a list of columns from a security rule based on a property
+ * @param {Object} rule - Security rule object
+ * @param {String} prop - Security rule property for accessing the list of columns
+ * @returns {String} HTML code for the column list
+ **/
+ function columnListTemplate(rule = {}, prop) {
+  var columns = rule[prop];
+
+  if (!Array.isArray(columns) || !columns.length) {
+    return new Error(`Columns not found for ${prop}`);
+  }
+
+  if (columns.length === 1) {
+    return `<code>${columns[0]}</code> only`;
+  }
+
+  var lastColumn = columns.pop();
+
+  return `${columns.map(col => `<code>${col}</code>`).join(', ')} and <code>${lastColumn}</code>`;
+}
+
 $typeCheckbox.click(updateSaveRuleValidation);
 
 $allowBtnFilter.click(function (event) {
@@ -2132,45 +2154,13 @@ $('#show-access-rules').click(function () {
           }
         })(),
         include:( function () {
-          var result='';
-          var length = 0;
-          if(rule.include){
-            result = 'Include ';
-            length = rule.include.length;
-            rule.include.map(function (include,idx) {
-              if(length == 1) {
-              result = result + '<code>' + include + '</code>' + 'Only';
-              } else {
-                if(idx < length-2) {
-                  result = result + '<code>' + include + '</code>' + ' , ';
-                } else if (idx < length-1) {
-                  result = result + '<code>' + include + '</code>';
-                } else {
-                  result = result + ' and ' + '<code>' + include + '</code>';
-                }
-              }
-            })
-          } else if(rule.exclude) {
-            result = 'Exclude ';
-            length = rule.exclude.length;
-            rule.exclude.map(function (exclude,idx) {
-              if(length == 1) {
-              result = result + '<code>' + exclude + '</code>' + 'Only';
-              } else {
-                if(idx < length-2) {
-                  result = result + '<code>' + exclude + '</code>' + ' , ';
-                } else if (idx < length-1) {
-                  result = result + '<code>' + exclude + '</code>';
-                } else {
-                  result = result + ' and ' + '<code>' + exclude + '</code>';
-                }
-              }
-            })
+          if (rule.include) {
+            return `Include ${columnListTemplate(rule, 'include')}`;
+          } else if (rule.exclude) {
+            return `Exclude ${columnListTemplate(rule, 'exclude')}`;
           } else {
-            result = '-';
+            return '-';
           }
-
-          return result;
         })(),
         apps: rule.appId ?
           _.compact(rule.appId.map(function (appId) {
