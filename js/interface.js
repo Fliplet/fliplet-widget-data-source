@@ -321,9 +321,9 @@ function fetchCurrentDataSourceEntries(entries) {
       cacheOriginalEntries(rows);
     }, 0);
 
-    if ((!rows || !rows.length) && (!columns || !columns.length)) {
-      $('#show-versions').hide();
+    $('#show-versions').show();
 
+    if ((!rows || !rows.length) && (!columns || !columns.length)) {
       rows = [{
         data: {
           'Column 1': 'demo data',
@@ -337,8 +337,6 @@ function fetchCurrentDataSourceEntries(entries) {
       }];
       columns = ['Column 1', 'Column 2'];
     } else {
-      $('#show-versions').show();
-
       var flattenedColumns = {};
       rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
 
