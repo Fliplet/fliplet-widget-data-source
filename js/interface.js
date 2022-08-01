@@ -1930,7 +1930,7 @@ function updateSaveRuleValidation() {
  * @returns {String} HTML code for the column list
  **/
 function columnListTemplate(rule = {}, prop) {
-  var columns = _.cloneDeep(rule[prop]);
+  var columns = rule[prop];
 
   if (!Array.isArray(columns) || !columns.length) {
     return new Error(`Columns not found for ${prop}`);
@@ -1939,6 +1939,8 @@ function columnListTemplate(rule = {}, prop) {
   if (columns.length === 1) {
     return `<code>${columns[0]}</code> only`;
   }
+
+  columns = _.clone(columns);
 
   var lastColumn = columns.pop();
 
