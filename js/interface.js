@@ -339,7 +339,8 @@ function fetchCurrentDataSourceEntries(entries) {
       $('#show-versions').show();
 
       var flattenedColumns = {};
-      rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
+
+      rows.map(({ data }) => data).forEach(dataItem => (flattenedColumns = { ...flattenedColumns, ...dataItem }));
 
       var computedColumns = _.keys(flattenedColumns);
 
@@ -1763,6 +1764,7 @@ $('body').on('click', '[data-preconfigured]', function(event) {
 $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   var existingTokens = $(this).tokenfield('getTokens');
 
+  console.log('=========', existingTokens);
   $.each(existingTokens, function(index, token) {
     if (token.value === event.attrs.value) {
       event.preventDefault();
@@ -1770,11 +1772,11 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
-$('input[id="excludes"]').on('click', function (event) {
+$('input[id="excludes"]').on('click', function() {
   includeOrExclude = 'exclude';
 });
 
-$('input[id="includes"]').on('click', function (event) {
+$('input[id="includes"]').on('click', function() {
   includeOrExclude = 'include';
 });
 
@@ -1927,8 +1929,8 @@ function updateSaveRuleValidation() {
  * @param {String} prop - Security rule property for accessing the list of columns
  * @returns {String} HTML code for the column list
  **/
- function columnListTemplate(rule = {}, prop) {
-  var columns = rule[prop];
+function columnListTemplate(rule = {}, prop) {
+  var columns = _.cloneDeep(rule[prop]);
 
   if (!Array.isArray(columns) || !columns.length) {
     return new Error(`Columns not found for ${prop}`);
@@ -2096,17 +2098,17 @@ $('#show-access-rules').click(function() {
               return 'All users';
           }
         })(),
-        include:( function () {
+        include: ( function() {
           if (rule.include) {
             return `Include ${columnListTemplate(rule, 'include')}`;
           } else if (rule.exclude) {
             return `Exclude ${columnListTemplate(rule, 'exclude')}`;
-          } else {
-            return '-';
           }
+
+          return '-';
         })(),
         apps: rule.appId ?
-          _.compact(rule.appId.map(function (appId) {
+          _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, {
               id: appId
             });
@@ -2238,14 +2240,12 @@ $('[data-save-rule]').click(function(event) {
 
   var exclude = _.compact($('input[name="exclude"]').val().split(','));
 
-  if (includeOrExclude == 'exclude') {
+  if (includeOrExclude === 'exclude') {
     if (exclude.length) {
       rule.exclude = exclude;
     }
-  } else {
-    if (exclude.length) {
-      rule.include = exclude;
-    }
+  } else if (exclude.length) {
+    rule.include = exclude;
   }
 
   if (error) {
