@@ -1774,10 +1774,12 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
 
 $('input[id="excludes"]').on('click', function() {
   includeOrExclude = 'exclude';
+  updateSaveRuleValidation();
 });
 
 $('input[id="includes"]').on('click', function() {
   includeOrExclude = 'include';
+  updateSaveRuleValidation();
 });
 
 $('body').on('click', '[data-remove-field]', function(event) {
@@ -1912,12 +1914,20 @@ function updateSaveRuleValidation() {
 
   var msg;
 
-  if (hasType('select') && (hasType('insert') || hasType('update'))) {
-    msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
+  if (includeOrExclude === 'exclude') {
+    if (hasType('select') && (hasType('insert') || hasType('update'))) {
+      msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
+    } else if (hasType('insert') || hasType('update')) {
+      msg = 'Specify columns that should never be writable by users when this rule is matched.';
+    } else {
+      msg = 'Specify columns that should never be readable by users when this rule is matched.';
+    }
+  } else if (hasType('select') && (hasType('insert') || hasType('update'))) {
+    msg = 'Only the columns specified here are readable and writable by users when this rule is matched';
   } else if (hasType('insert') || hasType('update')) {
-    msg = 'Specify columns that should never be writable by users when this rule is matched.';
+    msg = 'Only the columns specified here are writable by users when this rule is matched';
   } else {
-    msg = 'Specify columns that should never be readable by users when this rule is matched.';
+    msg = 'Only the columns specified here are readable by users when this rule is matched';
   }
 
   $('[data-exclude-description]').text(msg);
