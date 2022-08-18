@@ -1,6 +1,10 @@
 <tr data-rule-index="{{index}}" class="{{#if enabled}}enabled{{else}}disabled{{/if}}">
   <td class="align-baseline">
-    <a href="#" data-toggle-status>
+    <span class="fa-stack handle-sort" style="">
+      <i class="fa fa-ellipsis-v fa-stack-1x"></i>
+      <i class="fa fa-ellipsis-v fa-stack-1x"></i>
+    </span>
+    <a href="#" class="toggle-status" data-toggle-status>
         <div class="toggle-switch toggle-switch-sm">
         {{#if enabled}}
           <input class="switch-input" type="checkbox" checked />

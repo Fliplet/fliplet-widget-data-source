@@ -787,3 +787,33 @@ td.data-source-apps {
 .handsontable .columnSorting.descending:after {
   content: "\f0dd";
 }
+
+.icon-sort {
+  font-size: 0.9em; /* Adjust this size to change the overall icon size */
+}
+
+.icon-sort .fa-arrows-v {
+  margin-left: -0.4em;
+}
+
+.icon-sort .fa-bars {
+  font-size: 0.8em;
+  margin-left: 0.25em;
+}
+
+.handle-sort {
+  margin-left: -3px;
+  font-size: 0.9em; /* Adjust this size to change the overall icon size */
+}
+
+.handle-sort .fa-ellipsis-v:nth-child(1) {
+  margin-left: -0.2em;
+}
+
+.handle-sort .fa-ellipsis-v:nth-child(2) {
+  margin-left: 0.2em;
+}
+
+.toggle-status {
+  display: inline-block;
+}
