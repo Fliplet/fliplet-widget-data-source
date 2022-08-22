@@ -788,19 +788,6 @@ td.data-source-apps {
   content: "\f0dd";
 }
 
-.icon-sort {
-  font-size: 0.9em; /* Adjust this size to change the overall icon size */
-}
-
-.icon-sort .fa-arrows-v {
-  margin-left: -0.4em;
-}
-
-.icon-sort .fa-bars {
-  font-size: 0.8em;
-  margin-left: 0.25em;
-}
-
 .handle-sort {
   margin-left: -3px;
   font-size: 0.9em; /* Adjust this size to change the overall icon size */
@@ -816,4 +803,8 @@ td.data-source-apps {
 
 .toggle-status {
   display: inline-block;
+}
+
+.status-header {
+  padding-left: 33px;
 }
