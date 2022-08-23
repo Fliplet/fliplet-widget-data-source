@@ -594,10 +594,14 @@ textarea.handsontableInput {
   transition: background-color 0.3s;
 }
 
-#access-rules-list tr.disabled {
+#access-rules-list tr.rule-disabled a[data-toggle-status] .switch-label,
+#access-rules-list tr.rule-disabled > td {
   opacity: 0.5;
 }
 
+#access-rules-list tr.rule-disabled .opacity-full {
+  opacity: 1;
+}
 #access-rules-list tr.added {
   background-color: #ffec84;
 }
@@ -791,6 +795,10 @@ td.data-source-apps {
 .handle-sort {
   margin-left: -3px;
   font-size: 0.9em; /* Adjust this size to change the overall icon size */
+}
+
+.handle-sort:hover {
+  background-color: #f5f5f5;
 }
 
 .handle-sort .fa-ellipsis-v:nth-child(1) {
