@@ -606,7 +606,7 @@ textarea.handsontableInput {
   background-color: #ffec84;
 }
 
-#access-rules-list tr.disabled a[data-toggle-status] {
+#access-rules-list tr.rule-disabled a[data-toggle-status] {
   color: #000;
 }
 

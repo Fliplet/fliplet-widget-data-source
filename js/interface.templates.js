@@ -3,7 +3,7 @@ this["Fliplet"]["Widget"] = this["Fliplet"]["Widget"] || {};
 this["Fliplet"]["Widget"]["Templates"] = this["Fliplet"]["Widget"]["Templates"] || {};
 
 this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
-    return "enabled";
+    return "rule-enabled";
 },"3":function(container,depth0,helpers,partials,data) {
     return "rule-disabled";
 },"5":function(container,depth0,helpers,partials,data) {
