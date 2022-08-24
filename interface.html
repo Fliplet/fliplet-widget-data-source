@@ -96,7 +96,7 @@
               <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab">Security rules</a>
+              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab" class="active">Security rules</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
@@ -258,7 +258,7 @@
                   <li class="dropdown-header">Pre-configured rules</li>
                 </ul>
               </div>
-
+              <a href="#" data-clear-filter id="specific-token-filter" class="btn btn-primary specific-token-btn hidden">Specific token: ID#<span id="tokenSelectedId"></span> - <span id="tokenSelectedName"></span>  <i class="fa fa-close close-icon"></i></a>
               <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
               <br />
               <br />
@@ -302,15 +302,18 @@
               <h5>Allow</h5>
               <p>Specify users affected by this rule.</p>
             </div>
-            <div class="col-md-8 side vertical">
-              <div>
+            <div class="col-md-8 side vertical token-align-item">
+              <div class="row">
                 <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
                 <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
                 <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+                <button data-allow="tokens" type="button" class="btn btn-default">Specific tokens</button>
               </div>
               <div class="users-filter hidden">
                 <div class="filters"></div>
                 <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+              </div>
+              <div class="row tokens-list hidden form-group">
               </div>
             </div>
           </div>

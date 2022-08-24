@@ -1,0 +1,11 @@
+<div class="api-token-label control-label">
+  <label for="apiToken">Select your API Token</label>
+</div>
+<div class="tokenfield api-token-field">
+  <select class="form-control">
+    <option disabled="disabled">Select API Token</option>
+    {{#each integrationTokenList}}
+    <option value="{{id}}">ID#{{id}} - {{fullName}}</option>
+    {{/each}}
+  </select>
+</div>
