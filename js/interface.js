@@ -2337,8 +2337,9 @@ $('[data-save-rule]').click(function(event) {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
     currentDataSourceRuleIndex = undefined;
   }
-
-  getFilteredSpecificTokenList();
+  if (rule.allow.tokens) {
+    getFilteredSpecificTokenList();
+  }
 
   if ($allow.data('allow') === 'tokens') {
     $('#show-access-rules').click();
@@ -2354,7 +2355,7 @@ $('body').on('click', '#save-rules', function(event) {
 
 $('body').on('click', '[data-rule-delete]', function(event) {
   event.preventDefault();
-
+  $('#specific-token-filter').addClass('hidden');
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
   currentDataSourceRules.splice(index, 1);
