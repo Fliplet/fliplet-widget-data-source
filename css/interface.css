@@ -602,6 +602,7 @@ textarea.handsontableInput {
 #access-rules-list tr.rule-disabled .opacity-full {
   opacity: 1;
 }
+
 #access-rules-list tr.added {
   background-color: #ffec84;
 }
