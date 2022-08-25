@@ -1756,7 +1756,6 @@ $('body').on('click', '[data-preconfigured]', function(event) {
 $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   var existingTokens = $(this).tokenfield('getTokens');
 
-  console.log('=========', existingTokens);
   $.each(existingTokens, function(index, token) {
     if (token.value === event.attrs.value) {
       event.preventDefault();
@@ -2104,7 +2103,7 @@ $('#show-access-rules').click(function() {
               return 'All users';
           }
         })(),
-        include: ( function() {
+        include: (function() {
           if (rule.include) {
             return `Include ${columnListTemplate(rule, 'include')}`;
           } else if (rule.exclude) {

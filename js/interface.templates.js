@@ -7,9 +7,9 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
 },"3":function(container,depth0,helpers,partials,data) {
     return "disabled";
 },"5":function(container,depth0,helpers,partials,data) {
-    return "          <input class=\"switch-input\" type=\"checkbox\" checked />\r\n          <label class=\"toggle\"></label>\r\n          <label class=\"switch-label\">Enabled</label>\r\n";
+    return "        <input class=\"switch-input\" type=\"checkbox\" checked />\r\n        <label class=\"toggle\"></label>\r\n        <label class=\"switch-label\">Enabled</label>\r\n";
 },"7":function(container,depth0,helpers,partials,data) {
-    return "          <input class=\"switch-input\" type=\"checkbox\" />\r\n          <label class=\"toggle\"></label>\r\n          <label class=\"switch-label\">Disabled</label>\r\n";
+    return "        <input class=\"switch-input\" type=\"checkbox\" />\r\n        <label class=\"toggle\"></label>\r\n        <label class=\"switch-label\">Disabled</label>\r\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
@@ -17,16 +17,16 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
     + alias4(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
     + "\" class=\""
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "")
-    + "\">\r\n  <td class=\"align-baseline\">\r\n    <a href=\"#\" data-toggle-status>\r\n        <div class=\"toggle-switch toggle-switch-sm\">\r\n"
+    + "\">\r\n  <td class=\"align-baseline\">\r\n    <a href=\"#\" data-toggle-status>\r\n      <div class=\"toggle-switch toggle-switch-sm\">\r\n"
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(7, data, 0),"data":data})) != null ? stack1 : "")
-    + "        </div>\r\n    </a>\r\n  </td>\r\n  <td class=\"align-baseline\">"
+    + "      </div>\r\n    </a>\r\n  </td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.allow || (depth0 != null ? depth0.allow : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"allow","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.type || (depth0 != null ? depth0.type : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"type","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.include  || (depth0 != null ? depth0.include : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"include","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + ((stack1 = ((helper = (helper = helpers.include || (depth0 != null ? depth0.include : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"include","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
     + "</td>\r\n  <td class=\"align-baseline\">\r\n    <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n    <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n  </td>\r\n</tr>";
