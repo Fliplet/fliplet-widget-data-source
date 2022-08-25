@@ -83,6 +83,9 @@ function getDataSources() {
 
   return Fliplet.DataSources.get({
     roles: 'publisher,editor',
+    appId: isShowingAll ? undefined : widgetData.appId,
+    includeInUse: !isShowingAll && !!widgetData.appId,
+    attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     type: null,
     excludeTypes: 'bookmarks,likes,comments,menu'
   }, {
@@ -91,7 +94,7 @@ function getDataSources() {
     .then(function(userDataSources) {
       allDataSources = userDataSources;
 
-      if (widgetData.context === 'app-overlay' || widgetData.appId) {
+      if ((widgetData.context === 'app-overlay' || widgetData.appId) && !isShowingAll) {
         // Changes UI text
         isShowingAll = false;
 
@@ -320,9 +323,9 @@ function fetchCurrentDataSourceEntries(entries) {
       cacheOriginalEntries(rows);
     }, 0);
 
-    if ((!rows || !rows.length) && (!columns || !columns.length)) {
-      $('#show-versions').hide();
+    $('#show-versions').show();
 
+    if ((!rows || !rows.length) && (!columns || !columns.length)) {
       rows = [{
         data: {
           'Column 1': 'demo data',
@@ -336,8 +339,6 @@ function fetchCurrentDataSourceEntries(entries) {
       }];
       columns = ['Column 1', 'Column 2'];
     } else {
-      $('#show-versions').show();
-
       var flattenedColumns = {};
 
       rows.map(({ data }) => data).forEach(dataItem => (flattenedColumns = { ...flattenedColumns, ...dataItem }));
@@ -651,14 +652,16 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
-  var payload = getCommitPayload(entries);
+  // var payload = getCommitPayload(entries);
 
   return currentDataSource.commit({
-    entries: payload.entries,
-    delete: payload.delete,
+    entries: entries,
+    // delete: payload.delete,
     columns: columns,
     returnEntries: false
   }).then(function(response) {
+    return;
+
     var clientIds = [];
     var ids = [];
 
@@ -1103,11 +1106,7 @@ $('#app')
       $('[data-show-trash-source]').click();
     } else {
       isShowingAll = true;
-
-      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      dataSourcesToSearch = orderedDataSources;
-      renderDataSources(orderedDataSources);
+      getDataSources();
     }
   })
   .on('click', '[data-app-source]', function() {
@@ -1120,14 +1119,7 @@ $('#app')
     if ($('[data-show-trash-source]').hasClass('active-source')) {
       $('[data-show-trash-source]').click();
     } else {
-      var orderedDataSources = sortDataSources('updatedAt', 'desc', dataSources);
-
-      if (!dataSources.length) {
-        $noResults.removeClass('hidden');
-      }
-
-      dataSourcesToSearch = orderedDataSources;
-      renderDataSources(orderedDataSources);
+      getDataSources();
     }
   })
   .on('click', '[data-back]', function(event) {
@@ -2368,3 +2360,10 @@ if (widgetData.context === 'overlay') {
 } else {
   getDataSources();
 }
+
+$('[data-cancel]').click(function(event) {
+  event.preventDefault();
+
+  $('[data-dismiss="modal"]').click();
+});
+
