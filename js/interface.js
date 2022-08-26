@@ -2138,6 +2138,23 @@ $('#show-access-rules').click(function() {
       }));
     });
 
+    $tbody.sortable({
+      tolerance: 'pointer',
+      cursor: '-webkit-grabbing; -moz-grabbing;',
+      axis: 'y',
+      forcePlaceholderSize: true,
+      revert: 150,
+      update: function() {
+        var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
+
+        currentDataSourceRules = _.map(result, function(r) {
+          return currentDataSourceRules[r];
+        });
+
+        markDataSourceRulesUIWithChanges();
+      }
+    });
+
     $accessRulesList.css('opacity', 1);
   });
 });
