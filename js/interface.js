@@ -603,7 +603,10 @@ function saveCurrentData() {
 
   table.onSave();
 
-  var entries = table.getData();
+  var entries = table.getData({
+    parseJSON: true,
+    removeEmptyRows: true
+  });
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source

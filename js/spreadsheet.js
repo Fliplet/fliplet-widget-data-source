@@ -836,8 +836,9 @@ function spreadsheet(options) {
 
           entry.order = order;
 
-          if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-            entry.data[header] = getColumnValue(entry.data[header]);
+          // Only parse the column value when required
+          if (options.parseJSON && objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
+            entry.data[header] = parseColumnValue(entry.data[header]);
           }
         });
 
@@ -867,7 +868,7 @@ function spreadsheet(options) {
     HistoryStack.getCurrent().setData(preparedData);
   }
 
-  function getColumnValue(str) {
+  function parseColumnValue(str) {
     try {
       var parsedResult = JSON.parse(str);
 
