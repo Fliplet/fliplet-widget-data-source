@@ -37,7 +37,7 @@ var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
-var includeOrExclude = 'include';
+var columnsListMode = 'include';
 var entryMap = {
   original: {},
   entries: {}
@@ -1764,12 +1764,12 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
 });
 
 $('input[id="excludes"]').on('click', function() {
-  includeOrExclude = 'exclude';
+  columnsListMode = 'exclude';
   updateSaveRuleValidation();
 });
 
 $('input[id="includes"]').on('click', function() {
-  includeOrExclude = 'include';
+  columnsListMode = 'include';
   updateSaveRuleValidation();
 });
 
@@ -1811,7 +1811,15 @@ function configureAddRuleUI(rule) {
     showAutocompleteOnFocus: true
   });
 
-  $('input[name="exclude"]').tokenfield('setTokens', rule.exclude ? rule.exclude : rule.include ? rule.include : []);
+  var tokenField = [];
+
+  if (rule.exclude) {
+    tokenField = rule.exclude;
+  } else {
+    tokenField = rule.include;
+  }
+
+  $('input[name="exclude"]').tokenfield('setTokens', tokenField);
 
   rule.type.forEach(function(type) {
     $('input[name="type"][value="' + type + '"]').prop('checked', true);
@@ -1905,7 +1913,7 @@ function updateSaveRuleValidation() {
 
   var msg;
 
-  if (includeOrExclude === 'exclude') {
+  if (columnsListMode === 'exclude') {
     if (hasType('select') && (hasType('insert') || hasType('update'))) {
       msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
     } else if (hasType('insert') || hasType('update')) {
@@ -1913,7 +1921,7 @@ function updateSaveRuleValidation() {
     } else {
       msg = 'Specify columns that should never be readable by users when this rule is matched.';
     }
-  } else if (includeOrExclude === 'include') {
+  } else if (columnsListMode === 'include') {
     if (hasType('select') && (hasType('insert') || hasType('update'))) {
       msg = 'Only the columns specified here are readable and writable by users when this rule is matched';
     } else if (hasType('insert') || hasType('update')) {
@@ -2262,7 +2270,7 @@ $('[data-save-rule]').click(function(event) {
 
   var exclude = _.compact($('input[name="exclude"]').val().split(','));
 
-  if (includeOrExclude === 'exclude') {
+  if (columnsListMode === 'exclude') {
     if (exclude.length) {
       rule.exclude = exclude;
     }
@@ -2325,10 +2333,10 @@ $('body').on('click', '[data-rule-edit]', function(event) {
   var $modal = $('#configure-rule');
 
   if (rule.exclude) {
-    includeOrExclude = 'exclude';
+    columnsListMode = 'exclude';
     $('#excludes')[0].checked = true;
   } else {
-    includeOrExclude = 'include';
+    columnsListMode = 'include';
     $('#includes')[0].checked = true;
   }
 
