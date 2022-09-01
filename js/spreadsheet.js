@@ -11,7 +11,6 @@ function spreadsheet(options) {
   var columns = options.columns || [];
   var dataLoaded = false;
   var dataHasChanges = false;
-  var objColumns = [];
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
 
@@ -23,17 +22,13 @@ function spreadsheet(options) {
    * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
    * @returns {Array} Data to be loaded into Handsontable
    */
-  function prepareData(rows, columns, isFirstRender) {
+  function prepareData(rows, columns) {
     var preparedData = rows.map(function(row) {
       var dataRow = columns.map(function(header) {
         var value = row.data[header];
 
         // Stringify values for rendering objects for the first rendering and when undoing changes to the table (Ctrl + Z in the table cell)
         if (typeof value === 'object' && value !== null) {
-          if (isFirstRender && objColumns.indexOf(header) === -1) {
-            objColumns.push(header);
-          }
-
           value = JSON.stringify(value);
         }
 
@@ -351,7 +346,7 @@ function spreadsheet(options) {
 
   // Don't bind data to data source object
   // Data as an array
-  spreadsheetData = prepareData(rows, columns, true);
+  spreadsheetData = prepareData(rows, columns);
 
   var hotSettings = {
     stretchH: 'all',
@@ -836,8 +831,9 @@ function spreadsheet(options) {
 
           entry.order = order;
 
-          if (objColumns.indexOf(header) !== -1 && typeof entry.data[header] === 'string') {
-            entry.data[header] = getColumnValue(entry.data[header]);
+          // Only parse the column value when required
+          if (options.parseJSON && typeof entry.data[header] === 'string') {
+            entry.data[header] = parseColumnValue(entry.data[header]);
           }
         });
 
@@ -867,7 +863,7 @@ function spreadsheet(options) {
     HistoryStack.getCurrent().setData(preparedData);
   }
 
-  function getColumnValue(str) {
+  function parseColumnValue(str) {
     try {
       var parsedResult = JSON.parse(str);
 

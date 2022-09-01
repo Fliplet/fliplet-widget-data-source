@@ -612,7 +612,10 @@ function saveCurrentData() {
 
   table.onSave();
 
-  var entries = table.getData();
+  var entries = table.getData({
+    parseJSON: true,
+    removeEmptyRows: true
+  });
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -2171,6 +2174,23 @@ $('#show-access-rules').click(function() {
           }).join('<br />')
           : '—'
       }));
+    });
+
+    $tbody.sortable({
+      tolerance: 'pointer',
+      cursor: '-webkit-grabbing; -moz-grabbing;',
+      axis: 'y',
+      forcePlaceholderSize: true,
+      revert: 150,
+      update: function() {
+        var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
+
+        currentDataSourceRules = _.map(result, function(r) {
+          return currentDataSourceRules[r];
+        });
+
+        markDataSourceRulesUIWithChanges();
+      }
     });
 
     $accessRulesList.css('opacity', 1);
