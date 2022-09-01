@@ -1811,12 +1811,14 @@ function configureAddRuleUI(rule) {
     showAutocompleteOnFocus: true
   });
 
-  var tokenField = [];
+  var tokenField;
 
   if (rule.exclude) {
     tokenField = rule.exclude;
-  } else {
+  } else if (rule.include) {
     tokenField = rule.include;
+  } else {
+    tokenField = [];
   }
 
   $('input[name="exclude"]').tokenfield('setTokens', tokenField);
