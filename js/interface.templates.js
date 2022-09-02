@@ -19,14 +19,14 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "")
     + "\">\r\n  <td class=\"align-baseline opacity-full\">\r\n    <span class=\"fa-stack handle-sort\">\r\n      <i class=\"fa fa-ellipsis-v fa-stack-1x\"></i>\r\n      <i class=\"fa fa-ellipsis-v fa-stack-1x\"></i>\r\n    </span>\r\n    <a href=\"#\" class=\"toggle-status\" data-toggle-status>\r\n        <div class=\"toggle-switch toggle-switch-sm\">\r\n"
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(7, data, 0),"data":data})) != null ? stack1 : "")
-    + "        </div>\r\n    </a>\r\n  </td>\r\n  <td class=\"align-baseline\">"
+    + "      </div>\r\n    </a>\r\n  </td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.allow || (depth0 != null ? depth0.allow : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"allow","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.type || (depth0 != null ? depth0.type : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"type","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.exclude || (depth0 != null ? depth0.exclude : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"exclude","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + ((stack1 = ((helper = (helper = helpers.include || (depth0 != null ? depth0.include : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"include","hash":{},"data":data}) : helper))) != null ? stack1 : "")
     + "</td>\r\n  <td class=\"align-baseline\">"
     + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
     + "</td>\r\n  <td class=\"align-baseline opacity-full\">\r\n    <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\r\n    <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\r\n  </td>\r\n</tr>";
