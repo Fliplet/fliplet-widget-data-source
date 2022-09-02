@@ -1760,7 +1760,7 @@ function getFilteredSpecificTokenList() {
       if (widgetData.tokenId) {
         return Number(allowTokenId) === widgetData.tokenId;
       }
-      return Number(allowTokenId) === Number(selectedTokenId);
+      return Number(allowTokenId) === selectedTokenId;
     });
   }));
   currentDataSourceRules = rules[0];
@@ -2204,7 +2204,7 @@ function getSecurityRule() {
         if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
           flag = true;
         }
-      } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === Number(selectedTokenId)) {
+      } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
         flag = true;
       }
     });
