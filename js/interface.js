@@ -2331,11 +2331,11 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   if (rule.exclude) {
     columnsListMode = 'exclude';
-    $('#exclude')[0].checked = true;
   } else {
     columnsListMode = 'include';
-    $('#include')[0].checked = true;
   }
+
+  $('#' + columnsListMode).prop('checked', true);
 
   $modal.find('.modal-title').text('Edit security rule');
   $modal.find('[data-save-rule]').text('Confirm');
