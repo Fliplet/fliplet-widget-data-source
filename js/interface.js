@@ -1763,13 +1763,8 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
-$('input[id="excludes"]').on('click', function() {
-  columnsListMode = 'exclude';
-  updateSaveRuleValidation();
-});
-
-$('input[id="includes"]').on('click', function() {
-  columnsListMode = 'include';
+$('input[name="columns-list-mode"]').on('click', function() {
+  columnsListMode = $(this).val();
   updateSaveRuleValidation();
 });
 
@@ -2336,10 +2331,10 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   if (rule.exclude) {
     columnsListMode = 'exclude';
-    $('#excludes')[0].checked = true;
+    $('#exclude')[0].checked = true;
   } else {
     columnsListMode = 'include';
-    $('#includes')[0].checked = true;
+    $('#include')[0].checked = true;
   }
 
   $modal.find('.modal-title').text('Edit security rule');
