@@ -2092,6 +2092,12 @@ $('#show-access-rules').click(function() {
       axis: 'y',
       forcePlaceholderSize: true,
       revert: 150,
+      helper: function(e, ui) {
+        ui.children().each(function() {
+          $(this).width($(this).width());
+        });
+        return ui;
+      },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
 
