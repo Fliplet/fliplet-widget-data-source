@@ -2091,6 +2091,7 @@ $('#show-access-rules').click(function() {
       cursor: '-webkit-grabbing; -moz-grabbing;',
       axis: 'y',
       forcePlaceholderSize: true,
+      forceHelperSize: true,
       revert: 150,
       helper: function(e, ui) {
         ui.children().each(function() {
