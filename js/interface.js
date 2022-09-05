@@ -1992,8 +1992,8 @@ $allowBtnFilter.click(function(event) {
   $specificTokens.toggleClass('hidden', value !== 'tokens');
 
   if (value === 'tokens') {
-    var tplApi = Fliplet.Widget.Templates['templates.apiTokenList'];
-    $('.tokens-list').html(tplApi({
+    var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+    $('.tokens-list').html(tpl({
       integrationTokenList: integrationTokenList
     }));
     $(".tokens-list option[value='" + widgetData.tokenId + "']").attr('selected', 'selected');
