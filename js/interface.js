@@ -1137,7 +1137,7 @@ $('#app')
         if (!result) {
           return;
         }
-
+        $('#save-rules').addClass('hidden');
         try {
           table.destroy();
         } catch (e) {
@@ -1149,6 +1149,7 @@ $('#app')
         getDataSources();
       });
     } else {
+      $('#save-rules').addClass('hidden');
       try {
         table.destroy();
       } catch (e) {
