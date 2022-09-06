@@ -2151,7 +2151,15 @@ $('#show-access-rules').click(function() {
       cursor: '-webkit-grabbing; -moz-grabbing;',
       axis: 'y',
       forcePlaceholderSize: true,
+      forceHelperSize: true,
       revert: 150,
+      helper: function(event, row) {
+        row.children().each(function() {
+          $(this).width($(this).width());
+        });
+
+        return row;
+      },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
 
