@@ -2157,6 +2157,7 @@ $('#show-access-rules').click(function() {
         row.children().each(function() {
           $(this).width($(this).width());
         });
+
         return row;
       },
       update: function() {
