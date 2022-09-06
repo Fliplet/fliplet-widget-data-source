@@ -2153,11 +2153,11 @@ $('#show-access-rules').click(function() {
       forcePlaceholderSize: true,
       forceHelperSize: true,
       revert: 150,
-      helper: function(e, ui) {
-        ui.children().each(function() {
+      helper: function(event, row) {
+        row.children().each(function() {
           $(this).width($(this).width());
         });
-        return ui;
+        return row;
       },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
