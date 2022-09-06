@@ -1137,7 +1137,9 @@ $('#app')
         if (!result) {
           return;
         }
+
         $('#save-rules').addClass('hidden');
+
         try {
           table.destroy();
         } catch (e) {
@@ -1150,6 +1152,7 @@ $('#app')
       });
     } else {
       $('#save-rules').addClass('hidden');
+
       try {
         table.destroy();
       } catch (e) {
