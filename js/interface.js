@@ -37,6 +37,7 @@ var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
+var columnsListMode = 'include';
 var entryMap = {
   original: {},
   entries: {}
@@ -348,7 +349,8 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = ['Column 1', 'Column 2'];
     } else {
       var flattenedColumns = {};
-      rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
+
+      rows.map(({ data }) => data).forEach(dataItem => (flattenedColumns = { ...flattenedColumns, ...dataItem }));
 
       var computedColumns = _.keys(flattenedColumns);
 
@@ -1145,6 +1147,8 @@ $('#app')
           return;
         }
 
+        $('#save-rules').addClass('hidden');
+
         try {
           table.destroy();
         } catch (e) {
@@ -1156,6 +1160,8 @@ $('#app')
         getDataSources();
       });
     } else {
+      $('#save-rules').addClass('hidden');
+
       try {
         table.destroy();
       } catch (e) {
@@ -1832,6 +1838,11 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
+$('input[name="columns-list-mode"]').on('click', function() {
+  columnsListMode = $(this).val();
+  updateSaveRuleValidation();
+});
+
 $('body').on('click', '[data-remove-field]', function(event) {
   event.preventDefault();
   $(this).closest('.required-field').remove();
@@ -1870,7 +1881,17 @@ function configureAddRuleUI(rule) {
     showAutocompleteOnFocus: true
   });
 
-  $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
+  var tokenField;
+
+  if (rule.exclude) {
+    tokenField = rule.exclude;
+  } else if (rule.include) {
+    tokenField = rule.include;
+  } else {
+    tokenField = [];
+  }
+
+  $('input[name="exclude"]').tokenfield('setTokens', tokenField);
 
   rule.type.forEach(function(type) {
     $('input[name="type"][value="' + type + '"]').prop('checked', true);
@@ -1966,15 +1987,49 @@ function updateSaveRuleValidation() {
 
   var msg;
 
-  if (hasType('select') && (hasType('insert') || hasType('update'))) {
-    msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
-  } else if (hasType('insert') || hasType('update')) {
-    msg = 'Specify columns that should never be writable by users when this rule is matched.';
-  } else {
-    msg = 'Specify columns that should never be readable by users when this rule is matched.';
+  if (columnsListMode === 'exclude') {
+    if (hasType('select') && (hasType('insert') || hasType('update'))) {
+      msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
+    } else if (hasType('insert') || hasType('update')) {
+      msg = 'Specify columns that should never be writable by users when this rule is matched.';
+    } else {
+      msg = 'Specify columns that should never be readable by users when this rule is matched.';
+    }
+  } else if (columnsListMode === 'include') {
+    if (hasType('select') && (hasType('insert') || hasType('update'))) {
+      msg = 'Only the columns specified here are readable and writable by users when this rule is matched';
+    } else if (hasType('insert') || hasType('update')) {
+      msg = 'Only the columns specified here are writable by users when this rule is matched';
+    } else {
+      msg = 'Only the columns specified here are readable by users when this rule is matched';
+    }
   }
 
   $('[data-exclude-description]').text(msg);
+}
+
+/**
+ * Render a list of columns from a security rule based on a property
+ * @param {Object} rule - Security rule object
+ * @param {String} prop - Security rule property for accessing the list of columns
+ * @returns {String} HTML code for the column list
+ **/
+function columnListTemplate(rule = {}, prop) {
+  var columns = rule[prop];
+
+  if (!Array.isArray(columns) || !columns.length) {
+    return new Error(`Columns not found for ${prop}`);
+  }
+
+  if (columns.length === 1) {
+    return `<code>${columns[0]}</code> only`;
+  }
+
+  columns = _.clone(columns);
+
+  var lastColumn = columns.pop();
+
+  return `${columns.map(col => `<code>${col}</code>`).join(', ')} and <code>${lastColumn}</code>`;
 }
 
 $typeCheckbox.click(updateSaveRuleValidation);
@@ -2147,14 +2202,20 @@ $('#show-access-rules').click(function() {
               return 'All users';
           }
         })(),
-        exclude: rule.exclude
-          ? rule.exclude.map(function(exclude) {
-            return '<code>' + exclude + '</code>';
-          }).join('<br />')
-          : '—',
-        apps: rule.appId
-          ? _.compact(rule.appId.map(function(appId) {
-            var app = _.find(apps, { id: appId });
+        include: (function() {
+          if (rule.include) {
+            return `Include ${columnListTemplate(rule, 'include')}`;
+          } else if (rule.exclude) {
+            return `Exclude ${columnListTemplate(rule, 'exclude')}`;
+          }
+
+          return '-';
+        })(),
+        apps: rule.appId ?
+          _.compact(rule.appId.map(function(appId) {
+            var app = _.find(apps, {
+              id: appId
+            });
 
             return app && app.name;
           })).join(', ')
@@ -2181,7 +2242,15 @@ $('#show-access-rules').click(function() {
       cursor: '-webkit-grabbing; -moz-grabbing;',
       axis: 'y',
       forcePlaceholderSize: true,
+      forceHelperSize: true,
       revert: 150,
+      helper: function(event, row) {
+        row.children().each(function() {
+          $(this).width($(this).width());
+        });
+
+        return row;
+      },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
 
@@ -2341,8 +2410,12 @@ $('[data-save-rule]').click(function(event) {
 
   var exclude = _.compact($('input[name="exclude"]').val().split(','));
 
-  if (exclude.length) {
-    rule.exclude = exclude;
+  if (columnsListMode === 'exclude') {
+    if (exclude.length) {
+      rule.exclude = exclude;
+    }
+  } else if (exclude.length) {
+    rule.include = exclude;
   }
 
   if (error) {
@@ -2405,6 +2478,14 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   var rule = currentDataSourceRules[currentDataSourceRuleIndex];
   var $modal = $('#configure-rule');
+
+  if (rule.exclude) {
+    columnsListMode = 'exclude';
+  } else {
+    columnsListMode = 'include';
+  }
+
+  $('#' + columnsListMode).prop('checked', true);
 
   $modal.find('.modal-title').text('Edit security rule');
   $modal.find('[data-save-rule]').text('Confirm');

@@ -273,7 +273,7 @@
                     <th>Allow</th>
                     <th>Users can</th>
                     <th>Request data requirements</th>
-                    <th>Columns excluded</th>
+                    <th>Columns</th>
                     <th>Applies to</th>
                     <th>Actions</th>
                   </thead>
@@ -367,12 +367,35 @@
           <hr />
           <div class="row">
             <div class="col-md-4">
-              <h5>Columns to exclude</h5>
+              <h5>Include or exclude columns</h5>
               <p data-exclude-description></p>
             </div>
             <div class="col-md-8 side">
               <div class="tokenfield-ui">
-                <input type="text" class="form-control" name="exclude" value="" placeholder="Type the column name and press return">
+                <div class="row">
+                  <div class="col-md-3">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="exclude" name="columns-list-mode" value="exclude">
+                      <label for="exclude">
+                        <span class="check"><i class="fa fa-circle"></i></span> Exclude
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="include" name="columns-list-mode" value="include" checked>
+                      <label for="include">
+                        <span class="check"><i class="fa fa-circle"></i></span>Include
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-12">
+                    <input type="text" class="form-control" name="exclude" value=""
+                      placeholder="Type the column name and press return">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
