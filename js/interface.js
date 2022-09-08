@@ -2154,11 +2154,20 @@ $('#show-access-rules').click(function() {
       forceHelperSize: true,
       revert: 150,
       helper: function(event, row) {
+        // Below code will set width to each td of dragged row which will in total to table width
         row.children().each(function() {
           $(this).width($(this).width());
         });
 
         return row;
+      },
+      start: function(event, tbodySortObject) {
+        var $originalTbodyObject = tbodySortObject.helper.children();
+
+        // Below code will set width of each td of row before dragging so that table width will not reduce / increase
+        tbodySortObject.placeholder.children().each(function(index) {
+          $(this).width($originalTbodyObject.eq(index).width());
+        });
       },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
