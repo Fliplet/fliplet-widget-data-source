@@ -19,6 +19,6 @@
   "devDependencies": {
     "babel-eslint": "^10.1.0",
     "eslint": "^7.10.0",
-    "eslint-config-fliplet": "^0.8.0"
+    "eslint-config-fliplet": "^1.0.8"
   }
 }
