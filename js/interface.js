@@ -2158,7 +2158,7 @@ $('#show-access-rules').click(function() {
       forceHelperSize: true,
       revert: 150,
       helper: function(event, row) {
-        // Below code will set width to each td of dragged row which will in total to table width
+        // Set width to each td of dragged row
         row.children().each(function() {
           $(this).width($(this).width());
         });
@@ -2168,7 +2168,7 @@ $('#show-access-rules').click(function() {
       start: function(event, tbodySortObject) {
         var $originalTbodyObject = tbodySortObject.helper.children();
 
-        // Below code will set width of each td of row before dragging so that table width will not reduce / increase
+        // Set width of each td of row before dragging so the table width remains the same
         tbodySortObject.placeholder.children().each(function(index) {
           $(this).width($originalTbodyObject.eq(index).width());
         });
