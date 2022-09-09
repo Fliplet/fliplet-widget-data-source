@@ -1735,12 +1735,14 @@ function findSecurityRule() {
       return rule;
     }
   });
+
   return rule;
 }
 
 function getSelectedTokenDetails() {
   var tokenSelectedName;
   var tokenSelectedId;
+
   var tokenDetails = _.find(integrationTokenList, function(itl) {
     if (widgetData.tokenId) {
       if (itl.id === widgetData.tokenId) {
@@ -1750,8 +1752,10 @@ function getSelectedTokenDetails() {
       return itl;
     }
   });
+
   tokenSelectedName = tokenDetails.fullName;
   tokenSelectedId = tokenDetails.id;
+
   setSelectedTokenDetails(tokenSelectedId, tokenSelectedName);
 }
 
@@ -1759,25 +1763,33 @@ function setSelectedTokenDetails(id, name) {
   $('#tokenSelectedId').text(id);
   $('#tokenSelectedName').text(name);
 }
+
 function getFilteredSpecificTokenList() {
   var rules = [];
+
   rules.push( _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
       if (widgetData.tokenId) {
         return Number(allowTokenId) === widgetData.tokenId;
       }
+
       return Number(allowTokenId) === selectedTokenId;
     });
   }));
+
   currentDataSourceRules = rules[0];
+
   if (currentDataSourceRules.length === 0) {
     addSecurityRule();
   }
+
   $('#specific-token-filter').removeClass('hidden');
   $('#save-rules').addClass('hidden');
 }
+
 function addSecurityRule() {
   var rule = findSecurityRule();
+
   if (!rule || rule.length === 0) {
     $('#add-rule').click();
     rule = {type: [], allow: {tokens: [widgetData.tokenId]}, enabled: true};
@@ -2040,6 +2052,7 @@ $allowBtnFilter.click(function(event) {
   var $usersFilter = $('.users-filter');
   var $specificTokens = $('.tokens-list');
   var value = $(this).data('allow');
+
   $allowBtnFilter.removeClass('selected');
   $(this).addClass('selected');
 
@@ -2048,6 +2061,7 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+
     $('.tokens-list').html(tpl({
       integrationTokenList: integrationTokenList
     }));
@@ -2186,13 +2200,13 @@ $('#show-access-rules').click(function() {
             } else if (rule.allow.user) {
               return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
                 var operation = rule.allow.user[key];
-
                 var operationType = Object.keys(operation)[0];
                 var operator = operatorDescription(operationType);
 
                 return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
               }).join('<br />');
             }
+
             return;
           }
           switch (rule.allow) {
@@ -2274,8 +2288,10 @@ $('#show-access-rules').click(function() {
     $accessRulesList.css('opacity', 1);
   });
 });
+
 function getSecurityRule() {
   var flag = false;
+
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(rule => {
       if (widgetData.tokenId) {
@@ -2287,13 +2303,18 @@ function getSecurityRule() {
       }
     });
   }
+
   return flag;
 }
+
 $('[data-clear-filter]').click(function(event) {
   event.preventDefault();
+
   $('#specific-token-filter').removeClass('hidden');
   $('#save-rules').addClass('hidden');
+
   var rule = getSecurityRule();
+
   if (!rule && currentDataSourceRules.length > 0) {
     currentFinalRules.push(currentDataSourceRules[0]);
   }
@@ -2319,7 +2340,9 @@ $('[data-save-rule]').click(function(event) {
   var $allow = $('.selected[data-allow]');
 
   var error;
+
   $('#specific-token-filter').addClass('hidden');
+
   if ($allow.data('allow') === 'filter') {
     var user = {};
 
@@ -2348,9 +2371,11 @@ $('[data-save-rule]').click(function(event) {
     var tokenFullName = _.find(integrationTokenList, function(token) {
       return token.id === selectedTokenId;
     });
+
     if (tokenFullName) {
       selectedTokenName = tokenFullName.fullName;
     }
+
     setSelectedTokenDetails(selectedTokenId, selectedTokenName);
     rule.allow = {'tokens': [selectedTokenId]};
     $('#specific-token-filter').removeClass('hidden');
@@ -2439,6 +2464,7 @@ $('[data-save-rule]').click(function(event) {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
     currentDataSourceRuleIndex = undefined;
   }
+
   if (rule.allow.tokens) {
     getFilteredSpecificTokenList();
   }
@@ -2457,7 +2483,9 @@ $('body').on('click', '#save-rules', function(event) {
 
 $('body').on('click', '[data-rule-delete]', function(event) {
   event.preventDefault();
+
   $('#specific-token-filter').addClass('hidden');
+
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
   currentDataSourceRules.splice(index, 1);
