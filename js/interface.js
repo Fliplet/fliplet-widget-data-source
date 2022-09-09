@@ -2158,11 +2158,20 @@ $('#show-access-rules').click(function() {
       forceHelperSize: true,
       revert: 150,
       helper: function(event, row) {
+        // Set width to each td of dragged row
         row.children().each(function() {
           $(this).width($(this).width());
         });
 
         return row;
+      },
+      start: function(event, tbodySortObject) {
+        var $originalTbodyObject = tbodySortObject.helper.children();
+
+        // Set width of each td of row before dragging so the table width remains the same
+        tbodySortObject.placeholder.children().each(function(index) {
+          $(this).width($originalTbodyObject.eq(index).width());
+        });
       },
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
