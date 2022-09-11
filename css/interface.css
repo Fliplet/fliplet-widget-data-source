@@ -122,6 +122,14 @@ body {
   vertical-align: middle;
 }
 
+.ht_clone_top .wtHolder {
+  overflow-x: hidden !important;
+}
+
+.ht_clone_left .wtHolder {
+  overflow-y: hidden !important;
+}
+
 .controls-wrapper {
   width: calc(100% - 491px);
   display: flex;
