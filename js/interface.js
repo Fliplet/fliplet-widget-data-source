@@ -2529,6 +2529,7 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   configureAddRuleUI(rule);
   showModal($modal);
+
   if (rule.allow.tokens && rule.allow.tokens.length !== 0) {
     $(".tokens-list option[value='" + rule.allow.tokens[0] + "']").attr('selected', 'selected');
   }
@@ -2552,6 +2553,7 @@ function updateDataSourceRules() {
     accessRules: currentDataSourceRules
   }).then(function() {
     $('#save-rules').addClass('hidden');
+
     Fliplet.Modal.alert({
       message: 'Your changes have been applied to all affected apps.'
     });
