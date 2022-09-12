@@ -60,6 +60,7 @@ var getApps = Fliplet.Apps.get().then(function(apps) {
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var widgetData = Fliplet.Widget.getData(widgetId) || {};
+
 var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
   lineNumbers: true,
   mode: 'javascript'
