@@ -60,7 +60,6 @@ var getApps = Fliplet.Apps.get().then(function(apps) {
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var widgetData = Fliplet.Widget.getData(widgetId) || {};
-const appId = widgetData.appId;
 var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
   lineNumbers: true,
   mode: 'javascript'
@@ -73,7 +72,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-Fliplet.App.Tokens.get({appId, query: {type: 'integrationToken'}}).then(function(tokens) {
+Fliplet.App.Tokens.get({appId: widgetData.appId, query: {type: 'integrationToken'}}).then(function(tokens) {
   integrationTokenList  = tokens;
 });
 
