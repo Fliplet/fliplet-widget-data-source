@@ -73,7 +73,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-Fliplet.App.Tokens.get({appId: widgetData.appId, query: {type: 'integrationToken'}}).then(function(tokens) {
+Fliplet.App.Tokens.get({ appId: widgetData.appId, query: { type: 'integrationToken', order:'createdAt', direction:'DESC' } }).then(function(tokens) {
   integrationTokenList  = tokens;
 });
 
@@ -1743,13 +1743,13 @@ function getSelectedTokenDetails() {
   var tokenSelectedName;
   var tokenSelectedId;
 
-  var tokenDetails = _.find(integrationTokenList, function(itl) {
+  var tokenDetails = _.find(integrationTokenList, function(integrationToken) {
     if (widgetData.tokenId) {
-      if (itl.id === widgetData.tokenId) {
-        return itl;
+      if (integrationToken.id === widgetData.tokenId) {
+        return integrationToken;
       }
-    } else if (itl.id === selectedTokenId) {
-      return itl;
+    } else if (integrationToken.id === selectedTokenId) {
+      return integrationToken;
     }
   });
 
@@ -1765,9 +1765,7 @@ function setSelectedTokenDetails(id, name) {
 }
 
 function getFilteredSpecificTokenList() {
-  var rules = [];
-
-  rules.push( _.filter(currentDataSourceRules, function(currentRules) {
+  var rules = _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
       if (widgetData.tokenId) {
         return Number(allowTokenId) === widgetData.tokenId;
@@ -1775,9 +1773,9 @@ function getFilteredSpecificTokenList() {
 
       return Number(allowTokenId) === selectedTokenId;
     });
-  }));
+  });
 
-  currentDataSourceRules = rules[0];
+  currentDataSourceRules = rules;
 
   if (currentDataSourceRules.length === 0) {
     addSecurityRule();
@@ -2188,14 +2186,14 @@ $('#show-access-rules').click(function() {
         allow: (function() {
           if (typeof rule.allow === 'object') {
             if (rule.allow.tokens) {
-              const filteredTokens = _.filter(integrationTokenList, function(tl) {
+              const filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
-                  return tl.id === Number(token);
+                  return integrationToken.id === Number(token);
                 });
               });
 
-              return 'Specific token: ID#' + _.map(filteredTokens, function(ft) {
-                return ft.id + ' - ' + ft.fullName;
+              return 'Specific token: ID#' + _.map(filteredTokens, function(token) {
+                return token.id + ' - ' + token.fullName;
               }).join('<br />');
             } else if (rule.allow.user) {
               return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
@@ -2289,22 +2287,26 @@ $('#show-access-rules').click(function() {
   });
 });
 
+/**
+ * Check if security rule is present in main security rule list
+ * @returns {Boolean} security rule presence
+ */
 function getSecurityRule() {
-  var flag = false;
+  var isSecurityRule = false;
 
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(rule => {
       if (widgetData.tokenId) {
         if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
-          flag = true;
+          isSecurityRule = true;
         }
       } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
-        flag = true;
+        isSecurityRule = true;
       }
     });
   }
 
-  return flag;
+  return isSecurityRule;
 }
 
 $('[data-clear-filter]').click(function(event) {
