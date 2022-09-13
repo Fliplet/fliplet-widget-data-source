@@ -1790,7 +1790,7 @@ function addSecurityRule() {
 
   if (!rule || rule.length === 0) {
     $('#add-rule').click();
-    rule = {type: [], allow: {tokens: [widgetData.tokenId]}, enabled: true};
+    rule = { type: [], allow: { tokens: [widgetData.tokenId] }, enabled: true };
     configureAddRuleUI(rule);
   } else {
     getSelectedTokenDetails();
