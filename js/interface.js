@@ -2207,8 +2207,8 @@ $('[data-save-rule]').click(function(event) {
     var user = {};
 
     $('.users-filter .required-field').each(function() {
-      var column = $(this).find('[name="column"]').val();
-      var value = $(this).find('[name="value"]').val();
+      var column = $.trim($(this).find('[name="column"]').val());
+      var value = $.trim($(this).find('[name="value"]').val());
       var operationType = $(this).find('select').val();
 
       if (column && value) {
@@ -2247,8 +2247,8 @@ $('[data-save-rule]').click(function(event) {
   var requiredFields = [];
 
   $('.required-fields .required-field').each(function() {
-    var column = $(this).find('[name="field"]').val();
-    var value = $(this).find('[name="value"]').val();
+    var column = $.trim($(this).find('[name="field"]').val());
+    var value = $.trim($(this).find('[name="value"]').val());
     var operationType = $(this).find('select').val();
 
     if (!column) {
