@@ -73,7 +73,7 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-Fliplet.App.Tokens.get({ appId: widgetData.appId, query: { type: 'integrationToken', order:'createdAt', direction:'DESC' } }).then(function(tokens) {
+Fliplet.App.Tokens.get({ appId: widgetData.appId, query: { type: 'integrationToken', order: 'createdAt', direction: 'DESC' } }).then(function(tokens) {
   integrationTokenList  = tokens;
 });
 
@@ -2288,25 +2288,25 @@ $('#show-access-rules').click(function() {
 });
 
 /**
- * Check if security rule is present in main security rule list
- * @returns {Boolean} security rule presence
+ * Check whether security rule is found or not in current rules
+ * @returns {Boolean} Returns true if security rule found
  */
 function getSecurityRule() {
-  var isSecurityRule = false;
+  var hasSecurityRule = false;
 
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(rule => {
       if (widgetData.tokenId) {
         if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
-          isSecurityRule = true;
+          hasSecurityRule = true;
         }
       } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
-        isSecurityRule = true;
+        hasSecurityRule = true;
       }
     });
   }
 
-  return isSecurityRule;
+  return hasSecurityRule;
 }
 
 $('[data-clear-filter]').click(function(event) {
