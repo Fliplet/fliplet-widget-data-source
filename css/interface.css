@@ -825,3 +825,7 @@ td.data-source-apps {
 .status-header {
   padding-left: 33px;
 }
+
+.data-source-name {
+  word-break: break-all;
+}
