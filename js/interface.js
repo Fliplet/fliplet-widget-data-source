@@ -73,8 +73,15 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-Fliplet.App.Tokens.get({ appId: widgetData.appId, query: { type: 'integrationToken', order: 'createdAt', direction: 'DESC' } }).then(function(tokens) {
-  integrationTokenList  = tokens;
+Fliplet.App.Tokens.get({
+  appId: widgetData.appId,
+  query: {
+    type: 'integrationToken',
+    order: 'createdAt',
+    direction: 'DESC'
+  }
+}).then(function(tokens) {
+  integrationTokenList = tokens;
 });
 
 // Fetch all data sources
@@ -747,6 +754,10 @@ function browseDataSource(id) {
     fetchCurrentDataSourceDetails()
   ]).then(function() {
     windowResized();
+
+    if (widgetData.view === 'access-rules') {
+      $('#show-access-rules').click();
+    }
 
     if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
@@ -1731,8 +1742,10 @@ $('#show-versions').click(function() {
 
 function findSecurityRule() {
   var rule = currentDataSourceRules.map(rule => {
-    if (rule.allow.hasOwnProperty('tokens') && rule.allow.tokens.indexOf(widgetData.tokenId) !== -1) {
-      return rule;
+    var tokens = _.get(rule, 'allow.tokens');
+
+    if (!tokens || tokens.indexOf(widgetData.tokenId) === -1) {
+      return;
     }
   });
 
@@ -2063,7 +2076,7 @@ $allowBtnFilter.click(function(event) {
     $('.tokens-list').html(tpl({
       integrationTokenList: integrationTokenList
     }));
-    $(".tokens-list option[value='" + widgetData.tokenId + "']").attr('selected', 'selected');
+    $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
   }
 
   // Add first filter automatically
@@ -2379,7 +2392,7 @@ $('[data-save-rule]').click(function(event) {
     }
 
     setSelectedTokenDetails(selectedTokenId, selectedTokenName);
-    rule.allow = {'tokens': [selectedTokenId]};
+    rule.allow = { 'tokens': [selectedTokenId] };
     $('#specific-token-filter').removeClass('hidden');
   }  else {
     rule.allow = $allow.data('allow');
