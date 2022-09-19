@@ -2383,6 +2383,7 @@ $('[data-save-rule]').click(function(event) {
     rule.allow = { user: user };
   } else if ($allow.data('allow') === 'tokens') {
     selectedTokenId  = Number($('.tokens-list :selected').val());
+
     var tokenFullName = _.find(integrationTokenList, function(token) {
       return token.id === selectedTokenId;
     });
