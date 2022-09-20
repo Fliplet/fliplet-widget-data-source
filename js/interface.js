@@ -42,6 +42,7 @@ var entryMap = {
   original: {},
   entries: {}
 };
+var globalTimer;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -296,8 +297,35 @@ function cacheOriginalEntries(entries, clientIdMap) {
   });
 }
 
+/**
+ * Clear the global timer and hides #alert-live-data by adding a .hidden class
+ */
+function clearLiveDataTimer() {
+  clearTimeout(this.globalTimer);
+  $('#alert-live-data').addClass('hidden');
+}
+
+/**
+ * Tracks a global timer and renders the message in State A also shows the warning message
+ */
+function startLiveDataTimer() {
+  $('#alert-live-data').removeClass('hidden');
+  $('#alert-live-data').html('Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+  this.globalTimer = setTimeout(function() {
+    $('#alert-live-data').html('Some of the data may have been changed by users of the app or other Studio users. Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a href="#" data-source-reload>Reload\</a> to see the latest version. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'show'
+    });
+  }, 300000);
+}
+
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+    this.clearLiveDataTimer();
+
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
@@ -318,6 +346,8 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    this.startLiveDataTimer();
+
     // Cache entries in a new thread
     setTimeout(function() {
       cacheOriginalEntries(rows);
@@ -1124,6 +1154,16 @@ $('#app')
     } else {
       getDataSources();
     }
+  })
+  .on('click', '[data-source-reload]', function(event) {
+    event.preventDefault();
+
+    fetchCurrentDataSourceEntries();
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'reload'
+    });
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
