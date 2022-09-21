@@ -848,3 +848,7 @@ td.data-source-apps {
 .api-token-field {
   padding-left: 0px;
 }
+
+.data-source-name {
+  word-break: break-all;
+}
