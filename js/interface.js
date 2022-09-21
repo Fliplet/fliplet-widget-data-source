@@ -42,6 +42,10 @@ var entryMap = {
   original: {},
   entries: {}
 };
+var currentFinalRules;
+var integrationTokenList;
+var selectedTokenId;
+var selectedTokenName;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -68,6 +72,17 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 });
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
+
+Fliplet.App.Tokens.get({
+  appId: widgetData.appId,
+  query: {
+    type: 'integrationToken',
+    order: 'createdAt',
+    direction: 'DESC'
+  }
+}).then(function(tokens) {
+  integrationTokenList = tokens;
+});
 
 // Fetch all data sources
 function getDataSources() {
@@ -254,6 +269,7 @@ function fetchCurrentDataSourceDetails() {
 
     currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
+    currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
     if (dataSource.definition) {
@@ -726,7 +742,6 @@ function browseDataSource(id) {
   });
 
   $versionContents.html('');
-  $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
   $initialSpinnerLoading.addClass('animated');
   $sourceContents.removeClass('hidden');
@@ -739,6 +754,10 @@ function browseDataSource(id) {
     fetchCurrentDataSourceDetails()
   ]).then(function() {
     windowResized();
+
+    if (widgetData.view === 'access-rules') {
+      $('#show-access-rules').click();
+    }
 
     if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
@@ -761,6 +780,7 @@ function browseDataSource(id) {
           // Show security rules
           if (widgetData.view === 'access-rules') {
             $('#show-access-rules').click();
+            addSecurityRule();
           }
         });
     }
@@ -1720,6 +1740,77 @@ $('#show-versions').click(function() {
   fetchCurrentDataSourceVersions();
 });
 
+function findSecurityRule() {
+  var rule = currentDataSourceRules.map(rule => {
+    var tokens = _.get(rule, 'allow.tokens');
+
+    if (!tokens || tokens.indexOf(widgetData.tokenId) === -1) {
+      return;
+    }
+  });
+
+  return rule;
+}
+
+function getSelectedTokenDetails() {
+  var tokenSelectedName;
+  var tokenSelectedId;
+
+  var tokenDetails = _.find(integrationTokenList, function(integrationToken) {
+    if (widgetData.tokenId) {
+      if (integrationToken.id === widgetData.tokenId) {
+        return integrationToken;
+      }
+    } else if (integrationToken.id === selectedTokenId) {
+      return integrationToken;
+    }
+  });
+
+  tokenSelectedName = tokenDetails.fullName;
+  tokenSelectedId = tokenDetails.id;
+
+  setSelectedTokenDetails(tokenSelectedId, tokenSelectedName);
+}
+
+function setSelectedTokenDetails(id, name) {
+  $('#tokenSelectedId').text(id);
+  $('#tokenSelectedName').text(name);
+}
+
+function getFilteredSpecificTokenList() {
+  var rules = _.filter(currentDataSourceRules, function(currentRules) {
+    return _.some(currentRules.allow.tokens, function(allowTokenId) {
+      if (widgetData.tokenId) {
+        return Number(allowTokenId) === widgetData.tokenId;
+      }
+
+      return Number(allowTokenId) === selectedTokenId;
+    });
+  });
+
+  currentDataSourceRules = rules;
+
+  if (currentDataSourceRules.length === 0) {
+    addSecurityRule();
+  }
+
+  $('#specific-token-filter').removeClass('hidden');
+  $('#save-rules').addClass('hidden');
+}
+
+function addSecurityRule() {
+  var rule = findSecurityRule();
+
+  if (!rule || rule.length === 0) {
+    $('#add-rule').click();
+    rule = { type: [], allow: { tokens: [widgetData.tokenId] }, enabled: true };
+    configureAddRuleUI(rule);
+  } else {
+    getSelectedTokenDetails();
+    getFilteredSpecificTokenList();
+  }
+}
+
 $('#add-rule').click(function(event) {
   event.preventDefault();
 
@@ -1832,6 +1923,8 @@ function configureAddRuleUI(rule) {
   if (rule.allow) {
     if (typeof rule.allow === 'string') {
       $('[data-allow="' + rule.allow + '"]').click();
+    } else if (typeof rule.allow === 'object') {
+      $('[data-allow="tokens"]').click();
     } else {
       $('.filters').html('');
       $('[data-allow="filter"]').click();
@@ -1968,12 +2061,23 @@ $allowBtnFilter.click(function(event) {
   event.preventDefault();
 
   var $usersFilter = $('.users-filter');
+  var $specificTokens = $('.tokens-list');
   var value = $(this).data('allow');
 
   $allowBtnFilter.removeClass('selected');
   $(this).addClass('selected');
 
   $usersFilter.toggleClass('hidden', value !== 'filter');
+  $specificTokens.toggleClass('hidden', value !== 'tokens');
+
+  if (value === 'tokens') {
+    var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+
+    $('.tokens-list').html(tpl({
+      integrationTokenList: integrationTokenList
+    }));
+    $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+  }
 
   // Add first filter automatically
   if (value === 'filter' && !$usersFilter.find('.filters').html().trim()) {
@@ -2094,20 +2198,28 @@ $('#show-access-rules').click(function() {
         }).join(', '),
         allow: (function() {
           if (typeof rule.allow === 'object') {
-            if (typeof rule.allow.user !== 'object') {
-              return;
+            if (rule.allow.tokens) {
+              const filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
+                return _.some(rule.allow.tokens, function(token) {
+                  return integrationToken.id === Number(token);
+                });
+              });
+
+              return 'Specific token: ID#' + _.map(filteredTokens, function(token) {
+                return token.id + ' - ' + token.fullName;
+              }).join('<br />');
+            } else if (rule.allow.user) {
+              return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
+                var operation = rule.allow.user[key];
+                var operationType = Object.keys(operation)[0];
+                var operator = operatorDescription(operationType);
+
+                return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
+              }).join('<br />');
             }
 
-            return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
-              var operation = rule.allow.user[key];
-
-              var operationType = Object.keys(operation)[0];
-              var operator = operatorDescription(operationType);
-
-              return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
-            }).join('<br />');
+            return;
           }
-
           switch (rule.allow) {
             case 'loggedIn':
               return 'Logged in users';
@@ -2188,6 +2300,47 @@ $('#show-access-rules').click(function() {
   });
 });
 
+/**
+ * Check whether security rule is found or not in current rules
+ * @returns {Boolean} Returns true if security rule found
+ */
+function getSecurityRule() {
+  var hasSecurityRule = false;
+
+  if (currentFinalRules.length > 0) {
+    currentFinalRules.forEach(rule => {
+      if (widgetData.tokenId) {
+        if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
+          hasSecurityRule = true;
+        }
+      } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
+        hasSecurityRule = true;
+      }
+    });
+  }
+
+  return hasSecurityRule;
+}
+
+$('[data-clear-filter]').click(function(event) {
+  event.preventDefault();
+
+  $('#specific-token-filter').removeClass('hidden');
+  $('#save-rules').addClass('hidden');
+
+  var rule = getSecurityRule();
+
+  if (!rule && currentDataSourceRules.length > 0) {
+    currentFinalRules.push(currentDataSourceRules[0]);
+  }
+
+  currentDataSourceRules = currentFinalRules;
+
+  $('#specific-token-filter').addClass('hidden');
+  $('#show-access-rules').click();
+  $('#save-rules').removeClass('hidden');
+});
+
 $('[data-save-rule]').click(function(event) {
   event.preventDefault();
 
@@ -2202,6 +2355,8 @@ $('[data-save-rule]').click(function(event) {
   var $allow = $('.selected[data-allow]');
 
   var error;
+
+  $('#specific-token-filter').addClass('hidden');
 
   if ($allow.data('allow') === 'filter') {
     var user = {};
@@ -2226,7 +2381,21 @@ $('[data-save-rule]').click(function(event) {
     });
 
     rule.allow = { user: user };
-  } else {
+  } else if ($allow.data('allow') === 'tokens') {
+    selectedTokenId  = Number($('.tokens-list :selected').val());
+
+    var tokenFullName = _.find(integrationTokenList, function(token) {
+      return token.id === selectedTokenId;
+    });
+
+    if (tokenFullName) {
+      selectedTokenName = tokenFullName.fullName;
+    }
+
+    setSelectedTokenDetails(selectedTokenId, selectedTokenName);
+    rule.allow = { 'tokens': [selectedTokenId] };
+    $('#specific-token-filter').removeClass('hidden');
+  }  else {
     rule.allow = $allow.data('allow');
   }
 
@@ -2312,7 +2481,15 @@ $('[data-save-rule]').click(function(event) {
     currentDataSourceRuleIndex = undefined;
   }
 
-  markDataSourceRulesUIWithChanges();
+  if (rule.allow.tokens) {
+    getFilteredSpecificTokenList();
+  }
+
+  if ($allow.data('allow') === 'tokens') {
+    $('#show-access-rules').click();
+  } else {
+    markDataSourceRulesUIWithChanges();
+  }
 });
 
 $('body').on('click', '#save-rules', function(event) {
@@ -2322,6 +2499,8 @@ $('body').on('click', '#save-rules', function(event) {
 
 $('body').on('click', '[data-rule-delete]', function(event) {
   event.preventDefault();
+
+  $('#specific-token-filter').addClass('hidden');
 
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
@@ -2366,6 +2545,10 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   configureAddRuleUI(rule);
   showModal($modal);
+
+  if (rule.allow.tokens && rule.allow.tokens.length !== 0) {
+    $(".tokens-list option[value='" + rule.allow.tokens[0] + "']").attr('selected', 'selected');
+  }
 });
 
 function showModal($modal) {
@@ -2385,12 +2568,7 @@ function updateDataSourceRules() {
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function() {
-    // Return to parent widget if in overlay
-    if (widgetData.context === 'overlay') {
-      Fliplet.Studio.emit('close-overlay');
-
-      return;
-    }
+    $('#save-rules').addClass('hidden');
 
     Fliplet.Modal.alert({
       message: 'Your changes have been applied to all affected apps.'
@@ -2398,17 +2576,18 @@ function updateDataSourceRules() {
   });
 }
 
-if (widgetData.context === 'overlay') {
-  // Enter data source when the provider starts if ID exists
-  $('.save-btn, .data-save-status').addClass('hidden');
-  browseDataSource(widgetData.dataSourceId);
-} else {
-  getDataSources();
-}
+Fliplet().then(function() {
+  if (widgetData.context === 'overlay') {
+    // Enter data source when the provider starts if ID exists
+    $('.save-btn, .data-save-status').addClass('hidden');
+    browseDataSource(widgetData.dataSourceId);
+  } else {
+    getDataSources();
+  }
+});
 
 $('[data-cancel]').click(function(event) {
   event.preventDefault();
 
   $('[data-dismiss="modal"]').click();
 });
-
