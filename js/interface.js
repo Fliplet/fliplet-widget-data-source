@@ -43,6 +43,7 @@ var entryMap = {
   entries: {}
 };
 var globalTimer;
+var currentAppPublishStatus = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -322,9 +323,31 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
+/**
+ * Checks if current app is published or not
+ */
+function fetchCurrentDataSourcePublishStatus() {
+  getApps.then(function(apps) {
+    this.currentAppPublishStatus = false;
+
+    var currentApp = _.find(apps, function(app) {
+      if (app.id === widgetData.appId) {
+        return app;
+      }
+    });
+
+    if (currentApp && currentApp.productionAppId) {
+      this.currentAppPublishStatus = true;
+    }
+
+  });
+}
+
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-    this.clearLiveDataTimer();
+    if (currentAppPublishStatus) {
+      this.clearLiveDataTimer();
+    }
 
     currentDataSource = source;
 
@@ -346,7 +369,9 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    this.startLiveDataTimer();
+    if (currentAppPublishStatus) {
+      this.startLiveDataTimer();
+    }
 
     // Cache entries in a new thread
     setTimeout(function() {
@@ -765,6 +790,7 @@ function browseDataSource(id) {
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
   return Promise.all([
+    fetchCurrentDataSourcePublishStatus(),
     fetchCurrentDataSourceEntries(),
     fetchCurrentDataSourceDetails()
   ]).then(function() {
@@ -1157,6 +1183,8 @@ $('#app')
   })
   .on('click', '[data-source-reload]', function(event) {
     event.preventDefault();
+
+    $('.save-btn').addClass('hidden');
 
     fetchCurrentDataSourceEntries();
 
