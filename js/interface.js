@@ -20,6 +20,7 @@ var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
+var currentDataSourceAppId;
 var currentDataSourceType;
 // eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
@@ -257,6 +258,7 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+    currentDataSourceAppId = dataSource.appId;
 
     if (dataSource.definition) {
       definitionEditor.setValue(JSON.stringify(dataSource.definition, null, 2));
@@ -331,7 +333,7 @@ function fetchCurrentDataSourcePublishStatus() {
     this.currentAppPublishStatus = false;
 
     var currentApp = _.find(apps, function(app) {
-      if (app.id === widgetData.appId) {
+      if (app.id === widgetData.appId || app.id === currentDataSourceAppId) {
         return app;
       }
     });
@@ -345,9 +347,7 @@ function fetchCurrentDataSourcePublishStatus() {
 
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-    if (currentAppPublishStatus) {
-      this.clearLiveDataTimer();
-    }
+    this.clearLiveDataTimer();
 
     currentDataSource = source;
 
@@ -360,6 +360,10 @@ function fetchCurrentDataSourceEntries(entries) {
 
       columns = dataSource.columns || [];
 
+      currentDataSourceAppId = dataSource.appId;
+
+      fetchCurrentDataSourcePublishStatus();
+
       if (entries) {
         return Promise.resolve(entries);
       }
@@ -369,6 +373,7 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+
     if (currentAppPublishStatus) {
       this.startLiveDataTimer();
     }
@@ -790,7 +795,6 @@ function browseDataSource(id) {
   // $contents.append('<form>Import data: <input type="file" /></form><hr /><div id="entries"></div>');
 
   return Promise.all([
-    fetchCurrentDataSourcePublishStatus(),
     fetchCurrentDataSourceEntries(),
     fetchCurrentDataSourceDetails()
   ]).then(function() {

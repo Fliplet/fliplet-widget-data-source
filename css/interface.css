@@ -829,3 +829,7 @@ td.data-source-apps {
 .data-source-name {
   word-break: break-all;
 }
+
+.alert {
+  margin-bottom: 0px;
+}
