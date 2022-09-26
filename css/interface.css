@@ -826,6 +826,29 @@ td.data-source-apps {
   padding-left: 33px;
 }
 
+.token-align-item {
+  align-items: stretch !important;
+}
+
+.api-token-label {
+  width: 40%;
+  display: flex;
+  align-items: center;
+  padding-top: 10px;
+}
+
+.specific-token-btn {
+  margin-left: 10px;
+}
+
+.close-icon {
+  margin-left: 5px;
+}
+
+.api-token-field {
+  padding-left: 0px;
+}
+
 .data-source-name {
   word-break: break-all;
 }
