@@ -357,7 +357,6 @@ function fetchCurrentDataSourcePublishStatus() {
     if (currentApp && currentApp.productionAppId) {
       this.currentAppPublishStatus = true;
     }
-
   });
 }
 
