@@ -318,20 +318,22 @@ function cacheOriginalEntries(entries, clientIdMap) {
 
 /**
  * Clear the global timer and hides #alert-live-data by adding a .hidden class
+ * @returns {void}
  */
 function clearLiveDataTimer() {
-  clearTimeout(this.globalTimer);
+  clearTimeout(globalTimer);
   $('#alert-live-data').addClass('hidden');
 }
 
 /**
  * Tracks a global timer and renders the message in State A also shows the warning message
+ * @returns {void}
  */
 function startLiveDataTimer() {
   $('#alert-live-data').removeClass('hidden');
   $('#alert-live-data').html('Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
 
-  this.globalTimer = setTimeout(function() {
+  globalTimer = setTimeout(function() {
     $('#alert-live-data').html('Some of the data may have been changed by users of the app or other Studio users. Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a href="#" data-source-reload>Reload\</a> to see the latest version. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
 
     Fliplet.Studio.emit('track-event', {
@@ -343,6 +345,7 @@ function startLiveDataTimer() {
 
 /**
  * Checks if current app is published or not
+ * @returns {void}
  */
 function fetchCurrentDataSourcePublishStatus() {
   getApps.then(function(apps) {
@@ -362,7 +365,7 @@ function fetchCurrentDataSourcePublishStatus() {
 
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-    this.clearLiveDataTimer();
+    clearLiveDataTimer();
 
     currentDataSource = source;
 
@@ -388,9 +391,8 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-
     if (currentAppPublishStatus) {
-      this.startLiveDataTimer();
+      startLiveDataTimer();
     }
 
     // Cache entries in a new thread
