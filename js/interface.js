@@ -76,16 +76,18 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-Fliplet.App.Tokens.get({
-  appId: widgetData.appId,
-  query: {
-    type: 'integrationToken',
-    order: 'createdAt',
-    direction: 'DESC'
-  }
-}).then(function(tokens) {
-  integrationTokenList = tokens;
-});
+if (widgetData.appId) {
+  Fliplet.App.Tokens.get({
+    appId: widgetData.appId,
+    query: {
+      type: 'integrationToken',
+      order: 'createdAt',
+      direction: 'DESC'
+    }
+  }).then(function(tokens) {
+    integrationTokenList = tokens;
+  });
+}
 
 // Fetch all data sources
 function getDataSources() {
