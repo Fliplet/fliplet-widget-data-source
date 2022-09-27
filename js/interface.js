@@ -351,15 +351,11 @@ function fetchCurrentDataSourcePublishStatus() {
   getApps.then(function(apps) {
     currentAppPublishStatus = false;
 
-    var currentApp = _.some(apps, function(app) {
+    currentAppPublishStatus = _.some(apps, function(app) {
       if (app.id === widgetData.appId || app.id === currentDataSourceAppId) {
-        return app;
+        return app.productionAppId ? true : false;
       }
     });
-
-    if (currentApp && currentApp.productionAppId) {
-      currentAppPublishStatus = true;
-    }
   });
 }
 
