@@ -76,18 +76,16 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-if (widgetData.appId) {
-  Fliplet.App.Tokens.get({
-    appId: widgetData.appId,
-    query: {
-      type: 'integrationToken',
-      order: 'createdAt',
-      direction: 'DESC'
-    }
-  }).then(function(tokens) {
-    integrationTokenList = tokens;
-  });
-}
+Fliplet.App.Tokens.get({
+  appId: widgetData.appId,
+  query: {
+    type: 'integrationToken',
+    order: 'createdAt',
+    direction: 'DESC'
+  }
+}).then(function(tokens) {
+  integrationTokenList = tokens;
+});
 
 // Fetch all data sources
 function getDataSources() {
@@ -351,16 +349,16 @@ function startLiveDataTimer() {
  */
 function fetchCurrentDataSourcePublishStatus() {
   getApps.then(function(apps) {
-    this.currentAppPublishStatus = false;
+    currentAppPublishStatus = false;
 
-    var currentApp = _.find(apps, function(app) {
+    var currentApp = _.some(apps, function(app) {
       if (app.id === widgetData.appId || app.id === currentDataSourceAppId) {
         return app;
       }
     });
 
     if (currentApp && currentApp.productionAppId) {
-      this.currentAppPublishStatus = true;
+      currentAppPublishStatus = true;
     }
   });
 }
