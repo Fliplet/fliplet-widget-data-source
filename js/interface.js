@@ -20,7 +20,7 @@ var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
-var currentDataSourceAppId;
+var currentDataSourceProductionAppId;
 var currentDataSourceType;
 // eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
@@ -276,7 +276,11 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceRules = dataSource.accessRules;
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
-    currentDataSourceAppId = dataSource.appId;
+    if (dataSource.apps && dataSource.apps.length > 0) {
+      currentDataSourceProductionAppId = _.some(dataSource.apps, function(app) {
+        return app.productionAppId;
+      });
+    }
 
     if (dataSource.definition) {
       definitionEditor.setValue(JSON.stringify(dataSource.definition, null, 2));
@@ -345,22 +349,6 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
-/**
- * Checks if current app is published or not
- * @returns {void}
- */
-function fetchCurrentDataSourcePublishStatus() {
-  getApps.then(function(apps) {
-    currentAppPublishStatus = false;
-
-    currentAppPublishStatus = _.some(apps, function(app) {
-      if (app.id === widgetData.appId || app.id === currentDataSourceAppId) {
-        return app.productionAppId ? true : false;
-      }
-    });
-  });
-}
-
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
@@ -376,10 +364,6 @@ function fetchCurrentDataSourceEntries(entries) {
 
       columns = dataSource.columns || [];
 
-      currentDataSourceAppId = dataSource.appId;
-
-      fetchCurrentDataSourcePublishStatus();
-
       if (entries) {
         return Promise.resolve(entries);
       }
@@ -389,7 +373,7 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    if (currentAppPublishStatus) {
+    if (currentDataSourceProductionAppId) {
       startLiveDataTimer();
     }
 
