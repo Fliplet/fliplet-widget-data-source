@@ -323,7 +323,7 @@ function cacheOriginalEntries(entries, clientIdMap) {
 }
 
 /**
- * Clear the global timer and hides #alert-live-data by adding a .hidden class
+ * Clear the global timer and hides #alert-live-data
  * @returns {void}
  */
 function clearLiveDataTimer() {
