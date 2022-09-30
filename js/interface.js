@@ -47,7 +47,7 @@ var integrationTokenList;
 var selectedTokenId;
 var selectedTokenName;
 var globalTimer;
-var isPublishedApp = false;
+var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -275,8 +275,9 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceRules = dataSource.accessRules;
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+
     if (dataSource.apps && dataSource.apps.length > 0) {
-      isPublishedApp = _.some(dataSource.apps, function(app) {
+      dataSourceIsLive = _.some(dataSource.apps, function(app) {
         return app.productionAppId;
       });
     }
@@ -373,7 +374,7 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    if (isPublishedApp) {
+    if (dataSourceIsLive) {
       startLiveDataTimer();
     }
 
