@@ -301,6 +301,7 @@ function fetchCurrentDataSourceUsers() {
  * Cache a list of entries as original entries for comparison when committing changes
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
+ * @returns {undefined}
  */
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
@@ -359,7 +360,11 @@ function fetchCurrentDataSourceEntries(entries) {
     } else {
       var flattenedColumns = {};
 
-      rows.map(({ data }) => data).forEach(dataItem => (flattenedColumns = { ...flattenedColumns, ...dataItem }));
+      rows.map(function(row) {
+        return row.data;
+      }).forEach(function(dataItem) {
+        Object.assign(flattenedColumns, dataItem);
+      });
 
       var computedColumns = _.keys(flattenedColumns);
 
@@ -567,7 +572,10 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
-function getCommitPayload(entries = []) {
+// eslint-disable-next-line no-unused-vars
+function getCommitPayload(entries) {
+  entries = entries || [];
+
   var inserted = [];
   var updated = [];
   var deleted = [];
@@ -683,6 +691,7 @@ function saveCurrentData() {
   }).then(function(response) {
     return;
 
+    // eslint-disable-next-line no-unreachable
     var clientIds = [];
     var ids = [];
 
@@ -692,6 +701,7 @@ function saveCurrentData() {
       ids.push(entry.id);
     });
 
+    // eslint-disable-next-line no-unreachable
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
@@ -1743,7 +1753,7 @@ $('#show-versions').click(function() {
 });
 
 function findSecurityRule() {
-  var rule = currentDataSourceRules.map(rule => {
+  var rule = currentDataSourceRules.map(function(rule) {
     var tokens = _.get(rule, 'allow.tokens');
 
     if (!tokens || tokens.indexOf(widgetData.tokenId) === -1) {
@@ -2039,22 +2049,26 @@ function updateSaveRuleValidation() {
  * @param {String} prop - Security rule property for accessing the list of columns
  * @returns {String} HTML code for the column list
  **/
-function columnListTemplate(rule = {}, prop) {
+function columnListTemplate(rule, prop) {
+  rule = rule || {};
+
   var columns = rule[prop];
 
   if (!Array.isArray(columns) || !columns.length) {
-    return new Error(`Columns not found for ${prop}`);
+    return new Error('Columns not found for ' + prop);
   }
 
   if (columns.length === 1) {
-    return `<code>${columns[0]}</code> only`;
+    return '<code>' + columns[0] + '</code> only';
   }
 
   columns = _.clone(columns);
 
   var lastColumn = columns.pop();
 
-  return `${columns.map(col => `<code>${col}</code>`).join(', ')} and <code>${lastColumn}</code>`;
+  return columns.map(function(col) {
+    return '<code>' + col + '</code>';
+  }).join(', ') + ' and <code>' + lastColumn + '</code>';
 }
 
 $typeCheckbox.click(updateSaveRuleValidation);
@@ -2201,7 +2215,7 @@ $('#show-access-rules').click(function() {
         allow: (function() {
           if (typeof rule.allow === 'object') {
             if (rule.allow.tokens) {
-              const filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
+              var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
                   return integrationToken.id === Number(token);
                 });
@@ -2222,6 +2236,7 @@ $('#show-access-rules').click(function() {
 
             return;
           }
+
           switch (rule.allow) {
             case 'loggedIn':
               return 'Logged in users';
@@ -2231,9 +2246,9 @@ $('#show-access-rules').click(function() {
         })(),
         include: (function() {
           if (rule.include) {
-            return `Include ${columnListTemplate(rule, 'include')}`;
+            return 'Include ' + columnListTemplate(rule, 'include');
           } else if (rule.exclude) {
-            return `Exclude ${columnListTemplate(rule, 'exclude')}`;
+            return 'Exclude ' + columnListTemplate(rule, 'exclude');
           }
 
           return '-';
@@ -2310,7 +2325,7 @@ function getSecurityRule() {
   var hasSecurityRule = false;
 
   if (currentFinalRules.length > 0) {
-    currentFinalRules.forEach(rule => {
+    currentFinalRules.forEach(function(rule) {
       if (widgetData.tokenId) {
         if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
           hasSecurityRule = true;
