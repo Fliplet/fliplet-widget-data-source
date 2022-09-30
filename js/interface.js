@@ -20,7 +20,6 @@ var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
 var currentDataSourceId;
-var currentDataSourceProductionAppId;
 var currentDataSourceType;
 // eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
@@ -48,7 +47,7 @@ var integrationTokenList;
 var selectedTokenId;
 var selectedTokenName;
 var globalTimer;
-var currentAppPublishStatus = false;
+var isPublishedApp = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -277,7 +276,7 @@ function fetchCurrentDataSourceDetails() {
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
     if (dataSource.apps && dataSource.apps.length > 0) {
-      currentDataSourceProductionAppId = _.some(dataSource.apps, function(app) {
+      isPublishedApp = _.some(dataSource.apps, function(app) {
         return app.productionAppId;
       });
     }
@@ -332,7 +331,7 @@ function clearLiveDataTimer() {
 }
 
 /**
- * Tracks a global timer and renders the message in State A also shows the warning message
+ * Tracks a global timer and renders the message in State A to display warning message
  * @returns {void}
  */
 function startLiveDataTimer() {
@@ -373,7 +372,7 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    if (currentDataSourceProductionAppId) {
+    if (isPublishedApp) {
       startLiveDataTimer();
     }
 
