@@ -2324,6 +2324,10 @@ $('#show-access-rules').click(function() {
 function getSecurityRule() {
   var hasSecurityRule = false;
 
+  if (currentFinalRules === null) {
+    currentFinalRules = [];
+  }
+
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(function(rule) {
       if (widgetData.tokenId) {
