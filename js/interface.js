@@ -46,6 +46,8 @@ var currentFinalRules;
 var integrationTokenList;
 var selectedTokenId;
 var selectedTokenName;
+var globalTimer;
+var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -274,6 +276,12 @@ function fetchCurrentDataSourceDetails() {
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
+    if (dataSource.apps && dataSource.apps.length > 0) {
+      dataSourceIsLive = _.some(dataSource.apps, function(app) {
+        return app.productionAppId;
+      });
+    }
+
     if (dataSource.definition) {
       definitionEditor.setValue(JSON.stringify(dataSource.definition, null, 2));
     }
@@ -315,8 +323,37 @@ function cacheOriginalEntries(entries, clientIdMap) {
   });
 }
 
+/**
+ * Clear the global timer and hides #alert-live-data
+ * @returns {void}
+ */
+function clearLiveDataTimer() {
+  clearTimeout(globalTimer);
+  $('#alert-live-data').addClass('hidden');
+}
+
+/**
+ * Tracks a global timer and renders the message in State A to display warning message
+ * @returns {void}
+ */
+function startLiveDataTimer() {
+  $('#alert-live-data').removeClass('hidden');
+  $('#alert-live-data').html('Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+  globalTimer = setTimeout(function() {
+    $('#alert-live-data').html('Some of the data may have been changed by users of the app or other Studio users. Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a href="#" data-source-reload>Reload\</a> to see the latest version. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'show'
+    });
+  }, 300000);
+}
+
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+    clearLiveDataTimer();
+
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
@@ -337,6 +374,10 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    if (dataSourceIsLive) {
+      startLiveDataTimer();
+    }
+
     // Cache entries in a new thread
     setTimeout(function() {
       cacheOriginalEntries(rows);
@@ -1156,6 +1197,18 @@ $('#app')
     } else {
       getDataSources();
     }
+  })
+  .on('click', '[data-source-reload]', function(event) {
+    event.preventDefault();
+
+    $('.save-btn').addClass('hidden');
+
+    fetchCurrentDataSourceEntries();
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'reload'
+    });
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
