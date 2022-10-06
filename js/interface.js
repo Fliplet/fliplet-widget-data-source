@@ -369,7 +369,12 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      return source.find({}).catch(function() {
+      return source.find({
+        orderBy: [
+          ['order', 'ASC'],
+          ['id', 'ASC']
+        ]
+      }).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
