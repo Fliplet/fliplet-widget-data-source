@@ -370,7 +370,7 @@ function fetchCurrentDataSourceEntries(entries) {
       }
 
       return source.find({
-        orderBy: [
+        order: [
           ['order', 'ASC'],
           ['id', 'ASC']
         ]
