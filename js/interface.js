@@ -808,7 +808,7 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
-    if (widgetData.view === 'access-rules') {
+    if (widgetData.view === 'access-rules' && widgetData.context !== 'overlay') {
       $('#show-access-rules').click();
     }
 
@@ -1845,7 +1845,7 @@ function setSelectedTokenDetails(id, name) {
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
-      if (widgetData.tokenId) {
+      if (widgetData.tokenId && Number(allowTokenId) !== selectedTokenId) {
         return Number(allowTokenId) === widgetData.tokenId;
       }
 
