@@ -2383,12 +2383,16 @@ function getSecurityRule() {
 
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(function(rule) {
-      if (widgetData.tokenId) {
+      if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
         if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
           hasSecurityRule = true;
         }
       } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
-        hasSecurityRule = true;
+        if (_.isEqual(rule.type, currentDataSourceRules[0].type)) {
+          hasSecurityRule = true;
+        } else {
+          hasSecurityRule = false;
+        }
       }
     });
   }
