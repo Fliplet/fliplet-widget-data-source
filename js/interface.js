@@ -2548,6 +2548,12 @@ $('[data-save-rule]').click(function(event) {
     currentDataSourceRules.push(rule);
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
+
+    // For Edit security rule to retain new changes in final rule
+    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' && widgetData.context === 'overlay') {
+      currentFinalRules[currentDataSourceRuleIndex] = rule;
+    }
+
     currentDataSourceRuleIndex = undefined;
   }
 
