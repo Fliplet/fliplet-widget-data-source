@@ -2383,14 +2383,16 @@ function getSecurityRule() {
 
   if (currentFinalRules.length > 0) {
     currentFinalRules.forEach(function(rule) {
-      if (rule.allow.hasOwnProperty('tokens')) {
-        if (widgetData.tokenId && Number(rule.allow.tokens[0]) !== selectedTokenId) {
-          if (Number(rule.allow.tokens[0]) === widgetData.tokenId) {
-            hasSecurityRule = true;
-          }
-        } else if (Number(rule.allow.tokens[0]) === selectedTokenId) {
+      if (!rule.allow.hasOwnProperty('tokens')) {
+        return;
+      }
+
+      if (widgetData.tokenId && Number(rule.allow.tokens[0]) !== selectedTokenId) {
+        if (Number(rule.allow.tokens[0]) === widgetData.tokenId) {
           hasSecurityRule = true;
         }
+      } else if (Number(rule.allow.tokens[0]) === selectedTokenId) {
+        hasSecurityRule = true;
       }
     });
   }
