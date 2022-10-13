@@ -1845,11 +1845,11 @@ function setSelectedTokenDetails(id, name) {
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
-      if (widgetData.tokenId && Number(allowTokenId) !== selectedTokenId) {
-        return Number(allowTokenId) === widgetData.tokenId;
+      if (widgetData.tokenId && allowTokenId !== selectedTokenId) {
+        return allowTokenId === widgetData.tokenId;
       }
 
-      return Number(allowTokenId) === selectedTokenId;
+      return allowTokenId === selectedTokenId;
     });
   });
 
@@ -2270,7 +2270,7 @@ $('#show-access-rules').click(function() {
             if (rule.allow.tokens) {
               var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
-                  return integrationToken.id === Number(token);
+                  return integrationToken.id === token;
                 });
               });
 
