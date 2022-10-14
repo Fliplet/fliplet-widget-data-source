@@ -1845,7 +1845,7 @@ function setSelectedTokenDetails(id, name) {
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
-      if (widgetData.tokenId && allowTokenId !== selectedTokenId) {
+      if (widgetData.tokenId && !selectedTokenId) {
         return allowTokenId === widgetData.tokenId;
       }
 
