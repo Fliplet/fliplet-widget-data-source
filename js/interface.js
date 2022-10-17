@@ -1943,6 +1943,7 @@ $('body').on('change', '.tokens-list', function() {
     currentDataSourceRules = rules;
   }
 });
+
 $('input[name="columns-list-mode"]').on('click', function() {
   columnsListMode = $(this).val();
   updateSaveRuleValidation();
@@ -2564,6 +2565,7 @@ $('[data-save-rule]').click(function(event) {
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
 
+    // For Edit security rule adding the rule in current final rules
     if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' || widgetData.context === 'overlay') {
       currentFinalRules.push(rule);
     }
