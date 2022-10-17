@@ -2563,11 +2563,15 @@ $('[data-save-rule]').click(function(event) {
 
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
+
+    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' || widgetData.context === 'overlay') {
+      currentFinalRules.push(rule);
+    }
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
 
     // For Edit security rule to retain new changes in final rule
-    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' && widgetData.context === 'overlay') {
+    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' || widgetData.context === 'overlay') {
       currentFinalRules[currentDataSourceRuleIndex] = rule;
     }
 
