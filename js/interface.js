@@ -1926,6 +1926,23 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
+$('body').on('change', '.tokens-list', function() {
+  selectedTokenId  = Number($('.tokens-list :selected').val());
+
+  if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
+    var rules = _.filter(currentFinalRules, function(currentRules) {
+      return _.some(currentRules.allow.tokens, function(allowTokenId) {
+        if (widgetData.tokenId && !selectedTokenId) {
+          return allowTokenId === widgetData.tokenId;
+        }
+
+        return allowTokenId === selectedTokenId;
+      });
+    });
+
+    currentDataSourceRules = rules;
+  }
+});
 $('input[name="columns-list-mode"]').on('click', function() {
   columnsListMode = $(this).val();
   updateSaveRuleValidation();
