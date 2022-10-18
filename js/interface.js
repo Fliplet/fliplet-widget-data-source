@@ -813,10 +813,6 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
-    if (widgetData.view === 'access-rules') {
-      $('#show-access-rules').click();
-    }
-
     if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
@@ -1850,11 +1846,11 @@ function setSelectedTokenDetails(id, name) {
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
     return _.some(currentRules.allow.tokens, function(allowTokenId) {
-      if (widgetData.tokenId) {
-        return Number(allowTokenId) === widgetData.tokenId;
+      if (widgetData.tokenId && !selectedTokenId) {
+        return allowTokenId === widgetData.tokenId;
       }
 
-      return Number(allowTokenId) === selectedTokenId;
+      return allowTokenId === selectedTokenId;
     });
   });
 
@@ -1929,6 +1925,25 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
       event.preventDefault();
     }
   });
+});
+
+// Ensure rules filter again from currentFinalRules if selectedTokenId is changed from token-list dropdown
+$('body').on('change', '.tokens-list', function() {
+  selectedTokenId  = Number($('.tokens-list :selected').val());
+
+  if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
+    var rules = _.filter(currentFinalRules, function(currentRules) {
+      return _.some(currentRules.allow.tokens, function(allowTokenId) {
+        if (widgetData.tokenId && !selectedTokenId) {
+          return allowTokenId === widgetData.tokenId;
+        }
+
+        return allowTokenId === selectedTokenId;
+      });
+    });
+
+    currentDataSourceRules = rules;
+  }
 });
 
 $('input[name="columns-list-mode"]').on('click', function() {
@@ -2275,7 +2290,7 @@ $('#show-access-rules').click(function() {
             if (rule.allow.tokens) {
               var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
-                  return integrationToken.id === Number(token);
+                  return integrationToken.id === token;
                 });
               });
 
@@ -2387,14 +2402,10 @@ function getSecurityRule() {
   }
 
   if (currentFinalRules.length > 0) {
-    currentFinalRules.forEach(function(rule) {
-      if (widgetData.tokenId) {
-        if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === widgetData.tokenId) {
-          hasSecurityRule = true;
-        }
-      } else if (rule.allow.hasOwnProperty('tokens') && Number(rule.allow.tokens[0]) === selectedTokenId) {
-        hasSecurityRule = true;
-      }
+    hasSecurityRule = currentFinalRules.some(function(rule) {
+      return _.some(rule.allow.tokens, function(token) {
+        return token && (token === widgetData.tokenId || token === selectedTokenId);
+      });
     });
   }
 
@@ -2553,10 +2564,23 @@ $('[data-save-rule]').click(function(event) {
 
   $('[data-dismiss="modal"]').click();
 
+  var isAddingRule = $('#configure-rule').find('.modal-title').text() === 'Add new security rule';
+
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
+
+    // For Edit security rule adding the rule in current final rules
+    if (!isAddingRule || (widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId)) {
+      currentFinalRules.push(rule);
+    }
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
+
+    // For Edit security rule to retain new changes in final rule
+    if (!isAddingRule || widgetData.context === 'overlay') {
+      currentFinalRules[currentDataSourceRuleIndex] = rule;
+    }
+
     currentDataSourceRuleIndex = undefined;
   }
 
