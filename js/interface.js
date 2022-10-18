@@ -2538,7 +2538,7 @@ $('[data-save-rule]').click(function(event) {
   }
 
   // Spilt exclude columns list with ', ' as it contain space between columns names
-  var exclude = _.compact($('input[name="exclude"]').val().split(',').map(s=>s.trim()));
+  var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
 
   if (columnsListMode === 'exclude') {
     if (exclude.length) {
