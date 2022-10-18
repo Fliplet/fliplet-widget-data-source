@@ -813,11 +813,6 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
-    // Render DS security rules table when Widget is not open from overlay i.e. from API tokens dialog box
-    if (widgetData.view === 'access-rules' && widgetData.context !== 'overlay') {
-      $('#show-access-rules').click();
-    }
-
     if (widgetData.context === 'overlay') {
       Fliplet.DataSources.get({
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
