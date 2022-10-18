@@ -2565,8 +2565,10 @@ $('[data-save-rule]').click(function(event) {
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
 
-    // For Edit security rule adding the rule in current final rules
-    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' || widgetData.context === 'overlay') {
+    // For Add and Edit security rule, adding the rule in current final rules
+    var modalTitle = $('#configure-rule').find('.modal-title').text();
+
+    if ((modalTitle === 'Add new security rule' && widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId) || modalTitle === 'Edit security rule') {
       currentFinalRules.push(rule);
     }
   } else {
