@@ -2537,7 +2537,7 @@ $('[data-save-rule]').click(function(event) {
     rule.require = requiredFields;
   }
 
-  var exclude = _.compact($('input[name="exclude"]').val().split(','));
+  var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
 
   if (columnsListMode === 'exclude') {
     if (exclude.length) {
