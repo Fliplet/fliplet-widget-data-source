@@ -813,6 +813,7 @@ function browseDataSource(id) {
   ]).then(function() {
     windowResized();
 
+    // Render DS security rules table when Widget is not open from overlay i.e. from API tokens dialog box
     if (widgetData.view === 'access-rules' && widgetData.context !== 'overlay') {
       $('#show-access-rules').click();
     }
@@ -1931,7 +1932,7 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
-// For Selected Token changed from token list dropdown
+// Ensure rules filter again from currentFinalRules if selectedTokenId is changed from token-list dropdown
 $('body').on('change', '.tokens-list', function() {
   selectedTokenId  = Number($('.tokens-list :selected').val());
 
