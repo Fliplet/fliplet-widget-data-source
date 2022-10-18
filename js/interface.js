@@ -1926,6 +1926,7 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
+// For Selected Token changed from token list dropdown
 $('body').on('change', '.tokens-list', function() {
   selectedTokenId  = Number($('.tokens-list :selected').val());
 
@@ -2562,20 +2563,20 @@ $('[data-save-rule]').click(function(event) {
 
   $('[data-dismiss="modal"]').click();
 
+  var isAddingRule = $('#configure-rule').find('.modal-title').text() === 'Add new security rule';
+
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
 
-    // For Add and Edit security rule, adding the rule in current final rules
-    var modalTitle = $('#configure-rule').find('.modal-title').text();
-
-    if ((modalTitle === 'Add new security rule' && widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId) || modalTitle === 'Edit security rule') {
+    // For Edit security rule adding the rule in current final rules
+    if ((isAddingRule && widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId) || !isAddingRule) {
       currentFinalRules.push(rule);
     }
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
 
     // For Edit security rule to retain new changes in final rule
-    if ($('#configure-rule').find('.modal-title').text() === 'Edit security rule' || widgetData.context === 'overlay') {
+    if (!isAddingRule || widgetData.context === 'overlay') {
       currentFinalRules[currentDataSourceRuleIndex] = rule;
     }
 
