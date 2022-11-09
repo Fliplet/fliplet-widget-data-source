@@ -1,6 +1,10 @@
-<tr data-rule-index="{{index}}" class="{{#if enabled}}enabled{{else}}disabled{{/if}}">
-  <td class="align-baseline">
-    <a href="#" data-toggle-status>
+<tr data-rule-index="{{index}}" class="{{#if enabled}}rule-enabled{{else}}rule-disabled{{/if}}">
+  <td class="align-baseline opacity-full">
+    <span class="fa-stack handle-sort">
+      <i class="fa fa-ellipsis-v fa-stack-1x"></i>
+      <i class="fa fa-ellipsis-v fa-stack-1x"></i>
+    </span>
+    <a href="#" class="toggle-status" data-toggle-status>
         <div class="toggle-switch toggle-switch-sm">
         {{#if enabled}}
           <input class="switch-input" type="checkbox" checked />
@@ -11,15 +15,15 @@
           <label class="toggle"></label>
           <label class="switch-label">Disabled</label>
         {{/if}}
-        </div>
+      </div>
     </a>
   </td>
   <td class="align-baseline">{{{allow}}}</td>
   <td class="align-baseline">{{{type}}}</td>
   <td class="align-baseline">{{{require}}}</td>
-  <td class="align-baseline">{{{exclude}}}</td>
+  <td class="align-baseline">{{{include}}}</td>
   <td class="align-baseline">{{apps}}</td>
-  <td class="align-baseline">
+  <td class="align-baseline opacity-full">
     <button class="btn btn-default btn-sm" data-rule-edit>Edit</button>
     <button class="btn btn-danger btn-sm" data-rule-delete>Delete</button>
   </td>

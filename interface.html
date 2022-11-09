@@ -72,6 +72,7 @@
           </div>
         </div>
         <div id="source-contents" class="hidden">
+          <div class="alert alert-warning hidden" id="alert-live-data"></div>
           <div class="header">
             <a href="#" data-back>See all data sources</a>
             <a href="https://help.fliplet.com/data-sources/" target="_blank">Need help?</a>
@@ -96,7 +97,7 @@
               <a href="#entries" id="show-entries" aria-controls="entries" role="tab" data-toggle="tab">Entries</a>
             </li>
             <li role="presentation">
-              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab">Security rules</a>
+              <a href="#access-rules" id="show-access-rules" aria-controls="access-rules" role="tab" data-toggle="tab" class="active">Security rules</a>
             </li>
             <li role="presentation">
               <a href="#settings" id="show-settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a>
@@ -258,7 +259,7 @@
                   <li class="dropdown-header">Pre-configured rules</li>
                 </ul>
               </div>
-
+              <a href="#" data-clear-filter id="specific-token-filter" class="btn btn-primary specific-token-btn hidden">Specific token: ID#<span id="tokenSelectedId"></span> - <span id="tokenSelectedName"></span>  <i class="fa fa-close close-icon"></i></a>
               <a href="#" id="save-rules" class="btn btn-secondary hidden">Save & Apply</a>
               <br />
               <br />
@@ -269,11 +270,11 @@
                 </div>
                 <table class="table-hover">
                   <thead>
-                    <th>Status</th>
+                    <th class="status-header">Status</th>
                     <th>Allow</th>
                     <th>Users can</th>
                     <th>Request data requirements</th>
-                    <th>Columns excluded</th>
+                    <th>Columns</th>
                     <th>Applies to</th>
                     <th>Actions</th>
                   </thead>
@@ -302,15 +303,18 @@
               <h5>Allow</h5>
               <p>Specify users affected by this rule.</p>
             </div>
-            <div class="col-md-8 side vertical">
-              <div>
+            <div class="col-md-8 side vertical token-align-item">
+              <div class="row">
                 <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
                 <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
                 <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+                <button data-allow="tokens" type="button" class="btn btn-default">Specific token</button>
               </div>
               <div class="users-filter hidden">
                 <div class="filters"></div>
                 <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+              </div>
+              <div class="row tokens-list hidden form-group">
               </div>
             </div>
           </div>
@@ -364,12 +368,35 @@
           <hr />
           <div class="row">
             <div class="col-md-4">
-              <h5>Columns to exclude</h5>
+              <h5>Include or exclude columns</h5>
               <p data-exclude-description></p>
             </div>
             <div class="col-md-8 side">
               <div class="tokenfield-ui">
-                <input type="text" class="form-control" name="exclude" value="" placeholder="Type the column name and press return">
+                <div class="row">
+                  <div class="col-md-3">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="exclude" name="columns-list-mode" value="exclude">
+                      <label for="exclude">
+                        <span class="check"><i class="fa fa-circle"></i></span> Exclude
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="radio radio-icon">
+                      <input type="radio" id="include" name="columns-list-mode" value="include" checked>
+                      <label for="include">
+                        <span class="check"><i class="fa fa-circle"></i></span>Include
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-12">
+                    <input type="text" class="form-control" name="exclude" value=""
+                      placeholder="Type the column name and press return">
+                  </div>
+                </div>
               </div>
             </div>
           </div>

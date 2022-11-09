@@ -18,7 +18,9 @@
       "papa-parse",
       "fliplet-datasources",
       "fliplet-studio-ui",
-      "animate-css"
+      "animate-css",
+      "fliplet-core",
+      "fliplet-tokens"
     ],
     "assets": [
       "vendor/fonts/tinymce-small.eot",

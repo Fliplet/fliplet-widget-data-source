@@ -37,10 +37,17 @@ var isShowingAll = false;
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
+var columnsListMode = 'include';
 var entryMap = {
   original: {},
   entries: {}
 };
+var currentFinalRules;
+var integrationTokenList;
+var selectedTokenId;
+var selectedTokenName;
+var globalTimer;
+var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
 var defaultAccessRules = [
@@ -67,6 +74,19 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
 });
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
+
+if (widgetData.appId) {
+  Fliplet.App.Tokens.get({
+    appId: widgetData.appId,
+    query: {
+      type: 'integrationToken',
+      order: 'createdAt',
+      direction: 'DESC'
+    }
+  }).then(function(tokens) {
+    integrationTokenList = tokens;
+  });
+}
 
 // Fetch all data sources
 function getDataSources() {
@@ -253,7 +273,14 @@ function fetchCurrentDataSourceDetails() {
 
     currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
+    currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+
+    if (dataSource.apps && dataSource.apps.length > 0) {
+      dataSourceIsLive = _.some(dataSource.apps, function(app) {
+        return app.productionAppId;
+      });
+    }
 
     if (dataSource.definition) {
       definitionEditor.setValue(JSON.stringify(dataSource.definition, null, 2));
@@ -282,6 +309,7 @@ function fetchCurrentDataSourceUsers() {
  * Cache a list of entries as original entries for comparison when committing changes
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
+ * @returns {undefined}
  */
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
@@ -295,8 +323,37 @@ function cacheOriginalEntries(entries, clientIdMap) {
   });
 }
 
+/**
+ * Clear the global timer and hides #alert-live-data
+ * @returns {void}
+ */
+function clearLiveDataTimer() {
+  clearTimeout(globalTimer);
+  $('#alert-live-data').addClass('hidden');
+}
+
+/**
+ * Tracks a global timer and renders the message in State A to display warning message
+ * @returns {void}
+ */
+function startLiveDataTimer() {
+  $('#alert-live-data').removeClass('hidden');
+  $('#alert-live-data').html('Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+  globalTimer = setTimeout(function() {
+    $('#alert-live-data').html('Some of the data may have been changed by users of the app or other Studio users. Modifying data while live users are accessing the app may overwrite data. We recommend using admin screens within the app to modify data safely. \<a href="#" data-source-reload>Reload\</a> to see the latest version. \<a target="_blank" href="https://help.fliplet.com">Learn more\</a>');
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'show'
+    });
+  }, 300000);
+}
+
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+    clearLiveDataTimer();
+
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
@@ -312,11 +369,20 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      return source.find({}).catch(function() {
+      return source.find({
+        order: [
+          ['order', 'ASC'],
+          ['id', 'ASC']
+        ]
+      }).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
   }).then(function(rows) {
+    if (dataSourceIsLive) {
+      startLiveDataTimer();
+    }
+
     // Cache entries in a new thread
     setTimeout(function() {
       cacheOriginalEntries(rows);
@@ -339,7 +405,12 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = ['Column 1', 'Column 2'];
     } else {
       var flattenedColumns = {};
-      rows.map(({data}) => data).forEach(dataItem => (flattenedColumns = {...flattenedColumns, ...dataItem}));
+
+      rows.map(function(row) {
+        return row.data;
+      }).forEach(function(dataItem) {
+        Object.assign(flattenedColumns, dataItem);
+      });
 
       var computedColumns = _.keys(flattenedColumns);
 
@@ -547,7 +618,10 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
-function getCommitPayload(entries = []) {
+// eslint-disable-next-line no-unused-vars
+function getCommitPayload(entries) {
+  entries = entries || [];
+
   var inserted = [];
   var updated = [];
   var deleted = [];
@@ -603,7 +677,10 @@ function saveCurrentData() {
 
   table.onSave();
 
-  var entries = table.getData();
+  var entries = table.getData({
+    parseJSON: true,
+    removeEmptyRows: true
+  });
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -660,6 +737,7 @@ function saveCurrentData() {
   }).then(function(response) {
     return;
 
+    // eslint-disable-next-line no-unreachable
     var clientIds = [];
     var ids = [];
 
@@ -669,6 +747,7 @@ function saveCurrentData() {
       ids.push(entry.id);
     });
 
+    // eslint-disable-next-line no-unreachable
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
@@ -721,7 +800,6 @@ function browseDataSource(id) {
   });
 
   $versionContents.html('');
-  $('[href="#entries"]').click();
   $sourceContents.find('#toolbar').hide();
   $initialSpinnerLoading.addClass('animated');
   $sourceContents.removeClass('hidden');
@@ -756,6 +834,7 @@ function browseDataSource(id) {
           // Show security rules
           if (widgetData.view === 'access-rules') {
             $('#show-access-rules').click();
+            addSecurityRule();
           }
         });
     }
@@ -1120,6 +1199,18 @@ $('#app')
       getDataSources();
     }
   })
+  .on('click', '[data-source-reload]', function(event) {
+    event.preventDefault();
+
+    $('.save-btn').addClass('hidden');
+
+    fetchCurrentDataSourceEntries();
+
+    Fliplet.Studio.emit('track-event', {
+      category: 'dsm_reload_warning',
+      action: 'reload'
+    });
+  })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
 
@@ -1133,6 +1224,8 @@ $('#app')
           return;
         }
 
+        $('#save-rules').addClass('hidden');
+
         try {
           table.destroy();
         } catch (e) {
@@ -1144,6 +1237,8 @@ $('#app')
         getDataSources();
       });
     } else {
+      $('#save-rules').addClass('hidden');
+
       try {
         table.destroy();
       } catch (e) {
@@ -1711,6 +1806,77 @@ $('#show-versions').click(function() {
   fetchCurrentDataSourceVersions();
 });
 
+function findSecurityRule() {
+  var rule = currentDataSourceRules.map(function(rule) {
+    var tokens = _.get(rule, 'allow.tokens');
+
+    if (!tokens || tokens.indexOf(widgetData.tokenId) === -1) {
+      return;
+    }
+  });
+
+  return rule;
+}
+
+function getSelectedTokenDetails() {
+  var tokenSelectedName;
+  var tokenSelectedId;
+
+  var tokenDetails = _.find(integrationTokenList, function(integrationToken) {
+    if (widgetData.tokenId) {
+      if (integrationToken.id === widgetData.tokenId) {
+        return integrationToken;
+      }
+    } else if (integrationToken.id === selectedTokenId) {
+      return integrationToken;
+    }
+  });
+
+  tokenSelectedName = tokenDetails.fullName;
+  tokenSelectedId = tokenDetails.id;
+
+  setSelectedTokenDetails(tokenSelectedId, tokenSelectedName);
+}
+
+function setSelectedTokenDetails(id, name) {
+  $('#tokenSelectedId').text(id);
+  $('#tokenSelectedName').text(name);
+}
+
+function getFilteredSpecificTokenList() {
+  var rules = _.filter(currentDataSourceRules, function(currentRules) {
+    return _.some(currentRules.allow.tokens, function(allowTokenId) {
+      if (widgetData.tokenId && !selectedTokenId) {
+        return allowTokenId === widgetData.tokenId;
+      }
+
+      return allowTokenId === selectedTokenId;
+    });
+  });
+
+  currentDataSourceRules = rules;
+
+  if (currentDataSourceRules.length === 0) {
+    addSecurityRule();
+  }
+
+  $('#specific-token-filter').removeClass('hidden');
+  $('#save-rules').addClass('hidden');
+}
+
+function addSecurityRule() {
+  var rule = findSecurityRule();
+
+  if (!rule || rule.length === 0) {
+    $('#add-rule').click();
+    rule = { type: [], allow: { tokens: [widgetData.tokenId] }, enabled: true };
+    configureAddRuleUI(rule);
+  } else {
+    getSelectedTokenDetails();
+    getFilteredSpecificTokenList();
+  }
+}
+
 $('#add-rule').click(function(event) {
   event.preventDefault();
 
@@ -1761,6 +1927,30 @@ $('input[name="exclude"]').on('tokenfield:createtoken', function(event) {
   });
 });
 
+// Ensure rules filter again from currentFinalRules if selectedTokenId is changed from token-list dropdown
+$('body').on('change', '.tokens-list', function() {
+  selectedTokenId  = Number($('.tokens-list :selected').val());
+
+  if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
+    var rules = _.filter(currentFinalRules, function(currentRules) {
+      return _.some(currentRules.allow.tokens, function(allowTokenId) {
+        if (widgetData.tokenId && !selectedTokenId) {
+          return allowTokenId === widgetData.tokenId;
+        }
+
+        return allowTokenId === selectedTokenId;
+      });
+    });
+
+    currentDataSourceRules = rules;
+  }
+});
+
+$('input[name="columns-list-mode"]').on('click', function() {
+  columnsListMode = $(this).val();
+  updateSaveRuleValidation();
+});
+
 $('body').on('click', '[data-remove-field]', function(event) {
   event.preventDefault();
   $(this).closest('.required-field').remove();
@@ -1799,7 +1989,17 @@ function configureAddRuleUI(rule) {
     showAutocompleteOnFocus: true
   });
 
-  $('input[name="exclude"]').tokenfield('setTokens', rule.exclude || []);
+  var tokenField;
+
+  if (rule.exclude) {
+    tokenField = rule.exclude;
+  } else if (rule.include) {
+    tokenField = rule.include;
+  } else {
+    tokenField = [];
+  }
+
+  $('input[name="exclude"]').tokenfield('setTokens', tokenField);
 
   rule.type.forEach(function(type) {
     $('input[name="type"][value="' + type + '"]').prop('checked', true);
@@ -1808,6 +2008,8 @@ function configureAddRuleUI(rule) {
   if (rule.allow) {
     if (typeof rule.allow === 'string') {
       $('[data-allow="' + rule.allow + '"]').click();
+    } else if (typeof rule.allow === 'object') {
+      $('[data-allow="tokens"]').click();
     } else {
       $('.filters').html('');
       $('[data-allow="filter"]').click();
@@ -1893,15 +2095,53 @@ function updateSaveRuleValidation() {
 
   var msg;
 
-  if (hasType('select') && (hasType('insert') || hasType('update'))) {
-    msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
-  } else if (hasType('insert') || hasType('update')) {
-    msg = 'Specify columns that should never be writable by users when this rule is matched.';
-  } else {
-    msg = 'Specify columns that should never be readable by users when this rule is matched.';
+  if (columnsListMode === 'exclude') {
+    if (hasType('select') && (hasType('insert') || hasType('update'))) {
+      msg = 'Specify columns that should never be readable or writable by users when this rule is matched.';
+    } else if (hasType('insert') || hasType('update')) {
+      msg = 'Specify columns that should never be writable by users when this rule is matched.';
+    } else {
+      msg = 'Specify columns that should never be readable by users when this rule is matched.';
+    }
+  } else if (columnsListMode === 'include') {
+    if (hasType('select') && (hasType('insert') || hasType('update'))) {
+      msg = 'Only the columns specified here are readable and writable by users when this rule is matched';
+    } else if (hasType('insert') || hasType('update')) {
+      msg = 'Only the columns specified here are writable by users when this rule is matched';
+    } else {
+      msg = 'Only the columns specified here are readable by users when this rule is matched';
+    }
   }
 
   $('[data-exclude-description]').text(msg);
+}
+
+/**
+ * Render a list of columns from a security rule based on a property
+ * @param {Object} rule - Security rule object
+ * @param {String} prop - Security rule property for accessing the list of columns
+ * @returns {String} HTML code for the column list
+ **/
+function columnListTemplate(rule, prop) {
+  rule = rule || {};
+
+  var columns = rule[prop];
+
+  if (!Array.isArray(columns) || !columns.length) {
+    return new Error('Columns not found for ' + prop);
+  }
+
+  if (columns.length === 1) {
+    return '<code>' + columns[0] + '</code> only';
+  }
+
+  columns = _.clone(columns);
+
+  var lastColumn = columns.pop();
+
+  return columns.map(function(col) {
+    return '<code>' + col + '</code>';
+  }).join(', ') + ' and <code>' + lastColumn + '</code>';
 }
 
 $typeCheckbox.click(updateSaveRuleValidation);
@@ -1910,12 +2150,23 @@ $allowBtnFilter.click(function(event) {
   event.preventDefault();
 
   var $usersFilter = $('.users-filter');
+  var $specificTokens = $('.tokens-list');
   var value = $(this).data('allow');
 
   $allowBtnFilter.removeClass('selected');
   $(this).addClass('selected');
 
   $usersFilter.toggleClass('hidden', value !== 'filter');
+  $specificTokens.toggleClass('hidden', value !== 'tokens');
+
+  if (value === 'tokens') {
+    var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+
+    $('.tokens-list').html(tpl({
+      integrationTokenList: integrationTokenList
+    }));
+    $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+  }
 
   // Add first filter automatically
   if (value === 'filter' && !$usersFilter.find('.filters').html().trim()) {
@@ -2036,18 +2287,27 @@ $('#show-access-rules').click(function() {
         }).join(', '),
         allow: (function() {
           if (typeof rule.allow === 'object') {
-            if (typeof rule.allow.user !== 'object') {
-              return;
+            if (rule.allow.tokens) {
+              var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
+                return _.some(rule.allow.tokens, function(token) {
+                  return integrationToken.id === token;
+                });
+              });
+
+              return 'Specific token: ID#' + _.map(filteredTokens, function(token) {
+                return token.id + ' - ' + token.fullName;
+              }).join('<br />');
+            } else if (rule.allow.user) {
+              return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
+                var operation = rule.allow.user[key];
+                var operationType = Object.keys(operation)[0];
+                var operator = operatorDescription(operationType);
+
+                return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
+              }).join('<br />');
             }
 
-            return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
-              var operation = rule.allow.user[key];
-
-              var operationType = Object.keys(operation)[0];
-              var operator = operatorDescription(operationType);
-
-              return '<code>' + key + ' ' + operator + ' ' + operation[operationType] + '</code>';
-            }).join('<br />');
+            return;
           }
 
           switch (rule.allow) {
@@ -2057,14 +2317,20 @@ $('#show-access-rules').click(function() {
               return 'All users';
           }
         })(),
-        exclude: rule.exclude
-          ? rule.exclude.map(function(exclude) {
-            return '<code>' + exclude + '</code>';
-          }).join('<br />')
-          : '—',
-        apps: rule.appId
-          ? _.compact(rule.appId.map(function(appId) {
-            var app = _.find(apps, { id: appId });
+        include: (function() {
+          if (rule.include) {
+            return 'Include ' + columnListTemplate(rule, 'include');
+          } else if (rule.exclude) {
+            return 'Exclude ' + columnListTemplate(rule, 'exclude');
+          }
+
+          return '-';
+        })(),
+        apps: rule.appId ?
+          _.compact(rule.appId.map(function(appId) {
+            var app = _.find(apps, {
+              id: appId
+            });
 
             return app && app.name;
           })).join(', ')
@@ -2086,8 +2352,83 @@ $('#show-access-rules').click(function() {
       }));
     });
 
+    $tbody.sortable({
+      tolerance: 'pointer',
+      cursor: '-webkit-grabbing; -moz-grabbing;',
+      axis: 'y',
+      forcePlaceholderSize: true,
+      forceHelperSize: true,
+      revert: 150,
+      helper: function(event, row) {
+        // Set width to each td of dragged row
+        row.children().each(function() {
+          $(this).width($(this).width());
+        });
+
+        return row;
+      },
+      start: function(event, tbodySortObject) {
+        var $originalTbodyObject = tbodySortObject.helper.children();
+
+        // Set width of each td of row before dragging so the table width remains the same
+        tbodySortObject.placeholder.children().each(function(index) {
+          $(this).width($originalTbodyObject.eq(index).width());
+        });
+      },
+      update: function() {
+        var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
+
+        currentDataSourceRules = _.map(result, function(r) {
+          return currentDataSourceRules[r];
+        });
+
+        markDataSourceRulesUIWithChanges();
+      }
+    });
+
     $accessRulesList.css('opacity', 1);
   });
+});
+
+/**
+ * Check whether security rule is found or not in current rules
+ * @returns {Boolean} Returns true if security rule found
+ */
+function getSecurityRule() {
+  var hasSecurityRule = false;
+
+  if (currentFinalRules === null) {
+    currentFinalRules = [];
+  }
+
+  if (currentFinalRules.length > 0) {
+    hasSecurityRule = currentFinalRules.some(function(rule) {
+      return _.some(rule.allow.tokens, function(token) {
+        return token && (token === widgetData.tokenId || token === selectedTokenId);
+      });
+    });
+  }
+
+  return hasSecurityRule;
+}
+
+$('[data-clear-filter]').click(function(event) {
+  event.preventDefault();
+
+  $('#specific-token-filter').removeClass('hidden');
+  $('#save-rules').addClass('hidden');
+
+  var rule = getSecurityRule();
+
+  if (!rule && currentDataSourceRules.length > 0) {
+    currentFinalRules.push(currentDataSourceRules[0]);
+  }
+
+  currentDataSourceRules = currentFinalRules;
+
+  $('#specific-token-filter').addClass('hidden');
+  $('#show-access-rules').click();
+  $('#save-rules').removeClass('hidden');
 });
 
 $('[data-save-rule]').click(function(event) {
@@ -2105,12 +2446,14 @@ $('[data-save-rule]').click(function(event) {
 
   var error;
 
+  $('#specific-token-filter').addClass('hidden');
+
   if ($allow.data('allow') === 'filter') {
     var user = {};
 
     $('.users-filter .required-field').each(function() {
-      var column = $(this).find('[name="column"]').val();
-      var value = $(this).find('[name="value"]').val();
+      var column = $.trim($(this).find('[name="column"]').val());
+      var value = $.trim($(this).find('[name="value"]').val());
       var operationType = $(this).find('select').val();
 
       if (column && value) {
@@ -2128,7 +2471,21 @@ $('[data-save-rule]').click(function(event) {
     });
 
     rule.allow = { user: user };
-  } else {
+  } else if ($allow.data('allow') === 'tokens') {
+    selectedTokenId  = Number($('.tokens-list :selected').val());
+
+    var tokenFullName = _.find(integrationTokenList, function(token) {
+      return token.id === selectedTokenId;
+    });
+
+    if (tokenFullName) {
+      selectedTokenName = tokenFullName.fullName;
+    }
+
+    setSelectedTokenDetails(selectedTokenId, selectedTokenName);
+    rule.allow = { 'tokens': [selectedTokenId] };
+    $('#specific-token-filter').removeClass('hidden');
+  }  else {
     rule.allow = $allow.data('allow');
   }
 
@@ -2149,8 +2506,8 @@ $('[data-save-rule]').click(function(event) {
   var requiredFields = [];
 
   $('.required-fields .required-field').each(function() {
-    var column = $(this).find('[name="field"]').val();
-    var value = $(this).find('[name="value"]').val();
+    var column = $.trim($(this).find('[name="field"]').val());
+    var value = $.trim($(this).find('[name="value"]').val());
     var operationType = $(this).find('select').val();
 
     if (!column) {
@@ -2191,10 +2548,14 @@ $('[data-save-rule]').click(function(event) {
     rule.require = requiredFields;
   }
 
-  var exclude = _.compact($('input[name="exclude"]').val().split(','));
+  var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
 
-  if (exclude.length) {
-    rule.exclude = exclude;
+  if (columnsListMode === 'exclude') {
+    if (exclude.length) {
+      rule.exclude = exclude;
+    }
+  } else if (exclude.length) {
+    rule.include = exclude;
   }
 
   if (error) {
@@ -2203,14 +2564,35 @@ $('[data-save-rule]').click(function(event) {
 
   $('[data-dismiss="modal"]').click();
 
+  var isAddingRule = $('#configure-rule').find('.modal-title').text() === 'Add new security rule';
+
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
+
+    // For Edit security rule adding the rule in current final rules
+    if (!isAddingRule || (widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId)) {
+      currentFinalRules.push(rule);
+    }
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
+
+    // For Edit security rule to retain new changes in final rule
+    if (!isAddingRule || widgetData.context === 'overlay') {
+      currentFinalRules[currentDataSourceRuleIndex] = rule;
+    }
+
     currentDataSourceRuleIndex = undefined;
   }
 
-  markDataSourceRulesUIWithChanges();
+  if (rule.allow.tokens) {
+    getFilteredSpecificTokenList();
+  }
+
+  if ($allow.data('allow') === 'tokens') {
+    $('#show-access-rules').click();
+  } else {
+    markDataSourceRulesUIWithChanges();
+  }
 });
 
 $('body').on('click', '#save-rules', function(event) {
@@ -2220,6 +2602,8 @@ $('body').on('click', '#save-rules', function(event) {
 
 $('body').on('click', '[data-rule-delete]', function(event) {
   event.preventDefault();
+
+  $('#specific-token-filter').addClass('hidden');
 
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
@@ -2251,11 +2635,23 @@ $('body').on('click', '[data-rule-edit]', function(event) {
   var rule = currentDataSourceRules[currentDataSourceRuleIndex];
   var $modal = $('#configure-rule');
 
+  if (rule.exclude) {
+    columnsListMode = 'exclude';
+  } else {
+    columnsListMode = 'include';
+  }
+
+  $('#' + columnsListMode).prop('checked', true);
+
   $modal.find('.modal-title').text('Edit security rule');
   $modal.find('[data-save-rule]').text('Confirm');
 
   configureAddRuleUI(rule);
   showModal($modal);
+
+  if (rule.allow.tokens && rule.allow.tokens.length !== 0) {
+    $(".tokens-list option[value='" + rule.allow.tokens[0] + "']").attr('selected', 'selected');
+  }
 });
 
 function showModal($modal) {
@@ -2275,12 +2671,7 @@ function updateDataSourceRules() {
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function() {
-    // Return to parent widget if in overlay
-    if (widgetData.context === 'overlay') {
-      Fliplet.Studio.emit('close-overlay');
-
-      return;
-    }
+    $('#save-rules').addClass('hidden');
 
     Fliplet.Modal.alert({
       message: 'Your changes have been applied to all affected apps.'
@@ -2288,17 +2679,18 @@ function updateDataSourceRules() {
   });
 }
 
-if (widgetData.context === 'overlay') {
-  // Enter data source when the provider starts if ID exists
-  $('.save-btn, .data-save-status').addClass('hidden');
-  browseDataSource(widgetData.dataSourceId);
-} else {
-  getDataSources();
-}
+Fliplet().then(function() {
+  if (widgetData.context === 'overlay') {
+    // Enter data source when the provider starts if ID exists
+    $('.save-btn, .data-save-status').addClass('hidden');
+    browseDataSource(widgetData.dataSourceId);
+  } else {
+    getDataSources();
+  }
+});
 
 $('[data-cancel]').click(function(event) {
   event.preventDefault();
 
   $('[data-dismiss="modal"]').click();
 });
-
