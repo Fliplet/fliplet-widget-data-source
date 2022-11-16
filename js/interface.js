@@ -497,8 +497,10 @@ function getVersionActionDescription(version) {
       return 'Version restored by ' + version.user.fullName;
     case 'current':
       return 'This is the current version of the data source, last updated by ' + version.user.fullName;
+    case 'snapshot':
+      return 'Automatic snapshot taken by the system';
     default:
-      return version.data.action;
+      return version.data.action || 'Description not available';
   }
 }
 
@@ -512,9 +514,9 @@ function fetchCurrentDataSourceVersions() {
       var versions = currentDataSourceVersions.map(function(version) {
         version.createdAt = TD(version.createdAt, { format: 'lll', locale: locale });
         version.action = getVersionActionDescription(version);
-        version.entriesCount = version.data.entries.count;
-        version.hasEntries = version.data.entries.count > 0;
-        version.columnsCount = version.data.columns.length;
+        version.entriesCount = _.get(version, 'data.entries.count', 'Unknown');
+        version.hasEntries = version.entriesCount > 0;
+        version.columnsCount = version.data.columns && version.data.columns.length || 'Not defined';
 
         return version;
       });
