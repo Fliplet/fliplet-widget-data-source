@@ -106,7 +106,7 @@ function getDataSources() {
     includeInUse: !isShowingAll && !!widgetData.appId,
     attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
     type: null,
-    excludeTypes: 'bookmarks,likes,comments,menu'
+    excludeTypes: 'bookmarks,likes,comments,menu,conversation'
   }, {
     cache: false
   })
@@ -820,7 +820,7 @@ function browseDataSource(id) {
         attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
         roles: 'publisher,editor',
         type: null,
-        excludeTypes: 'bookmarks,likes,comments,menu'
+        excludeTypes: 'bookmarks,likes,comments,menu,conversation'
       }, {
         cache: false
       })
