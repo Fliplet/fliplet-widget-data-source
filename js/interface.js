@@ -2005,7 +2005,7 @@ function configureAddRuleUI(rule) {
   if (rule.allow) {
     if (typeof rule.allow === 'string') {
       $('[data-allow="' + rule.allow + '"]').click();
-    } else if (typeof rule.allow === 'object') {
+    } else if (typeof rule.allow === 'object' && rule.allow.tokens && rule.allow.tokens.length) {
       $('[data-allow="tokens"]').click();
     } else {
       $('.filters').html('');
