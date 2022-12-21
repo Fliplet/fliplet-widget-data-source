@@ -123,11 +123,11 @@ body {
 }
 
 .ht_clone_top .wtHolder {
-  overflow-x: hidden !important;
+  overflow-x: visible !important;
 }
 
 .ht_clone_left .wtHolder {
-  overflow-y: hidden !important;
+  overflow-y: visible !important;
 }
 
 .controls-wrapper {
