@@ -833,7 +833,7 @@ function spreadsheet(options) {
 
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {
-            entry.data[header] = parseColumnValue(entry.data[header]);
+            entry.data[header] = parseCellValue(entry.data[header]);
           }
         });
 
@@ -863,21 +863,36 @@ function spreadsheet(options) {
     HistoryStack.getCurrent().setData(preparedData);
   }
 
-  function parseColumnValue(str) {
+  /**
+   * Cast the value of a cell to the expected type
+   * @param {String} str - String value of a cell
+   * @returns {*} Parsed value, possibly as a new type
+   */
+  function parseCellValue(str) {
     try {
       var parsedResult = JSON.parse(str);
+
+      // Input was already a string, do not change it or remove the double quotes
+      if (typeof parsedResult === 'string') {
+        return str;
+      }
 
       if (typeof parsedResult === 'object') {
         return parsedResult === null ? undefined : parsedResult;
       }
 
-      return parsedResult === -0 ? 0 : getValue(parsedResult);
+      return parsedResult === -0 ? 0 : parseCellValueAsString(parsedResult);
     } catch (e) {
-      return getValue(str);
+      return parseCellValueAsString(str);
     }
   }
 
-  function getValue(value) {
+  /**
+   * Process a string value before it's saved in the data source
+   * @param {String} value - String value to process
+   * @returns {*} Processed value
+   */
+  function parseCellValueAsString(value) {
     if (typeof value !== 'string') {
       return value;
     }
