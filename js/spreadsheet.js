@@ -858,10 +858,8 @@ function spreadsheet(options) {
     var columns = options.columns || [];
     var preparedData = prepareData(rows, columns);
 
-    if (!dataLoaded) {
-      hot.loadData(preparedData);
-    }
-
+    dataLoaded = false;
+    hot.loadData(preparedData);
     HistoryStack.getCurrent().setData(preparedData);
   }
 
