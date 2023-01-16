@@ -256,6 +256,9 @@
                 <ul class="dropdown-menu preconfigured-rules" aria-labelledby="add-rules-dropdown">
                   <li><a href="#" id="add-rule">Create my own rule</a></li>
                   <li role="separator" class="divider"></li>
+                  <li class="dropdown-header">Advanced</li>
+                  <li><a href="#" id="add-custom-rule">Create a custom rule using JavaScript</a></li>
+                  <li role="separator" class="divider"></li>
                   <li class="dropdown-header">Pre-configured rules</li>
                 </ul>
               </div>
@@ -298,117 +301,142 @@
       </div>
       <div class="modal-body">
         <form class="form">
-          <div class="row">
-            <div class="col-md-4">
-              <h5>Allow</h5>
-              <p>Specify users affected by this rule.</p>
-            </div>
-            <div class="col-md-8 side vertical token-align-item">
-              <div class="row">
-                <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
-                <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
-                <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
-                <button data-allow="tokens" type="button" class="btn btn-default">Specific token</button>
+          <div data-rule-standard>
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Allow</h5>
+                <p>Specify users affected by this rule.</p>
               </div>
-              <div class="users-filter hidden">
-                <div class="filters"></div>
-                <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
-              </div>
-              <div class="row tokens-list hidden form-group">
-              </div>
-            </div>
-          </div>
-          <hr />
-          <div class="row">
-            <div class="col-md-4">
-              <h5>Users can</h5>
-              <p>Select operations the specified users can perform.</p>
-            </div>
-            <div class="col-md-8 side">
-              <div class="checkbox checkbox-icon">
-                <input name="type" type="checkbox" id="chk-select" value="select">
-                <label for="chk-select">
-                  <span class="check"><i class="fa fa-check"></i></span> Read
-                </label>
-              </div>
-              <div class="checkbox checkbox-icon">
-                <input name="type" type="checkbox" id="chk-insert" value="insert">
-                <label for="chk-insert">
-                  <span class="check"><i class="fa fa-check"></i></span> Write
-                </label>
-              </div>
-              <div class="checkbox checkbox-icon">
-                <input name="type" type="checkbox" id="chk-update" value="update">
-                <label for="chk-update">
-                  <span class="check"><i class="fa fa-check"></i></span> Update
-                </label>
-              </div>
-              <div class="checkbox checkbox-icon">
-                <input name="type" type="checkbox" id="chk-delete" value="delete">
-                <label for="chk-delete">
-                  <span class="check"><i class="fa fa-check"></i></span> Delete
-                </label>
-              </div>
-            </div>
-          </div>
-          <hr />
-          <div class="row">
-            <div class="col-md-4">
-              <h5>Applies to</h5>
-              <p>Select apps affected by this rule.</p>
-            </div>
-            <div class="col-md-8 side vertical">
-              <div>
-                <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
-                <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
-              </div>
-              <div class="apps-list"></div>
-            </div>
-          </div>
-          <hr />
-          <div class="row">
-            <div class="col-md-4">
-              <h5>Include or exclude columns</h5>
-              <p data-exclude-description></p>
-            </div>
-            <div class="col-md-8 side">
-              <div class="tokenfield-ui">
+              <div class="col-md-8 side vertical token-align-item">
                 <div class="row">
-                  <div class="col-md-3">
-                    <div class="radio radio-icon">
-                      <input type="radio" id="exclude" name="columns-list-mode" value="exclude">
-                      <label for="exclude">
-                        <span class="check"><i class="fa fa-circle"></i></span> Exclude
-                      </label>
-                    </div>
-                  </div>
-                  <div class="col-md-9">
-                    <div class="radio radio-icon">
-                      <input type="radio" id="include" name="columns-list-mode" value="include" checked>
-                      <label for="include">
-                        <span class="check"><i class="fa fa-circle"></i></span>Include
-                      </label>
-                    </div>
-                  </div>
+                  <button data-allow="all" type="button" class="btn btn-default selected"><i class="fa fa-globe fa-fw"></i> All users</button>
+                  <button data-allow="loggedIn" type="button" class="btn btn-default"><i class="fa fa-lock fa-fw"></i> Logged in users</button>
+                  <button data-allow="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific users</button>
+                  <button data-allow="tokens" type="button" class="btn btn-default">Specific token</button>
                 </div>
-                <div class="row">
-                  <div class="col-md-12">
-                    <input type="text" class="form-control" name="exclude" value=""
-                      placeholder="Type the column name and press return">
-                  </div>
+                <div class="users-filter hidden">
+                  <div class="filters"></div>
+                  <button data-add-user-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add condition</button>
+                </div>
+                <div class="row tokens-list hidden form-group">
                 </div>
               </div>
             </div>
-          </div>
-          <hr />
-          <div class="row">
-            <div class="col-md-4">
-              <h5>Request data requirements</h5>
-              <p>Specify rules that data must follow.</p>
+            <hr />
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Users can</h5>
+                <p>Select operations the specified users can perform.</p>
+              </div>
+              <div class="col-md-8 side">
+                <div class="checkbox checkbox-icon">
+                  <input name="type" type="checkbox" id="chk-select" value="select">
+                  <label for="chk-select">
+                    <span class="check"><i class="fa fa-check"></i></span> Read
+                  </label>
+                </div>
+                <div class="checkbox checkbox-icon">
+                  <input name="type" type="checkbox" id="chk-insert" value="insert">
+                  <label for="chk-insert">
+                    <span class="check"><i class="fa fa-check"></i></span> Write
+                  </label>
+                </div>
+                <div class="checkbox checkbox-icon">
+                  <input name="type" type="checkbox" id="chk-update" value="update">
+                  <label for="chk-update">
+                    <span class="check"><i class="fa fa-check"></i></span> Update
+                  </label>
+                </div>
+                <div class="checkbox checkbox-icon">
+                  <input name="type" type="checkbox" id="chk-delete" value="delete">
+                  <label for="chk-delete">
+                    <span class="check"><i class="fa fa-check"></i></span> Delete
+                  </label>
+                </div>
+              </div>
             </div>
-            <div class="col-md-8 side vertical">
-              <div class="required-fields"></div>
-              <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data requirement</button>
+            <hr />
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Applies to</h5>
+                <p>Select apps affected by this rule.</p>
+              </div>
+              <div class="col-md-8 side vertical">
+                <div>
+                  <button data-apps="all" type="button" class="btn btn-default selected">All apps</button>
+                  <button data-apps="filter" type="button" class="btn btn-default"><i class="fa fa-filter fa-fw"></i> Specific apps</button>
+                </div>
+                <div class="apps-list"></div>
+              </div>
+            </div>
+            <hr />
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Include or exclude columns</h5>
+                <p data-exclude-description></p>
+              </div>
+              <div class="col-md-8 side">
+                <div class="tokenfield-ui">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <div class="radio radio-icon">
+                        <input type="radio" id="exclude" name="columns-list-mode" value="exclude">
+                        <label for="exclude">
+                          <span class="check"><i class="fa fa-circle"></i></span> Exclude
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-md-9">
+                      <div class="radio radio-icon">
+                        <input type="radio" id="include" name="columns-list-mode" value="include" checked>
+                        <label for="include">
+                          <span class="check"><i class="fa fa-circle"></i></span>Include
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-12">
+                      <input type="text" class="form-control" name="exclude" value=""
+                        placeholder="Type the column name and press return">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr />
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Request data requirements</h5>
+                <p>Specify rules that data must follow.</p>
+              </div>
+              <div class="col-md-8 side vertical">
+                <div class="required-fields"></div>
+                <button data-add-filter type="button" class="btn btn-default"><i class="fa fa-plus fa-fw"></i> Add data requirement</button>
+              </div>
+            </div>
+          </div>
+          <div data-rule-custom>
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Security rule name</h5>
+                <p>Use a name to describe the security rule.</p>
+              </div>
+              <div class="col-md-8 side vertical">
+                <input type="text" class="form-control" maxlength="128" name="name" placeholder="Name of your rule" />
+              </div>
+            </div>
+            <hr />
+            <div class="row">
+              <div class="col-md-4">
+                <h5>Custom definition</h5>
+                <p>Write your custom rule using JavaScript. See <a href="https://developers.fliplet.com/Data-source-security.html#custom-security-rules" target="_blank">documentation</a> to learn more.</p>
+              </div>
+              <div class="col-md-8 side vertical">
+                <div style="width:100%">
+                  <textarea id="custom-rule"></textarea>
+                </div>
+              </div>
             </div>
           </div>
         </form>
