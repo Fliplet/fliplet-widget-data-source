@@ -2291,7 +2291,7 @@ $('#show-access-rules').click(function() {
       }
 
       $tbody.append(tpl({
-        name: rule.name || ('Untitled rule' + (index + 1)),
+        name: rule.name || ('Untitled rule ' + (index + 1)),
         index: index,
         enabled: rule.enabled,
         hasScript: typeof rule.script === 'string',
