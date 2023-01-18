@@ -5,8 +5,8 @@
   <select class="form-control">
     <option disabled="disabled">Select API Token</option>
     {{#each apps}}
-    <optgroup label="{{@key}}">
-      {{#each this}}
+    <optgroup label="{{name}}">
+      {{#each tokens}}
       <option value="{{id}}">ID#{{id}} - {{fullName}}</option>
       {{/each}}
     </optgroup>
