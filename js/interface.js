@@ -43,7 +43,7 @@ var entryMap = {
   entries: {}
 };
 var currentFinalRules;
-var integrationTokenList;
+var integrationTokenList = [];
 var selectedTokenId;
 var selectedTokenName;
 var globalTimer;
@@ -80,18 +80,11 @@ var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-if (widgetData.appId) {
-  Fliplet.App.Tokens.get({
-    appId: widgetData.appId,
-    query: {
-      type: 'integrationToken',
-      order: 'createdAt',
-      direction: 'DESC'
-    }
-  }).then(function(tokens) {
-    integrationTokenList = tokens;
-  });
-}
+Fliplet.API.request({
+  url: 'v1/apps/tokens'
+}).then(function (response) {
+  integrationTokenList = response.appTokens;
+});
 
 // Fetch all data sources
 function getDataSources() {
@@ -2189,9 +2182,13 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+    var appTokens = _.groupBy(integrationTokenList, function (token) {
+      return _.get(_.first(token.apps), 'name', 'Other');
+    });
 
     $('.tokens-list').html(tpl({
-      integrationTokenList: integrationTokenList
+      // Sort by key (app name)
+      apps: _.fromPairs(_.sortBy(_.toPairs(appTokens), 1).reverse())
     }));
     $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
   }
