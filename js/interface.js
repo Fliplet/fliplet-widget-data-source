@@ -43,12 +43,14 @@ var entryMap = {
   entries: {}
 };
 var currentFinalRules;
-var integrationTokenList;
+var integrationTokenList = [];
 var selectedTokenId;
 var selectedTokenName;
 var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
+
+var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -80,18 +82,11 @@ var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-if (widgetData.appId) {
-  Fliplet.App.Tokens.get({
-    appId: widgetData.appId,
-    query: {
-      type: 'integrationToken',
-      order: 'createdAt',
-      direction: 'DESC'
-    }
-  }).then(function(tokens) {
-    integrationTokenList = tokens;
-  });
-}
+Fliplet.API.request({
+  url: 'v1/apps/tokens'
+}).then(function (response) {
+  integrationTokenList = response.appTokens;
+});
 
 // Fetch all data sources
 function getDataSources() {
@@ -1859,7 +1854,7 @@ function setSelectedTokenDetails(id, name) {
 
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
-    return _.some(currentRules.allow.tokens, function(allowTokenId) {
+    return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
       if (widgetData.tokenId && !selectedTokenId) {
         return allowTokenId === widgetData.tokenId;
       }
@@ -1875,7 +1870,6 @@ function getFilteredSpecificTokenList() {
   }
 
   $('#specific-token-filter').removeClass('hidden');
-  $('#save-rules').addClass('hidden');
 }
 
 function addSecurityRule() {
@@ -1947,7 +1941,7 @@ $('body').on('change', '.tokens-list', function() {
 
   if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
     var rules = _.filter(currentFinalRules, function(currentRules) {
-      return _.some(currentRules.allow.tokens, function(allowTokenId) {
+      return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
         if (widgetData.tokenId && !selectedTokenId) {
           return allowTokenId === widgetData.tokenId;
         }
@@ -2036,7 +2030,21 @@ function configureAddRuleUI(rule) {
       if (typeof rule.allow === 'string') {
         $('[data-allow="' + rule.allow + '"]').click();
       } else if (typeof rule.allow === 'object' && rule.allow.tokens && rule.allow.tokens.length) {
+        var selectedTokenId = _.first(rule.allow.tokens);
+
+        if (selectedTokenId) {
+          // Add token when not found in the list
+          if (!_.find(integrationTokenList, { id: selectedTokenId })) {
+            integrationTokenList.push({ id: selectedTokenId, fullName: 'API Token' });
+          }
+        }
+
+        // Open UI and trigger "$allowBtnFilter" click handler
         $('[data-allow="tokens"]').click();
+
+        if (selectedTokenId) {
+          $(".tokens-list option[value='" + selectedTokenId + "']").attr('selected', 'selected');
+        }
       } else {
         $('.filters').html('');
         $('[data-allow="filter"]').click();
@@ -2189,11 +2197,24 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+    var appTokens = _.groupBy(integrationTokenList, function (token) {
+      return _.get(_.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
+    });
+
+    // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
+    var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
+      return { name: name, tokens: tokens };
+    }), function (key) {
+      return key === DESCRIPTION_APP_UNKNOWN ? 'z' : key.toUppercase();
+    });
 
     $('.tokens-list').html(tpl({
-      integrationTokenList: integrationTokenList
+      apps: appsList
     }));
-    $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+
+    if (widgetData.tokenId) {
+      $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+    }
   }
 
   // Add first filter automatically
@@ -2318,17 +2339,19 @@ $('#show-access-rules').click(function() {
           return description;
         }).join(', '),
         allow: (function() {
-          if (typeof rule.allow === 'object') {
+          if (rule.allow && typeof rule.allow === 'object') {
             if (rule.allow.tokens) {
-              var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
+              var token = _.find(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
                   return integrationToken.id === token;
                 });
               });
 
-              return 'Specific token: ID#' + _.map(filteredTokens, function(token) {
-                return token.id + ' - ' + token.fullName;
-              }).join('<br />');
+              if (!token && rule.allow.tokens && rule.allow.tokens.length) {
+                token = { id: _.first(rule.allow.tokens), fullName: 'API Token' };
+              }
+
+              return 'Specific token: ID#' + token.id + ' - ' + token.fullName;
             } else if (rule.allow.user) {
               return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
                 var operation = rule.allow.user[key];
@@ -2435,7 +2458,7 @@ function getSecurityRule() {
 
   if (currentFinalRules.length > 0) {
     hasSecurityRule = currentFinalRules.some(function(rule) {
-      return _.some(rule.allow.tokens, function(token) {
+      return _.some(rule.allow && rule.allow.tokens, function(token) {
         return token && (token === widgetData.tokenId || token === selectedTokenId);
       });
     });
@@ -2526,7 +2549,7 @@ $('[data-save-rule]').click(function(event) {
       setSelectedTokenDetails(selectedTokenId, selectedTokenName);
       rule.allow = { 'tokens': [selectedTokenId] };
       $('#specific-token-filter').removeClass('hidden');
-    }  else {
+    } else {
       rule.allow = $allow.data('allow');
     }
 
@@ -2630,11 +2653,7 @@ $('[data-save-rule]').click(function(event) {
     getFilteredSpecificTokenList();
   }
 
-  if ($allow && $allow.data('allow') === 'tokens') {
-    $('#show-access-rules').click();
-  } else {
-    markDataSourceRulesUIWithChanges();
-  }
+  markDataSourceRulesUIWithChanges();
 });
 
 $('body').on('click', '#save-rules', function(event) {
@@ -2690,10 +2709,6 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   configureAddRuleUI(rule);
   showModal($modal);
-
-  if (rule.allow && rule.allow.tokens && rule.allow.tokens.length !== 0) {
-    $(".tokens-list option[value='" + rule.allow.tokens[0] + "']").attr('selected', 'selected');
-  }
 });
 
 function showModal($modal) {

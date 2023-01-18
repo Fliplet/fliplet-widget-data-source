@@ -4,8 +4,12 @@
 <div class="tokenfield api-token-field">
   <select class="form-control">
     <option disabled="disabled">Select API Token</option>
-    {{#each integrationTokenList}}
-    <option value="{{id}}">ID#{{id}} - {{fullName}}</option>
+    {{#each apps}}
+    <optgroup label="{{name}}">
+      {{#each tokens}}
+      <option value="{{id}}">ID#{{id}} - {{fullName}}</option>
+      {{/each}}
+    </optgroup>
     {{/each}}
   </select>
 </div>
