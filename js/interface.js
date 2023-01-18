@@ -2205,7 +2205,7 @@ $allowBtnFilter.click(function(event) {
     var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
       return { name: name, tokens: tokens };
     }), function (key) {
-      return key === DESCRIPTION_APP_UNKNOWN ? _.repeat('z', 32) : key;
+      return key === DESCRIPTION_APP_UNKNOWN ? 'z' : key.toUppercase();
     });
 
     $('.tokens-list').html(tpl({
