@@ -2204,8 +2204,8 @@ $allowBtnFilter.click(function(event) {
     // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
     var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
       return { name: name, tokens: tokens };
-    }), function (key) {
-      return key === DESCRIPTION_APP_UNKNOWN ? 'z' : key.toUppercase();
+    }), function (app) {
+      return app.name === DESCRIPTION_APP_UNKNOWN ? 'z' : app.name.toUpperCase();
     });
 
     $('.tokens-list').html(tpl({
