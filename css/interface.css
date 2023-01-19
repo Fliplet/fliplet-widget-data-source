@@ -245,6 +245,7 @@ a[data-back] {
 
 .nav-tabs {
   margin-top: 4px;
+  margin-left: -15px;
 }
 
 .save-btn {
@@ -373,12 +374,38 @@ textarea.handsontableInput {
 
 #toolbar {
   position: absolute;
-  top: -94px;
-  right: 0;
+  top: -92px;
+  right: -15px;
 }
 
-#toolbar .toolbar-btn-group {
-  margin-top: 49px;
+#toolbar .pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+#toolbar .pagination-wrapper select {
+  margin: 0 10px;
+  width: auto;
+  height: 34px;
+}
+
+#toolbar .pagination {
+  margin: 0 10px 0 0;
+}
+
+#toolbar .pagination > li > a,
+#toolbar .pagination > li > span {
+  background: none;
+  color: inherit;
+  border-color: rgba(51, 51, 51, 0.1);
+}
+
+#toolbar .pagination .entry-range {
+  padding-left: 25px;
+  padding-right: 25px;
 }
 
 #toolbar .btn {
