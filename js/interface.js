@@ -921,28 +921,6 @@ function createDataSource(createOptions, options) {
   });
 }
 
-function activateFind() {
-  // Returns TRUE if an action is carried out
-
-  // Data sources list view
-  if (!$contents.hasClass('hidden')) {
-    $('.search').focus();
-
-    return true;
-  }
-
-  // Data source view
-  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
-    case 'entries':
-      hot.deselectCell();
-      searchField.focus();
-
-      return true;
-    default:
-      return false;
-  }
-}
-
 function restoreDataSource(id, name) {
   Fliplet.API.request({
     url: 'v1/data-sources/' + id + '/restore',
@@ -1110,32 +1088,6 @@ Handlebars.registerHelper('momentCalendar', function(date) {
 });
 
 // Events
-
-// Prevent Cmd + F default behavior and use our find
-window.addEventListener('keydown', function(event) {
-  // Just the modifiers
-  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
-    return;
-  }
-
-  var ctrlDown = (event.ctrlKey || event.metaKey);
-
-  // Cmd/Ctrl + F
-  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) {
-    if (activateFind()) {
-      event.preventDefault();
-    }
-
-    return;
-  }
-});
-
-// Capture browser-find event from outside the iframe to trigger find
-window.addEventListener('message', function(event) {
-  if (event.data && event.data.type === 'browser-find') {
-    activateFind();
-  }
-}, false);
 
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
@@ -1656,22 +1608,6 @@ $('#app')
     $('.show-backdoor').removeClass('hidden');
     $('.hide-backdoor').removeClass('show');
     $('.backdoor-code').removeClass('show');
-  })
-  .on('focus', '.filter-form .form-control', function() {
-    $('.filter-form').addClass('expanded');
-    $('#search-field').attr('placeholder', 'Type to find...');
-  })
-  .on('blur', '.filter-form .form-control', function() {
-    var value = $(this).val();
-
-    if (value === '') {
-      $('.filter-form').removeClass('expanded');
-      $('.find-results').html('');
-      $('#search-field').attr('placeholder', 'Find');
-    }
-  })
-  .on('click', '.find-icon', function() {
-    $('.filter-form .form-control').trigger('focus');
   })
   .on('click', '[data-back-to-versions]', function(e) {
     e.preventDefault();

@@ -394,10 +394,10 @@ function spreadsheet(options) {
         hot.view.wt.draw(true);
       }, 0);
     },
-    search: true,
     undo: false,
     sortIndicator: true,
     selectionMode: 'range',
+    renderAllRows: true,
     cells: function(row) {
       if (row !== 0) {
         return;
@@ -409,8 +409,6 @@ function spreadsheet(options) {
     },
     data: spreadsheetData,
     renderer: addMaxHeightToCells,
-    minSpareRows: 40,
-    minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
       onChange();
@@ -458,13 +456,6 @@ function spreadsheet(options) {
       HistoryStack.add({
         data: preparedData,
         colWidths: colWidths
-      });
-
-      // Re-execute search without changing cell selection
-      search('find', {
-        selectCell: false,
-        force: true,
-        focusSearch: false
       });
     },
     afterRemoveRow: function() {
@@ -602,18 +593,6 @@ function spreadsheet(options) {
 
       if (!options.initialLoad) {
         $('.entries-message').html('');
-      }
-
-      // Clear search in initial load
-      if (firstTime) {
-        search('clear');
-      } else {
-        // Re-execute search without changing cell selection
-        search('find', {
-          selectCell: false,
-          force: true,
-          focusSearch: false
-        });
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
@@ -912,7 +891,6 @@ function spreadsheet(options) {
   }
 
   function reset(resetHistory) {
-    search('clear');
     setChanges(false);
 
     $('.save-btn').addClass('hidden');
@@ -941,205 +919,6 @@ function spreadsheet(options) {
     onChange: onChange
   };
 }
-
-// Search
-var searchField = document.getElementById('search-field');
-
-var queryResultIndex;
-var queryResult = [];
-var resultsCount = 0;
-
-function setSearchMessage(msg) {
-  if (msg) {
-    $('.find-results').html(msg);
-
-    return;
-  }
-
-  var value = searchField.value.trim();
-  var foundMessage = resultsCount + ' found';
-
-  if (resultsCount) {
-    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
-  }
-
-  $('.find-results').html(value !== '' ? foundMessage : '');
-}
-
-function searchSpinner() {
-  setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
-}
-
-var previousSearchValue = '';
-
-/**
- * This will make a search
- * @param {String} action next | prev | find | clear
- * @param {Object} options a map of options for the function
- * @param {Boolean} [options.selectCell=true] If false, the search won't take the user to the search result
- * @param {Boolean} [options.force=false] If true, a new search will be executed, even if the search term has not changed
- * @return {void}
- */
-function search(action, options) {
-  options = options || {};
-
-  if (action === 'clear') {
-    searchField.value = '';
-    searchSpinner();
-    setTimeout(function() {
-      search('find', options);
-    }, 50); // 50ms for spinner to render
-
-    return;
-  }
-
-  var value = searchField.value.trim();
-
-  //  Don't run search again if the value hasn't changed
-  if (action === 'find' && previousSearchValue === value && !options.force) {
-    setSearchMessage();
-
-    return;
-  }
-
-  previousSearchValue = value;
-
-  if (value !== '') {
-    $('.filter-form .find-controls').removeClass('disabled');
-  } else {
-    $('.filter-form .find-controls').addClass('disabled');
-    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-  }
-
-  if (!hot || !hot.search) {
-    return;
-  }
-
-  var row;
-  var col;
-
-  if (action === 'find') {
-    queryResult = hot.search.query(value);
-    resultsCount = queryResult.length;
-    queryResultIndex = 0;
-
-    if (resultsCount) {
-      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
-
-      if (options.selectCell !== false) {
-        row = queryResult[queryResultIndex].row;
-        col = queryResult[queryResultIndex].col;
-
-        hot.selectCell(row, col, row, col, true, false);
-        // HACK: Select the cell twice to scroll the viewport to show the cell
-        // in case it was out of view and couldn't be rendered in time
-        hot.selectCell(row, col, row, col, true, false);
-      }
-    } else {
-      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
-    }
-
-    hot.render();
-  } else if (action === 'next' || action === 'prev') {
-    hot.selection.selectedHeader.cols = false;
-
-    if (action === 'next') {
-      queryResultIndex++;
-
-      if (queryResultIndex >= queryResult.length) {
-        queryResultIndex = 0;
-      }
-    }
-
-    if (action === 'prev') {
-      queryResultIndex--;
-
-      if (queryResultIndex < 0) {
-        queryResultIndex = queryResult.length - 1;
-      }
-    }
-
-    if (queryResult[queryResultIndex] && options.selectCell !== false) {
-      row = queryResult[queryResultIndex].row;
-      col = queryResult[queryResultIndex].col;
-
-      hot.selectCell(row, col, row, col, true, false);
-      // HACK: Select the cell twice to scroll the viewport to show the cell
-      // in case it was out of view and couldn't be rendered in time
-      hot.selectCell(row, col, row, col, true, false);
-    }
-  }
-
-  // Update message
-  setSearchMessage();
-
-  if (options.focusSearch !== false) {
-    // Focus back to the search field
-    searchField.focus();
-  }
-}
-
-$('.find-prev, .find-next').on('click', function() {
-  // Simulate prev/next keys press on the search field
-  if ($(this).hasClass('find-prev')) {
-    search('prev');
-  }
-
-  if ($(this).hasClass('find-next')) {
-    search('next');
-  }
-});
-
-// Clear search field
-$('.reset-find').on('click', function() {
-  search('clear');
-});
-
-var debouncedFind = _.debounce(function() {
-  search('find');
-}, 500);
-
-Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
-  // Just the modifiers
-  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
-    return;
-  }
-
-  var ctrlDown = (event.ctrlKey || event.metaKey);
-
-  // Enter & Shift + Enter
-  if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
-    search(event.shiftKey ? 'prev' : 'next');
-
-    return;
-  }
-
-  // Esc
-  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
-    search('clear');
-
-    return;
-  }
-
-  // Cmd/Ctrl (+ Shift) + G
-  if (ctrlDown && !event.altKey && event.keyCode === 71) {
-    search(event.shiftKey ? 'prev' : 'next');
-    event.preventDefault();
-
-    return;
-  }
-
-  // Any other keys, but with Ctrl/Cmd modifier
-  if (ctrlDown) {
-    return;
-  }
-});
-
-Handsontable.dom.addEvent(searchField, 'input', function onInput() {
-  // Typing
-  searchSpinner();
-  debouncedFind();
-});
 
 // CHeck if user is on Apple MacOS system
 function isMac() {
