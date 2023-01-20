@@ -84,7 +84,7 @@ var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
 Fliplet.API.request({
   url: 'v1/apps/tokens'
-}).then(function(response) {
+}).then(function (response) {
   integrationTokenList = response.appTokens;
 });
 
