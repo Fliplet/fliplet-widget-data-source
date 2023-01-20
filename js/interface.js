@@ -2197,14 +2197,14 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
-    var appTokens = _.groupBy(integrationTokenList, function(token) {
+    var appTokens = _.groupBy(integrationTokenList, function (token) {
       return _.get(_.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
     });
 
     // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
-    var appsList = _.sortBy(_.mapValues(appTokens, function(tokens, name) {
+    var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
       return { name: name, tokens: tokens };
-    }), function(app) {
+    }), function (app) {
       return app.name === DESCRIPTION_APP_UNKNOWN ? 'z' : app.name.toUpperCase();
     });
 
