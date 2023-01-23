@@ -874,8 +874,8 @@ function spreadsheet(options) {
     try {
       var parsedResult = JSON.parse(str);
 
-      // Input was already a string, do not change it or remove the double quotes
-      if (typeof parsedResult === 'string') {
+      // Input represents a string or number, do not change it
+      if (['string', 'number'].indexOf(typeof parsedResult) > -1) {
         return str;
       }
 
