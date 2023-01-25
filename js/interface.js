@@ -1356,7 +1356,7 @@ $('#app')
       });
 
       table.setChanges(true);
-      table.onSaveComplete();
+      table.onSaveError();
     });
   })
   .on('click', '[save-settings]', function() {

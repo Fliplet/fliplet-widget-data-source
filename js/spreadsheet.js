@@ -916,6 +916,11 @@ function spreadsheet(options) {
     $('.data-save-status').html('All changes saved!');
   }
 
+  function onSaveError() {
+    // Update save status on error
+    $('.data-save-status').addClass('hidden').html('');
+  }
+
   function hasChanges() {
     return dataHasChanges;
   }
@@ -949,6 +954,7 @@ function spreadsheet(options) {
     reset: reset,
     onSave: onSave,
     onSaveComplete: onSaveComplete,
+    onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
     onChange: onChange
