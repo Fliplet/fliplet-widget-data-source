@@ -561,9 +561,9 @@ function spreadsheet(options) {
         return false;
       }
 
-      // First row is moved. Cancel action.
+      // Column header row is moved. Cancel action.
       if (movedRows.indexOf(0) > -1) {
-        console.info('The first row cannot be moved');
+        console.info('Column header row cannot be moved');
 
         return false;
       }
