@@ -44,7 +44,7 @@ var entryMap = {
   entries: {}
 };
 var currentFinalRules;
-var integrationTokenList;
+var integrationTokenList = [];
 var selectedTokenId;
 var selectedTokenName;
 var globalTimer;
@@ -52,6 +52,8 @@ var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 var pageSize;
 var pageOffset;
+
+var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -76,20 +78,18 @@ var definitionEditor = CodeMirror.fromTextArea($('#definition')[0], {
   mode: 'javascript'
 });
 
+var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
+  lineNumbers: true,
+  mode: 'javascript'
+});
+
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
-if (widgetData.appId) {
-  Fliplet.App.Tokens.get({
-    appId: widgetData.appId,
-    query: {
-      type: 'integrationToken',
-      order: 'createdAt',
-      direction: 'DESC'
-    }
-  }).then(function(tokens) {
-    integrationTokenList = tokens;
-  });
-}
+Fliplet.API.request({
+  url: 'v1/apps/tokens'
+}).then(function (response) {
+  integrationTokenList = response.appTokens;
+});
 
 /**
  * Updates pagination
@@ -1411,7 +1411,7 @@ $('#app')
       });
 
       table.setChanges(true);
-      table.onSaveComplete();
+      table.onSaveError();
     });
   })
   .on('click', '[save-settings]', function() {
@@ -1834,6 +1834,18 @@ $('#show-settings').click(function() {
   }, 0);
 });
 
+$('#add-custom-rule').click(function(event) {
+  event.preventDefault();
+
+  var $modal = $('#configure-rule');
+
+  $modal.find('.modal-title').text('Add advanced custom security rule');
+  $modal.find('[data-save-rule]').text('Add rule');
+
+  configureAddRuleUI({ script: '' });
+  showModal($modal);
+});
+
 $('#show-users').click(function() {
   fetchCurrentDataSourceUsers();
 });
@@ -1917,7 +1929,7 @@ function setSelectedTokenDetails(id, name) {
 
 function getFilteredSpecificTokenList() {
   var rules = _.filter(currentDataSourceRules, function(currentRules) {
-    return _.some(currentRules.allow.tokens, function(allowTokenId) {
+    return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
       if (widgetData.tokenId && !selectedTokenId) {
         return allowTokenId === widgetData.tokenId;
       }
@@ -1933,7 +1945,6 @@ function getFilteredSpecificTokenList() {
   }
 
   $('#specific-token-filter').removeClass('hidden');
-  $('#save-rules').addClass('hidden');
 }
 
 function addSecurityRule() {
@@ -2005,7 +2016,7 @@ $('body').on('change', '.tokens-list', function() {
 
   if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
     var rules = _.filter(currentFinalRules, function(currentRules) {
-      return _.some(currentRules.allow.tokens, function(allowTokenId) {
+      return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
         if (widgetData.tokenId && !selectedTokenId) {
           return allowTokenId === widgetData.tokenId;
         }
@@ -2041,111 +2052,139 @@ function configureAddRuleUI(rule) {
     type: []
   };
 
+  var isCustomRule = typeof rule.script === 'string';
   var selectedAppType = rule.appId ? 'filter' : 'all';
   var $apps = $('.apps-list');
+  var $customRuleForm = $('[data-rule-custom]');
 
-  // Cleanup
-  $appsBtnFilter.removeClass('selected');
-  $apps.html('').hide();
-  $('.required-fields').html('');
-  $('.users-filter').addClass('hidden').find('.filters').html('');
-  $('button.selected').removeClass('selected');
-  $('input[name="type"]:checked').prop('checked', false);
+  if (isCustomRule) {
+    $('[data-save-rule]').removeAttr('disabled');
+    $('[data-rule-standard').addClass('hidden');
 
-  $('input[name="exclude"]').tokenfield('destroy');
-  $('input[name="exclude"]').tokenfield({
-    autocomplete: {
-      source: _.compact(columns) || [],
-      delay: 100
-    },
-    showAutocompleteOnFocus: true
-  });
-
-  var tokenField;
-
-  if (rule.exclude) {
-    tokenField = rule.exclude;
-  } else if (rule.include) {
-    tokenField = rule.include;
+    $customRuleForm.removeClass('hidden');
+    $customRuleForm.find('[name="name"]').val(rule.name || 'Untitled custom rule');
+    customRuleEditor.setValue(rule.script || '');
   } else {
-    tokenField = [];
-  }
+    $('[data-rule-custom').addClass('hidden');
+    $('[data-rule-standard').removeClass('hidden');
 
-  $('input[name="exclude"]').tokenfield('setTokens', tokenField);
+    // Cleanup
+    $appsBtnFilter.removeClass('selected');
+    $apps.html('').hide();
+    $('.required-fields').html('');
+    $('.users-filter').addClass('hidden').find('.filters').html('');
+    $('button.selected').removeClass('selected');
+    $('input[name="type"]:checked').prop('checked', false);
 
-  rule.type.forEach(function(type) {
-    $('input[name="type"][value="' + type + '"]').prop('checked', true);
-  });
+    $('input[name="exclude"]').tokenfield('destroy');
+    $('input[name="exclude"]').tokenfield({
+      autocomplete: {
+        source: _.compact(columns) || [],
+        delay: 100
+      },
+      showAutocompleteOnFocus: true
+    });
 
-  if (rule.allow) {
-    if (typeof rule.allow === 'string') {
-      $('[data-allow="' + rule.allow + '"]').click();
-    } else if (typeof rule.allow === 'object' && rule.allow.tokens && rule.allow.tokens.length) {
-      $('[data-allow="tokens"]').click();
+    var tokenField;
+
+    if (rule.exclude) {
+      tokenField = rule.exclude;
+    } else if (rule.include) {
+      tokenField = rule.include;
     } else {
-      $('.filters').html('');
-      $('[data-allow="filter"]').click();
-
-      _.forIn(rule.allow.user, function(operation, column) {
-        var $field = $('.filters .required-field').last();
-        var operationType = Object.keys(operation)[0];
-        var value = operation[operationType];
-
-        $field.find('[name="column"]').val(column);
-        $field.find('select').val(operationType);
-        $field.find('[name="value"]').val(value);
-
-        $('[data-add-user-filter]').click();
-      });
-
-      $('.filters .required-field').last().remove();
+      tokenField = [];
     }
-  } else {
-    $('[data-allow="all"]').click();
-  }
 
-  if (rule.require) {
-    rule.require.forEach(function(field) {
-      $('[data-add-filter]').click();
+    $('input[name="exclude"]').tokenfield('setTokens', tokenField);
 
-      var $field = $('.required-fields .required-field').last();
+    rule.type.forEach(function(type) {
+      $('input[name="type"][value="' + type + '"]').prop('checked', true);
+    });
 
-      if (typeof field === 'string') {
-        $field.find('[name="field"]').val(field);
-        $field.find('select').val('required');
+    if (rule.allow) {
+      if (typeof rule.allow === 'string') {
+        $('[data-allow="' + rule.allow + '"]').click();
+      } else if (typeof rule.allow === 'object' && rule.allow.tokens && rule.allow.tokens.length) {
+        var selectedTokenId = _.first(rule.allow.tokens);
+
+        if (selectedTokenId) {
+          // Add token when not found in the list
+          if (!_.find(integrationTokenList, { id: selectedTokenId })) {
+            integrationTokenList.push({ id: selectedTokenId, fullName: 'API Token' });
+          }
+        }
+
+        // Open UI and trigger "$allowBtnFilter" click handler
+        $('[data-allow="tokens"]').click();
+
+        if (selectedTokenId) {
+          $(".tokens-list option[value='" + selectedTokenId + "']").attr('selected', 'selected');
+        }
       } else {
-        var column = Object.keys(field)[0];
-        var operation = field[column];
-        var operationType = Object.keys(operation)[0];
-        var value = operation[operationType];
+        $('.filters').html('');
+        $('[data-allow="filter"]').click();
 
-        $field.find('[name="field"]').val(column);
-        $field.find('select').val(operationType);
-        $field.find('[name="value"]').val(value);
+        _.forIn(rule.allow.user, function(operation, column) {
+          var $field = $('.filters .required-field').last();
+          var operationType = Object.keys(operation)[0];
+          var value = operation[operationType];
+
+          $field.find('[name="column"]').val(column);
+          $field.find('select').val(operationType);
+          $field.find('[name="value"]').val(value);
+
+          $('[data-add-user-filter]').click();
+        });
+
+        $('.filters .required-field').last().remove();
       }
+    } else {
+      $('[data-allow="all"]').click();
+    }
 
-      $field.find('select').trigger('change');
+    if (rule.require) {
+      rule.require.forEach(function(field) {
+        $('[data-add-filter]').click();
+
+        var $field = $('.required-fields .required-field').last();
+
+        if (typeof field === 'string') {
+          $field.find('[name="field"]').val(field);
+          $field.find('select').val('required');
+        } else {
+          var column = Object.keys(field)[0];
+          var operation = field[column];
+          var operationType = Object.keys(operation)[0];
+          var value = operation[operationType];
+
+          $field.find('[name="field"]').val(column);
+          $field.find('select').val(operationType);
+          $field.find('[name="value"]').val(value);
+        }
+
+        $field.find('select').trigger('change');
+      });
+    }
+
+    // Setup
+    updateSaveRuleValidation();
+
+    $appsBtnFilter.filter('[data-apps="' + selectedAppType + '"]').click();
+
+    getApps.then(function(apps) {
+      var tpl = Fliplet.Widget.Templates['templates.checkbox'];
+
+      apps.forEach(function(app) {
+        var checkbox = tpl({
+          id: app.id,
+          name: app.name,
+          checked: rule.appId && rule.appId.indexOf(app.id) !== -1 ? 'checked' : ''
+        });
+
+        $apps.append('<div class="app">' + checkbox + '</div>');
+      });
     });
   }
-
-  // Setup
-  updateSaveRuleValidation();
-
-  $appsBtnFilter.filter('[data-apps="' + selectedAppType + '"]').click();
-
-  getApps.then(function(apps) {
-    var tpl = Fliplet.Widget.Templates['templates.checkbox'];
-
-    apps.forEach(function(app) {
-      var checkbox = tpl({
-        id: app.id,
-        name: app.name,
-        checked: rule.appId && rule.appId.indexOf(app.id) !== -1 ? 'checked' : ''
-      });
-
-      $apps.append('<div class="app">' + checkbox + '</div>');
-    });
-  });
 }
 
 function updateSaveRuleValidation() {
@@ -2233,11 +2272,24 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
+    var appTokens = _.groupBy(integrationTokenList, function (token) {
+      return _.get(_.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
+    });
+
+    // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
+    var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
+      return { name: name, tokens: tokens };
+    }), function (app) {
+      return app.name === DESCRIPTION_APP_UNKNOWN ? 'z' : app.name.toUpperCase();
+    });
 
     $('.tokens-list').html(tpl({
-      integrationTokenList: integrationTokenList
+      apps: appsList
     }));
-    $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+
+    if (widgetData.tokenId) {
+      $(".tokens-list option[value='" + widgetData.tokenId + "']").prop('selected', true);
+    }
   }
 
   // Add first filter automatically
@@ -2330,11 +2382,15 @@ $('#show-access-rules').click(function() {
 
       if (typeof rule.type === 'string') {
         rule.type = [rule.type];
+      } else if (!rule.type) {
+        rule.type = [];
       }
 
       $tbody.append(tpl({
+        name: rule.name || ('Untitled rule ' + (index + 1)),
         index: index,
         enabled: rule.enabled,
+        hasScript: typeof rule.script === 'string',
         type: rule.type.map(function(type) {
           var description;
 
@@ -2358,17 +2414,19 @@ $('#show-access-rules').click(function() {
           return description;
         }).join(', '),
         allow: (function() {
-          if (typeof rule.allow === 'object') {
+          if (rule.allow && typeof rule.allow === 'object') {
             if (rule.allow.tokens) {
-              var filteredTokens = _.filter(integrationTokenList, function(integrationToken) {
+              var token = _.find(integrationTokenList, function(integrationToken) {
                 return _.some(rule.allow.tokens, function(token) {
                   return integrationToken.id === token;
                 });
               });
 
-              return 'Specific token: ID#' + _.map(filteredTokens, function(token) {
-                return token.id + ' - ' + token.fullName;
-              }).join('<br />');
+              if (!token && rule.allow.tokens && rule.allow.tokens.length) {
+                token = { id: _.first(rule.allow.tokens), fullName: 'API Token' };
+              }
+
+              return 'Specific token: ID#' + token.id + ' - ' + token.fullName;
             } else if (rule.allow.user) {
               return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
                 var operation = rule.allow.user[key];
@@ -2475,7 +2533,7 @@ function getSecurityRule() {
 
   if (currentFinalRules.length > 0) {
     hasSecurityRule = currentFinalRules.some(function(rule) {
-      return _.some(rule.allow.tokens, function(token) {
+      return _.some(rule.allow && rule.allow.tokens, function(token) {
         return token && (token === widgetData.tokenId || token === selectedTokenId);
       });
     });
@@ -2506,128 +2564,138 @@ $('[data-clear-filter]').click(function(event) {
 $('[data-save-rule]').click(function(event) {
   event.preventDefault();
 
-  var rule = {
-    type: []
-  };
-
-  $typeCheckbox.filter(':checked').each(function() {
-    rule.type.push($(this).val());
-  });
-
-  var $allow = $('.selected[data-allow]');
-
+  var rule;
   var error;
 
-  $('#specific-token-filter').addClass('hidden');
+  var isCustomRule = $('[data-rule-standard]').hasClass('hidden');
 
-  if ($allow.data('allow') === 'filter') {
-    var user = {};
+  if (isCustomRule) {
+    rule = {
+      name: $('[data-rule-custom] [name="name"]').val(),
+      script: customRuleEditor.getValue()
+    };
 
-    $('.users-filter .required-field').each(function() {
-      var column = $.trim($(this).find('[name="column"]').val());
+    customRuleEditor.setValue('');
+  } else {
+    rule = { type: [] };
+
+    $typeCheckbox.filter(':checked').each(function() {
+      rule.type.push($(this).val());
+    });
+
+    var $allow = $('.selected[data-allow]');
+
+    $('#specific-token-filter').addClass('hidden');
+
+    if ($allow.data('allow') === 'filter') {
+      var user = {};
+
+      $('.users-filter .required-field').each(function() {
+        var column = $.trim($(this).find('[name="column"]').val());
+        var value = $.trim($(this).find('[name="value"]').val());
+        var operationType = $(this).find('select').val();
+
+        if (column && value) {
+          try {
+            Handlebars.compile(value)();
+          } catch (err) {
+            error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
+          }
+
+          var query = {};
+
+          query[operationType] = value;
+          user[column] = query;
+        }
+      });
+
+      rule.allow = { user: user };
+    } else if ($allow.data('allow') === 'tokens') {
+      selectedTokenId  = Number($('.tokens-list :selected').val());
+
+      var tokenFullName = _.find(integrationTokenList, function(token) {
+        return token.id === selectedTokenId;
+      });
+
+      if (tokenFullName) {
+        selectedTokenName = tokenFullName.fullName;
+      }
+
+      setSelectedTokenDetails(selectedTokenId, selectedTokenName);
+      rule.allow = { 'tokens': [selectedTokenId] };
+      $('#specific-token-filter').removeClass('hidden');
+    } else {
+      rule.allow = $allow.data('allow');
+    }
+
+    var $apps = $('.selected[data-apps]');
+
+    if ($apps.data('apps') === 'filter') {
+      var appId = [];
+
+      $('.apps-list .app input[type="checkbox"]:checked').each(function() {
+        appId.push(parseInt($(this).val(), 10));
+      });
+
+      if (appId.length) {
+        rule.appId = appId;
+      }
+    }
+
+    var requiredFields = [];
+
+    $('.required-fields .required-field').each(function() {
+      var column = $.trim($(this).find('[name="field"]').val());
       var value = $.trim($(this).find('[name="value"]').val());
       var operationType = $(this).find('select').val();
 
-      if (column && value) {
-        try {
-          Handlebars.compile(value)();
-        } catch (err) {
-          error = 'The value for the field "' + column + '" is not a valid Handlebars expression.';
+      if (!column) {
+        return;
+      }
+
+      // Ensure multiple fields for the same column name are skipped
+      if (_.find(requiredFields, function(field) {
+        if (typeof field === 'string') {
+          return field === column;
         }
 
-        var query = {};
-
-        query[operationType] = value;
-        user[column] = query;
-      }
-    });
-
-    rule.allow = { user: user };
-  } else if ($allow.data('allow') === 'tokens') {
-    selectedTokenId  = Number($('.tokens-list :selected').val());
-
-    var tokenFullName = _.find(integrationTokenList, function(token) {
-      return token.id === selectedTokenId;
-    });
-
-    if (tokenFullName) {
-      selectedTokenName = tokenFullName.fullName;
-    }
-
-    setSelectedTokenDetails(selectedTokenId, selectedTokenName);
-    rule.allow = { 'tokens': [selectedTokenId] };
-    $('#specific-token-filter').removeClass('hidden');
-  }  else {
-    rule.allow = $allow.data('allow');
-  }
-
-  var $apps = $('.selected[data-apps]');
-
-  if ($apps.data('apps') === 'filter') {
-    var appId = [];
-
-    $('.apps-list .app input[type="checkbox"]:checked').each(function() {
-      appId.push(parseInt($(this).val(), 10));
-    });
-
-    if (appId.length) {
-      rule.appId = appId;
-    }
-  }
-
-  var requiredFields = [];
-
-  $('.required-fields .required-field').each(function() {
-    var column = $.trim($(this).find('[name="field"]').val());
-    var value = $.trim($(this).find('[name="value"]').val());
-    var operationType = $(this).find('select').val();
-
-    if (!column) {
-      return;
-    }
-
-    // Ensure multiple fields for the same column name are skipped
-    if (_.find(requiredFields, function(field) {
-      if (typeof field === 'string') {
-        return field === column;
+        return Object.keys(field)[0] === column;
+      })) {
+        return;
       }
 
-      return Object.keys(field)[0] === column;
-    })) {
-      return;
+      if (operationType === 'required') {
+        return requiredFields.push(column);
+      }
+
+      try {
+        Handlebars.compile(value)();
+      } catch (err) {
+        error = 'The value for the required field "' + column + '" is not a valid Handlebars expression.';
+      }
+
+      var field = {};
+      var query = {};
+
+      query[operationType] = value;
+      field[column] = query;
+
+      requiredFields.push(field);
+    });
+
+    if (requiredFields.length) {
+      rule.require = requiredFields;
     }
 
-    if (operationType === 'required') {
-      return requiredFields.push(column);
+    var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
+
+    if (columnsListMode === 'exclude') {
+      if (exclude.length) {
+        rule.exclude = exclude;
+      }
+    } else if (exclude.length) {
+      rule.include = exclude;
     }
-
-    try {
-      Handlebars.compile(value)();
-    } catch (err) {
-      error = 'The value for the required field "' + column + '" is not a valid Handlebars expression.';
-    }
-
-    var field = {};
-    var query = {};
-
-    query[operationType] = value;
-    field[column] = query;
-
-    requiredFields.push(field);
-  });
-
-  if (requiredFields.length) {
-    rule.require = requiredFields;
-  }
-
-  var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
-
-  if (columnsListMode === 'exclude') {
-    if (exclude.length) {
-      rule.exclude = exclude;
-    }
-  } else if (exclude.length) {
-    rule.include = exclude;
   }
 
   if (error) {
@@ -2636,7 +2704,7 @@ $('[data-save-rule]').click(function(event) {
 
   $('[data-dismiss="modal"]').click();
 
-  var isAddingRule = $('#configure-rule').find('.modal-title').text() === 'Add new security rule';
+  var isAddingRule = $('#configure-rule').find('.modal-title').text().indexOf('Add ') === 0;
 
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
@@ -2656,15 +2724,11 @@ $('[data-save-rule]').click(function(event) {
     currentDataSourceRuleIndex = undefined;
   }
 
-  if (rule.allow.tokens) {
+  if (rule.allow && rule.allow.tokens) {
     getFilteredSpecificTokenList();
   }
 
-  if ($allow.data('allow') === 'tokens') {
-    $('#show-access-rules').click();
-  } else {
-    markDataSourceRulesUIWithChanges();
-  }
+  markDataSourceRulesUIWithChanges();
 });
 
 $('body').on('click', '#save-rules', function(event) {
@@ -2720,13 +2784,13 @@ $('body').on('click', '[data-rule-edit]', function(event) {
 
   configureAddRuleUI(rule);
   showModal($modal);
-
-  if (rule.allow.tokens && rule.allow.tokens.length !== 0) {
-    $(".tokens-list option[value='" + rule.allow.tokens[0] + "']").attr('selected', 'selected');
-  }
 });
 
 function showModal($modal) {
+  $modal.on('shown.bs.modal', function() {
+    customRuleEditor.refresh();
+  });
+
   $modal.modal();
 }
 

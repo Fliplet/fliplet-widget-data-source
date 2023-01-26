@@ -817,7 +817,7 @@ function spreadsheet(options) {
 
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {
-            entry.data[header] = parseColumnValue(entry.data[header]);
+            entry.data[header] = parseCellValue(entry.data[header]);
           }
         });
 
@@ -848,21 +848,36 @@ function spreadsheet(options) {
     HistoryStack.getCurrent().setData(preparedData);
   }
 
-  function parseColumnValue(str) {
+  /**
+   * Cast the value of a cell to the expected type
+   * @param {String} str - String value of a cell
+   * @returns {*} Parsed value, possibly as a new type
+   */
+  function parseCellValue(str) {
     try {
       var parsedResult = JSON.parse(str);
+
+      // Input represents a string or number, do not change it
+      if (['string', 'number'].indexOf(typeof parsedResult) > -1) {
+        return str;
+      }
 
       if (typeof parsedResult === 'object') {
         return parsedResult === null ? undefined : parsedResult;
       }
 
-      return parsedResult === -0 ? 0 : getValue(parsedResult);
+      return parsedResult === -0 ? 0 : parseCellValueAsString(parsedResult);
     } catch (e) {
-      return getValue(str);
+      return parseCellValueAsString(str);
     }
   }
 
-  function getValue(value) {
+  /**
+   * Process a string value before it's saved in the data source
+   * @param {String} value - String value to process
+   * @returns {*} Processed value
+   */
+  function parseCellValueAsString(value) {
     if (typeof value !== 'string') {
       return value;
     }
@@ -884,6 +899,11 @@ function spreadsheet(options) {
   function onSaveComplete() {
     // Update save status
     $('.data-save-status').html('All changes saved!');
+  }
+
+  function onSaveError() {
+    // Update save status on error
+    $('.data-save-status').addClass('hidden').html('');
   }
 
   function hasChanges() {
@@ -918,6 +938,7 @@ function spreadsheet(options) {
     reset: reset,
     onSave: onSave,
     onSaveComplete: onSaveComplete,
+    onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
     onChange: onChange

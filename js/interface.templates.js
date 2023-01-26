@@ -10,32 +10,52 @@ this["Fliplet"]["Widget"]["Templates"]["templates.accessRule"] = Handlebars.temp
     return "          <input class=\"switch-input\" type=\"checkbox\" checked />\n          <label class=\"toggle\"></label>\n          <label class=\"switch-label\">Enabled</label>\n";
 },"7":function(container,depth0,helpers,partials,data) {
     return "          <input class=\"switch-input\" type=\"checkbox\" />\n          <label class=\"toggle\"></label>\n          <label class=\"switch-label\">Disabled</label>\n";
+},"9":function(container,depth0,helpers,partials,data) {
+    var helper;
+
+  return "    <td colspan=\"5\" class=\"align-baseline\"><span class=\"label label-default\"><i class=\"fa fa-code\"></i> Custom rule</span> "
+    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"name","hash":{},"data":data}) : helper)))
+    + "</td>\n";
+},"11":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function";
+
+  return "    <td class=\"align-baseline\">"
+    + ((stack1 = ((helper = (helper = helpers.allow || (depth0 != null ? depth0.allow : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"allow","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + "</td>\n    <td class=\"align-baseline\">"
+    + ((stack1 = ((helper = (helper = helpers.type || (depth0 != null ? depth0.type : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"type","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + "</td>\n    <td class=\"align-baseline\">"
+    + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + "</td>\n    <td class=\"align-baseline\">"
+    + ((stack1 = ((helper = (helper = helpers.include || (depth0 != null ? depth0.include : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"include","hash":{},"data":data}) : helper))) != null ? stack1 : "")
+    + "</td>\n    <td class=\"align-baseline\">"
+    + container.escapeExpression(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
+    + "</td>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {});
 
   return "<tr data-rule-index=\""
-    + alias4(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
+    + container.escapeExpression(((helper = (helper = helpers.index || (depth0 != null ? depth0.index : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"index","hash":{},"data":data}) : helper)))
     + "\" class=\""
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "")
     + "\">\n  <td class=\"align-baseline opacity-full\">\n    <span class=\"fa-stack handle-sort\">\n      <i class=\"fa fa-ellipsis-v fa-stack-1x\"></i>\n      <i class=\"fa fa-ellipsis-v fa-stack-1x\"></i>\n    </span>\n    <a href=\"#\" class=\"toggle-status\" data-toggle-status>\n        <div class=\"toggle-switch toggle-switch-sm\">\n"
     + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.enabled : depth0),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(7, data, 0),"data":data})) != null ? stack1 : "")
-    + "      </div>\n    </a>\n  </td>\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.allow || (depth0 != null ? depth0.allow : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"allow","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.type || (depth0 != null ? depth0.type : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"type","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.require || (depth0 != null ? depth0.require : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"require","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\n  <td class=\"align-baseline\">"
-    + ((stack1 = ((helper = (helper = helpers.include || (depth0 != null ? depth0.include : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"include","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</td>\n  <td class=\"align-baseline\">"
-    + alias4(((helper = (helper = helpers.apps || (depth0 != null ? depth0.apps : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"apps","hash":{},"data":data}) : helper)))
-    + "</td>\n  <td class=\"align-baseline opacity-full\">\n    <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\n    <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\n  </td>\n</tr>";
+    + "      </div>\n    </a>\n  </td>\n"
+    + ((stack1 = helpers["if"].call(alias1,(depth0 != null ? depth0.hasScript : depth0),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.program(11, data, 0),"data":data})) != null ? stack1 : "")
+    + "  <td class=\"align-baseline opacity-full\">\n    <button class=\"btn btn-default btn-sm\" data-rule-edit>Edit</button>\n    <button class=\"btn btn-danger btn-sm\" data-rule-delete>Delete</button>\n  </td>\n</tr>";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.apiTokenList"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {});
+
+  return "    <optgroup label=\""
+    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "\">\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.tokens : depth0),{"name":"each","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + "    </optgroup>\n";
+},"2":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "    <option value=\""
+  return "      <option value=\""
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
     + "\">ID#"
     + alias4(((helper = (helper = helpers.id || (depth0 != null ? depth0.id : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"id","hash":{},"data":data}) : helper)))
@@ -46,7 +66,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.apiTokenList"] = Handlebars.te
     var stack1;
 
   return "<div class=\"api-token-label control-label\">\n  <label for=\"apiToken\">Select your API Token</label>\n</div>\n<div class=\"tokenfield api-token-field\">\n  <select class=\"form-control\">\n    <option disabled=\"disabled\">Select API Token</option>\n"
-    + ((stack1 = helpers.each.call(depth0 != null ? depth0 : (container.nullContext || {}),(depth0 != null ? depth0.integrationTokenList : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + ((stack1 = helpers.each.call(depth0 != null ? depth0 : (container.nullContext || {}),(depth0 != null ? depth0.apps : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
     + "  </select>\n</div>";
 },"useData":true});
 
