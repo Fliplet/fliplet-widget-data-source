@@ -97,7 +97,7 @@ this["Fliplet"]["Widget"]["Templates"]["templates.dataSource"] = Handlebars.temp
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.overlay"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    return "<p>These actions are unavailable, but you can still use:</p>\n<div class=\"shortcut-holder\">\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + C</p>\n    <p>for copy</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + X</p>\n    <p>for cut</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + V</p>\n    <p>for paste</p>\n  </div>\n</div>";
+    return "<p>These actions are unavailable, but you can still use:</p>\n<div class=\"shortcut-holder\">\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + F</p>\n    <p>for FIND</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + C</p>\n    <p>for COPY</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + X</p>\n    <p>for CUT</p>\n  </div>\n  <div class=\"shortcut\">\n    <p><span class=\"win\">CTRL</span><span class=\"mac\">⌘</span> + V</p>\n    <p>for PASTE</p>\n  </div>\n</div>\n";
 },"useData":true});
 
 this["Fliplet"]["Widget"]["Templates"]["templates.requiredField"] = Handlebars.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {

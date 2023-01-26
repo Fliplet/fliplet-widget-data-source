@@ -378,12 +378,25 @@ textarea.handsontableInput {
   right: -15px;
 }
 
+#toolbar.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  transition-delay: 200ms;
+  transition-duration: 0;
+  transition-property: opacity;
+}
+
 #toolbar .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   margin-top: 10px;
   margin-bottom: 5px;
+}
+
+#toolbar .pagination-wrapper.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 #toolbar .pagination-wrapper select {
@@ -401,6 +414,11 @@ textarea.handsontableInput {
   background: none;
   color: inherit;
   border-color: rgba(51, 51, 51, 0.1);
+}
+
+#toolbar .pagination > li.disabled > a {
+  color: #ddd;
+  pointer-events: none;
 }
 
 #toolbar .pagination .entry-range {
@@ -441,34 +459,34 @@ textarea.handsontableInput {
   opacity: 0.2;
 }
 
-.copy-cut-paste-overlay .shortcut-holder {
+.kb-shortcuts-overlay .shortcut-holder {
   display: flex;
   justify-content: space-around;
 }
 
-.copy-cut-paste-overlay .shortcut p:first-child {
+.kb-shortcuts-overlay .shortcut p:first-child {
   font-size: 32px;
   margin-bottom: 0;
   font-weight: bold;
   color: #6b6b6b;
 }
 
-.copy-cut-paste-overlay .win,
-.copy-cut-paste-overlay .mac {
+.kb-shortcuts-overlay .win,
+.kb-shortcuts-overlay .mac {
   display: none;
 }
 
-.copy-cut-paste-overlay .win.active,
-.copy-cut-paste-overlay .mac.active {
+.kb-shortcuts-overlay .win.active,
+.kb-shortcuts-overlay .mac.active {
   display: inline-block;
 }
 
-.copy-cut-paste-overlay.overlay-sm .overlayPanel {
+.kb-shortcuts-overlay.overlay-sm .overlayPanel {
   bottom: 60%;
 }
 
 @media screen and (min-width: 640px) {
-  .copy-cut-paste-overlay.overlay-sm .overlayPanel {
+  .kb-shortcuts-overlay.overlay-sm .overlayPanel {
     bottom: 60%;
   }
 }

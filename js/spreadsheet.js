@@ -9,6 +9,8 @@ var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 function spreadsheet(options) {
   var rows = options.rows || [];
   var columns = options.columns || [];
+  var pageSize = options.pageSize || 2;
+  var pageOffset = options.pageOffset || 0;
   var dataLoaded = false;
   var dataHasChanges = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
@@ -355,11 +357,11 @@ function spreadsheet(options) {
     manualRowResize: true,
     manualRowMove: true,
     colWidths: 250,
-    minColsNumber: 1,
-    minRowsNumber: 40,
     fixedRowsTop: 1,
     colHeaders: true,
-    rowHeaders: true,
+    rowHeaders: function(rowIndex) {
+      return rowIndex ? pageOffset + rowIndex : '';
+    },
     copyPaste: {
       columnsLimit: 1000,
       rowsLimit: 1000000000
@@ -398,8 +400,8 @@ function spreadsheet(options) {
     sortIndicator: true,
     selectionMode: 'range',
     renderAllRows: true,
-    cells: function(row) {
-      if (row !== 0) {
+    cells: function(rowIndex) {
+      if (rowIndex !== 0) {
         return;
       }
 
@@ -409,6 +411,9 @@ function spreadsheet(options) {
     },
     data: spreadsheetData,
     renderer: addMaxHeightToCells,
+    minRows: pageSize + 1,
+    minCols: 2,
+    minSpareCols: 1,
     // Hooks
     beforeChange: function(changes) {
       onChange();
@@ -588,7 +593,7 @@ function spreadsheet(options) {
         rendered += 1;
       }
     },
-    afterLoadData: function(firstTime) {
+    afterLoadData: function() {
       dataLoaded = true;
 
       if (!options.initialLoad) {
@@ -928,9 +933,9 @@ function openOverlay() {
   var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
 
   new Fliplet.Utils.Overlay(htmlContent, {
-    title: 'Copying and pasting',
+    title: 'Keyboard shortcuts',
     size: 'small',
-    classes: 'copy-cut-paste-overlay',
+    classes: 'kb-shortcuts-overlay',
     showOnInit: true,
     beforeOpen: function() {
       // Reset (just in case)
@@ -1023,7 +1028,7 @@ $('#toolbar')
       openOverlay();
     }
   })
-  .on('click', '[data-action="paste"]', function() {
+  .on('click', '[data-action="paste"], [data-action="find"]', function() {
     openOverlay();
   });
 

@@ -16,6 +16,7 @@ var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
 var $btnShowAllSource = $('[data-show-all-source]');
+var $toolbar = $('#toolbar');
 var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
@@ -49,6 +50,8 @@ var selectedTokenName;
 var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
+var pageSize;
+var pageOffset;
 
 var defaultAccessRules = [
   { type: ['select', 'insert', 'update', 'delete'], allow: 'all' }
@@ -87,6 +90,27 @@ if (widgetData.appId) {
     integrationTokenList = tokens;
   });
 }
+
+/**
+ * Updates pagination
+ * @param {*} options - A map of options for the function
+ * @param {Number} [options.count=pageSize] - Number of entries shown in the entry range
+ * @returns {undefined}
+ */
+function updatePagination(options = {}) {
+  var start = pageOffset + 1;
+  var end = start + (options.count || pageSize) - 1;
+  var total = currentDataSourceRowsCount || 'many';
+  var text = pageSize
+    ? `${TN(start)} to ${TN(end)} of ${TN(total)} ${total === 1 ? 'entry' : 'entries'}`
+    : `${end} ${end === 1 ? 'entry' : 'entries'}`;
+
+  $('.entry-range').text(text);
+
+  $('#page-prev').toggleClass('disabled', !pageOffset);
+  $('#page-next').toggleClass('disabled', end === currentDataSourceRowsCount);
+}
+
 
 // Fetch all data sources
 function getDataSources() {
@@ -350,35 +374,69 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
-function fetchCurrentDataSourceEntries(entries) {
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
-    clearLiveDataTimer();
+function getDataSourceEntries() {
+  var query = {
+    order: [
+      ['order', 'ASC'],
+      ['id', 'ASC']
+    ],
+    includePagination: true
+  };
 
-    currentDataSource = source;
+  if (pageSize) {
+    query.limit = pageSize;
+    query.offset = pageOffset;
+  }
 
-    return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
-      var sourceName = dataSource.name;
+  var getData;
 
-      currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
+  if (!currentDataSourceRowsCount && (!columns || !columns.length)) {
+    columns = ['Column 1', 'Column 2'];
 
-      $sourceContents.find('.editing-data-source-name').text(sourceName);
-
-      columns = dataSource.columns || [];
-
-      if (entries) {
-        return Promise.resolve(entries);
+    var rows = [{
+      data: {
+        'Column 1': 'demo data',
+        'Column 2': 'demo data'
       }
+    }, {
+      data: {
+        'Column 1': 'demo data',
+        'Column 2': 'demo data'
+      }
+    }];
 
-      return source.find({
-        order: [
-          ['order', 'ASC'],
-          ['id', 'ASC']
-        ]
-      }).catch(function() {
-        return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
-      });
+    currentDataSourceRowsCount = rows.length;
+    getData = Promise.resolve({
+      entries: rows,
+      pagination: {
+        total: rows.length,
+        offset: 0,
+        limit: pageSize
+      }
     });
-  }).then(function(rows) {
+  } else {
+    getData = new Promise(function(resolve, reject) {
+      // Wait before showing a timer, in case the query is fast
+      var loadingTimeout = setTimeout(function() {
+        $initialSpinnerLoading.addClass('animated');
+        $('.table-entries').css('visibility', 'hidden');
+      }, 200);
+
+      currentDataSource.find(query).then(function(response) {
+        clearTimeout(loadingTimeout);
+        resolve(response);
+      }).catch(reject);
+    });
+  }
+
+  $toolbar.addClass('disabled');
+
+  return getData.then(function(response) {
+    var rows = response.entries;
+    var pagination = response.pagination;
+
+    currentDataSourceRowsCount = pagination.total;
+
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
@@ -390,76 +448,121 @@ function fetchCurrentDataSourceEntries(entries) {
 
     $('#show-versions').show();
 
-    if ((!rows || !rows.length) && (!columns || !columns.length)) {
-      rows = [{
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
-      }, {
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
-      }];
-      columns = ['Column 1', 'Column 2'];
-    } else {
-      var flattenedColumns = {};
+    var flattenedColumns = {};
 
-      rows.map(function(row) {
-        return row.data;
-      }).forEach(function(dataItem) {
-        Object.assign(flattenedColumns, dataItem);
-      });
+    rows.map(function(row) {
+      return row.data;
+    }).forEach(function(dataItem) {
+      Object.assign(flattenedColumns, dataItem);
+    });
 
-      var computedColumns = _.keys(flattenedColumns);
+    var computedColumns = _.keys(flattenedColumns);
 
-      if (computedColumns.length !== columns.length) {
-        // TODO: Add tracking to verify how often this happens and why
-        // Missing column found
-      }
-
-      columns = _.uniq(_.concat(columns, computedColumns));
+    // Missing column found
+    if (computedColumns.length !== columns.length) {
+      // @TODO: Add tracking to verify how often this happens and why
     }
 
-    currentDataSourceRowsCount = rows.length;
+    columns = _.uniq(_.concat(columns, computedColumns));
+
     currentDataSourceColumnsCount = columns.length;
 
-    // On initial load, create an empty spreadsheet as this speeds up subsequent loads
-    if (initialLoad) {
-      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
-
-      setTimeout(function() {
-        table.destroy();
-        initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-
-        $('#versions').removeClass('hidden');
-      }, 0);
-    } else {
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-
-      $('#versions').removeClass('hidden');
+    // Destroy existing instance, if any
+    try {
+      table.destroy();
+    } catch (e) {
+      // Fail silently
     }
-  })
-    .catch(function onFetchError(error) {
-      var message = error;
 
-      if (error instanceof Error) {
-        message = 'Error loading data source.';
+    return new Promise(function(resolve) {
+      // On initial load, create an empty spreadsheet as this speeds up subsequent loads
+      if (initialLoad) {
+        table = spreadsheet({
+          columns: columns,
+          rows: [],
+          pageSize: pageSize,
+          pageOffset: pageOffset,
+          initialLoad: true
+        });
 
-        if (typeof Raven !== 'undefined') {
-          Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
-        }
-      } else if (typeof Raven !== 'undefined') {
-        Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+        setTimeout(function() {
+          table.destroy();
+          initialLoad = false;
+
+          table = spreadsheet({
+            columns: columns,
+            rows: rows,
+            pageSize: pageSize,
+            pageOffset: pageOffset
+          });
+
+          resolve();
+        }, 0);
+      } else {
+        table = spreadsheet({
+          columns: columns,
+          rows: rows,
+          pageSize: pageSize,
+          pageOffset: pageOffset
+        });
+        resolve();
       }
+    }).then(function() {
+      $initialSpinnerLoading.removeClass('animated');
+      $('.table-entries').css('visibility', 'visible');
+      $('#versions').removeClass('hidden');
+      $toolbar.removeClass('disabled');
 
-      $('.entries-message').html('<br>' + message);
+      updatePagination({
+        count: rows.length
+      });
     });
+  }).catch(function onFetchError(error) {
+    var message = error;
+
+    if (error instanceof Error) {
+      message = Fliplet.parseError(error, 'Error loading data source.');
+
+      if (typeof Raven !== 'undefined') {
+        Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+      }
+    } else if (typeof Raven !== 'undefined') {
+      Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+    }
+
+    $toolbar.removeClass('disabled');
+    $('.entries-message').html('<br>' + message);
+  });
+}
+
+function resetPagination() {
+  // Reset page offset
+  pageOffset = 0;
+  pageSize = +$('#page-size').val() || undefined;
+}
+
+function fetchCurrentDataSourceEntries() {
+  resetPagination();
+
+  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+    clearLiveDataTimer();
+
+    currentDataSource = source;
+
+    return Fliplet.DataSources.getById(currentDataSourceId, {
+      cache: false
+    }).then(function(dataSource) {
+      var sourceName = dataSource.name;
+
+      currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
+
+      $sourceContents.find('.editing-data-source-name').text(sourceName);
+
+      columns = dataSource.columns || [];
+
+      return getDataSourceEntries();
+    });
+  });
 }
 
 function previewVersion(version) {
@@ -1737,6 +1840,42 @@ $('#show-users').click(function() {
 
 $('#show-versions').click(function() {
   fetchCurrentDataSourceVersions();
+});
+
+$('#page-size').change(function() {
+  if ($toolbar.hasClass('disabled')) {
+    return;
+  }
+
+  pageSize = +this.value || undefined;
+
+  if (!pageSize) {
+    pageOffset = 0;
+  }
+
+  getDataSourceEntries();
+});
+
+$('#page-prev > a').click(function(e) {
+  e.preventDefault();
+
+  if ($toolbar.hasClass('disabled')) {
+    return;
+  }
+
+  pageOffset = Math.max(pageOffset - pageSize, 0);
+  getDataSourceEntries();
+});
+
+$('#page-next > a').click(function(e) {
+  e.preventDefault();
+
+  if ($toolbar.hasClass('disabled')) {
+    return;
+  }
+
+  pageOffset = Math.min(pageOffset + pageSize, currentDataSourceRowsCount);
+  getDataSourceEntries();
 });
 
 function findSecurityRule() {
