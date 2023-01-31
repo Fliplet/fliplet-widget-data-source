@@ -52,6 +52,7 @@ var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 var pageSize;
 var pageOffset;
+var initialPageSize = +$('#page-size').val();
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -889,6 +890,9 @@ function browseDataSource(id) {
   currentDataSourceId = id;
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
+
+  // Set initial page size
+  $('#page-size').val(initialPageSize);
 
   // Hide nav tabs and tooltip bar
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
