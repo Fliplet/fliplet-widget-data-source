@@ -87,7 +87,7 @@ var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
 Fliplet.API.request({
   url: 'v1/apps/tokens'
-}).then(function (response) {
+}).then(function(response) {
   integrationTokenList = response.appTokens;
 });
 
@@ -107,8 +107,8 @@ function updatePagination(options = {}) {
 
   $('.entry-range').text(text);
 
-  $('#page-prev').toggleClass('disabled', !pageOffset);
-  $('#page-next').toggleClass('disabled', end === currentDataSourceRowsCount);
+  $('#page-prev, #page-first').toggleClass('disabled', !pageOffset);
+  $('#page-next, #page-last').toggleClass('disabled', end === currentDataSourceRowsCount);
 }
 
 
@@ -1890,6 +1890,28 @@ $('#page-next > a').click(function(e) {
   getDataSourceEntries();
 });
 
+$('#page-first > a').click(function(e) {
+  e.preventDefault();
+
+  if ($toolbar.hasClass('disabled')) {
+    return;
+  }
+
+  pageOffset = 0;
+  getDataSourceEntries();
+});
+
+$('#page-last > a').click(function(e) {
+  e.preventDefault();
+
+  if ($toolbar.hasClass('disabled')) {
+    return;
+  }
+
+  pageOffset = Math.floor(currentDataSourceRowsCount / pageSize) * pageSize;
+  getDataSourceEntries();
+});
+
 function findSecurityRule() {
   var rule = currentDataSourceRules.map(function(rule) {
     var tokens = _.get(rule, 'allow.tokens');
@@ -2272,14 +2294,14 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
-    var appTokens = _.groupBy(integrationTokenList, function (token) {
+    var appTokens = _.groupBy(integrationTokenList, function(token) {
       return _.get(_.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
     });
 
     // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
-    var appsList = _.sortBy(_.mapValues(appTokens, function (tokens, name) {
+    var appsList = _.sortBy(_.mapValues(appTokens, function(tokens, name) {
       return { name: name, tokens: tokens };
-    }), function (app) {
+    }), function(app) {
       return app.name === DESCRIPTION_APP_UNKNOWN ? 'z' : app.name.toUpperCase();
     });
 
