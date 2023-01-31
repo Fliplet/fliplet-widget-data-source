@@ -1912,7 +1912,7 @@ $('#page-last > a').click(function(e) {
     return;
   }
 
-  pageOffset = Math.floor(currentDataSourceRowsCount / pageSize) * pageSize;
+  pageOffset = (Math.ceil(currentDataSourceRowsCount / pageSize) - 1) * pageSize;
   getDataSourceEntries();
 });
 
