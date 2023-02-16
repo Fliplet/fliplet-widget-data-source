@@ -555,6 +555,19 @@ function spreadsheet(options) {
         return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
       }).catch(console.error);
     },
+    beforeRowMove: function(movedRows) {
+      // No rows moved. Cancel action.
+      if (!movedRows || !movedRows.length) {
+        return false;
+      }
+
+      // Column header row is moved. Cancel action.
+      if (movedRows.indexOf(0) > -1) {
+        console.info('Column header row cannot be moved');
+
+        return false;
+      }
+    },
     afterRowMove: function() {
       onChange();
     },
