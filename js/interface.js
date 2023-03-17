@@ -26,7 +26,6 @@ var currentDataSourceType;
 var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
-var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
@@ -35,7 +34,7 @@ var trashedDataSources;
 var allDataSources;
 var table;
 var isShowingAll = false;
-var columns;
+var currentDataSourceColumns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
 var columnsListMode = 'include';
@@ -376,6 +375,7 @@ function startLiveDataTimer() {
 }
 
 function getDataSourceQuery() {
+  // @TODO: Add support for requesting data source columns at the same time
   var query = {
     order: [
       ['updatedAt', 'DESC']
@@ -398,8 +398,8 @@ function getDataSourceQuery() {
 function getDataSourceEntries(query) {
   var getData;
 
-  if (!currentDataSourceRowsCount && (!columns || !columns.length)) {
-    columns = ['Column 1', 'Column 2'];
+  if (!currentDataSourceRowsCount && (!currentDataSourceColumns || !currentDataSourceColumns.length)) {
+    currentDataSourceColumns = ['Column 1', 'Column 2'];
 
     var rows = [{
       data: {
@@ -506,6 +506,7 @@ function updateDataSourceEntries() {
 
       return getDataSourceEntries(query)
         .then(function(response) {
+          // @TODO: Add support for requesting data source columns at the same time
           var rows = response.entries;
           var pagination = response.pagination;
 
@@ -522,31 +523,29 @@ function updateDataSourceEntries() {
 
           $('#show-versions').show();
 
-          var flattenedColumns = {};
+          var mergedData = {};
 
           rows.map(function(row) {
             return row.data;
           }).forEach(function(dataItem) {
-            Object.assign(flattenedColumns, dataItem);
+            Object.assign(mergedData, dataItem);
           });
 
-          var computedColumns = _.keys(flattenedColumns);
+          var computedColumns = _.keys(mergedData);
 
           // Columns mismatched
-          if (computedColumns.length !== columns.length && typeof Raven !== 'undefined') {
+          if (computedColumns.length !== currentDataSourceColumns.length && typeof Raven !== 'undefined') {
             // Monitor how often this happens
             Raven.captureMessage('Column mismatch detected', {
               extra: {
                 dataSourceId: currentDataSourceId,
                 computedColumns: computedColumns,
-                columns: columns
+                columns: currentDataSourceColumns
               }
             });
           }
 
-          columns = _.uniq(_.concat(columns, computedColumns));
-
-          currentDataSourceColumnsCount = columns.length;
+          var columns = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
 
           return initializeTable({
             columns: columns,
@@ -621,7 +620,7 @@ function fetchCurrentDataSourceEntries() {
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
 
-      columns = dataSource.columns || [];
+      currentDataSourceColumns = dataSource.columns || [];
 
       return updateDataSourceEntries();
     });
@@ -695,7 +694,7 @@ function fetchCurrentDataSourceVersions() {
         }) : 'No versions for this data source',
         updatedAt: currentDataSourceUpdatedAt,
         entriesCount: currentDataSourceRowsCount,
-        columnsCount: currentDataSourceColumnsCount,
+        columnsCount: currentDataSourceColumns.length,
         versions: versions
       });
 
@@ -2196,7 +2195,7 @@ function configureAddRuleUI(rule) {
     $('input[name="exclude"]').tokenfield('destroy');
     $('input[name="exclude"]').tokenfield({
       autocomplete: {
-        source: _.compact(columns) || [],
+        source: _.compact(currentDataSourceColumns) || [],
         delay: 100
       },
       showAutocompleteOnFocus: true

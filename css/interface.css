@@ -709,6 +709,7 @@ td.data-source-apps {
 .handsontable .columnSorting.ascending:after,
 .handsontable .columnSorting.descending:after {
   opacity: 1;
+  color: #00abd1;
 }
 
 .handsontable .columnSorting.ascending:after {
