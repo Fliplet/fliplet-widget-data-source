@@ -11,6 +11,7 @@ function spreadsheet(options) {
   var columns = options.columns || [];
   var pageSize = options.pageSize || 2;
   var pageOffset = options.pageOffset || 0;
+  var sortConfig = options.sortConfig || {};
   var dataLoaded = false;
   var dataHasChanges = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
@@ -343,6 +344,36 @@ function spreadsheet(options) {
     });
   }
 
+  /**
+   * Sort data source entries based on column
+   * @param {Number} columnIndex - Index of column to be sorted by
+   * @param {Boolean} [ascending] - Undefined if the column is not sorted
+   * @returns {Promise} Resolves when the date source entries are updated
+   */
+  function sortDataSourceEntries(columnIndex, ascending) {
+    return Fliplet.Storage.get(FILTER_STORAGE_KEY, { defaults: {} })
+      .then(function(storage) {
+        var columns = getColumns();
+
+        if (typeof ascending !== 'undefined' && columns[columnIndex]) {
+          storage[currentDataSourceId] = [{
+            column: columns[columnIndex],
+            ascending: ascending
+          }];
+        } else {
+          delete storage[currentDataSourceId];
+        }
+
+        // Update sort order in storage
+        return Fliplet.Storage.set(FILTER_STORAGE_KEY, storage);
+      }).then(function() {
+        resetPagination();
+
+        // Fetch and render data source entries based on updated sort order
+        return updateDataSourceEntries();
+      });
+  }
+
   // Reset history stack
   HistoryStack.reset();
 
@@ -362,39 +393,39 @@ function spreadsheet(options) {
     rowHeaders: function(rowIndex) {
       return rowIndex ? pageOffset + rowIndex : '';
     },
+    afterGetColHeader: function(i, TH) {
+      if (!sortConfig.column || !sortConfig.sortOrderClass) {
+        return;
+      }
+
+      if (sortConfig.column === columns[i]) {
+        TH.querySelector('.columnSorting').classList.add(sortConfig.sortOrderClass);
+      }
+    },
     copyPaste: {
       columnsLimit: 1000,
       rowsLimit: 1000000000
     },
     columnSorting: true,
-    sortFunction: function sortData(sortOrder, columnMeta) {
-      return function(a, b) {
-        var plugin = hot.getPlugin('columnSorting');
-        var sortFunction;
+    beforeColumnSort: function(columnIndex) {
+      var columnClasslist = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex].classList;
+      // Get current sort order
+      var ascending = !columnClasslist.contains('ascending') && !columnClasslist.contains('descending')
+        ? undefined
+        : columnClasslist.contains('ascending');
 
-        if (a[0] === 0) {
-          return -1;
-        }
+      // Toggle sort order
+      if (ascending === false) {
+        ascending = undefined;
+      } else {
+        ascending = !ascending;
+      }
 
-        switch (columnMeta.type) {
-          case 'date':
-            sortFunction = plugin.dateSort;
-            break;
-          case 'numeric':
-            sortFunction = plugin.numericSort;
-            break;
-          default:
-            sortFunction = plugin.defaultSort;
-        }
+      // Sort data source entries
+      sortDataSourceEntries(columnIndex, ascending);
 
-        return sortFunction(sortOrder, columnMeta)(a, b);
-      };
-    },
-    afterColumnSort: function() {
-      // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
-      setTimeout(function() {
-        hot.view.wt.draw(true);
-      }, 0);
+      // Stops Handsontable from executing client-side sorting
+      return false;
     },
     undo: false,
     sortIndicator: true,
@@ -650,7 +681,7 @@ function spreadsheet(options) {
   copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
-    return hot.getDataAtRow(0);
+    return hot && hot.getDataAtRow(0);
   }
 
   /**
