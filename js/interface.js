@@ -43,7 +43,6 @@ var entryMap = {
   original: {},
   entries: {}
 };
-var FILTER_STORAGE_KEY = 'flDataSourceFilters';
 var currentFinalRules;
 var integrationTokenList = [];
 var selectedTokenId;
@@ -379,8 +378,7 @@ function startLiveDataTimer() {
 function getDataSourceQuery() {
   var query = {
     order: [
-      ['order', 'ASC'],
-      ['id', 'ASC']
+      ['updatedAt', 'DESC']
     ],
     includePagination: true
   };
@@ -390,18 +388,11 @@ function getDataSourceQuery() {
     query.offset = pageOffset;
   }
 
-  return Fliplet.Storage.get(FILTER_STORAGE_KEY, { defaults: {} })
-    .then(function(storage) {
-      var sortConfig = (storage[currentDataSourceId] || [])[0];
+  if (currentDataSourceDefinition.order) {
+    query.order = currentDataSourceDefinition.order;
+  }
 
-      if (sortConfig && columns.indexOf(sortConfig.column) > -1) {
-        query.order = [
-          ['data.' + sortConfig.column, sortConfig.ascending ? 'ASC' : 'DESC']
-        ];
-      }
-
-      return query;
-    });
+  return query;
 }
 
 function getDataSourceEntries(query) {
@@ -432,21 +423,7 @@ function getDataSourceEntries(query) {
       }
     });
   } else {
-    getData = new Promise(function(resolve, reject) {
-      // Wait before showing a timer, in case the query is fast
-      var loadingTimeout = setTimeout(function() {
-        $initialSpinnerLoading.addClass('animated');
-        $('.table-entries').css('visibility', 'hidden');
-      }, 200);
-
-      currentDataSource.find(query).then(function(response) {
-        clearTimeout(loadingTimeout);
-        resolve(response);
-      }).catch(function(error) {
-        clearTimeout(loadingTimeout);
-        reject(error);
-      });
-    });
+    getData = currentDataSource.find(query);
   }
 
   $toolbar.addClass('disabled');
@@ -495,98 +472,128 @@ function initializeTable(options) {
   });
 }
 
+/**
+ * Update the table with latest data source entries
+ * @returns {Promise<Boolean>} Returns TRUE if the data source entries are updated
+ */
 function updateDataSourceEntries() {
   var sortConfig;
+  var verifyChanges;
 
-  return getDataSourceQuery()
-    .then(function(query) {
+  if (table && table.hasChanges()) {
+    verifyChanges = Fliplet.Modal.confirm({
+      message: 'Are you sure? Changes that you made may not be saved.'
+    });
+  } else {
+    verifyChanges = Promise.resolve(true);
+  }
+
+  return verifyChanges
+    .then(function(confirmed) {
+      if (!confirmed) {
+        return false;
+      }
+
+      var query = getDataSourceQuery();
+
       sortConfig = getSortConfigForTable(query);
 
-      return getDataSourceEntries(query);
-    })
-    .then(function(response) {
-      var rows = response.entries;
-      var pagination = response.pagination;
+      // Wait before showing a timer, in case the query is fast
+      var loadingTimeout = setTimeout(function() {
+        $initialSpinnerLoading.addClass('animated');
+        $('.table-entries').css('visibility', 'hidden');
+      }, 150);
 
-      currentDataSourceRowsCount = pagination.total;
+      return getDataSourceEntries(query)
+        .then(function(response) {
+          var rows = response.entries;
+          var pagination = response.pagination;
 
-      if (dataSourceIsLive) {
-        startLiveDataTimer();
-      }
+          currentDataSourceRowsCount = pagination.total;
 
-      // Cache entries in a new thread
-      setTimeout(function() {
-        cacheOriginalEntries(rows);
-      }, 0);
-
-      $('#show-versions').show();
-
-      var flattenedColumns = {};
-
-      rows.map(function(row) {
-        return row.data;
-      }).forEach(function(dataItem) {
-        Object.assign(flattenedColumns, dataItem);
-      });
-
-      var computedColumns = _.keys(flattenedColumns);
-
-      // Columns mismatched
-      if (computedColumns.length !== columns.length && typeof Raven !== 'undefined') {
-        // Monitor how often this happens
-        Raven.captureMessage('Column mismatch detected', {
-          extra: {
-            dataSourceId: currentDataSourceId,
-            computedColumns: computedColumns,
-            columns: columns
+          if (dataSourceIsLive) {
+            startLiveDataTimer();
           }
-        });
-      }
 
-      columns = _.uniq(_.concat(columns, computedColumns));
+          // Cache entries in a new thread
+          setTimeout(function() {
+            cacheOriginalEntries(rows);
+          }, 0);
 
-      currentDataSourceColumnsCount = columns.length;
+          $('#show-versions').show();
 
-      return initializeTable({
-        columns: columns,
-        rows: [],
-        initialLoad: true
-      })
-        .then(function() {
-          table = spreadsheet({
-            columns: columns,
-            rows: rows,
-            pageSize: pageSize,
-            pageOffset: pageOffset,
-            sortConfig: sortConfig
+          var flattenedColumns = {};
+
+          rows.map(function(row) {
+            return row.data;
+          }).forEach(function(dataItem) {
+            Object.assign(flattenedColumns, dataItem);
           });
 
+          var computedColumns = _.keys(flattenedColumns);
+
+          // Columns mismatched
+          if (computedColumns.length !== columns.length && typeof Raven !== 'undefined') {
+            // Monitor how often this happens
+            Raven.captureMessage('Column mismatch detected', {
+              extra: {
+                dataSourceId: currentDataSourceId,
+                computedColumns: computedColumns,
+                columns: columns
+              }
+            });
+          }
+
+          columns = _.uniq(_.concat(columns, computedColumns));
+
+          currentDataSourceColumnsCount = columns.length;
+
+          return initializeTable({
+            columns: columns,
+            rows: [],
+            initialLoad: true
+          })
+            .then(function() {
+              table = spreadsheet({
+                columns: columns,
+                rows: rows,
+                pageSize: pageSize,
+                pageOffset: pageOffset,
+                sortConfig: sortConfig
+              });
+
+              clearTimeout(loadingTimeout);
+              $initialSpinnerLoading.removeClass('animated');
+              $('.table-entries').css('visibility', 'visible');
+              $('#versions').removeClass('hidden');
+              $toolbar.removeClass('disabled');
+
+              updatePagination({
+                count: rows.length
+              });
+
+              return true;
+            });
+        }).catch(function onFetchError(error) {
+          clearTimeout(loadingTimeout);
+
+          if (typeof Raven !== 'undefined') {
+            if (error instanceof Error) {
+              Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+            } else if (typeof Raven !== 'undefined') {
+              Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+            }
+          }
+
+          var message = Fliplet.parseError(error, 'Error loading data source.');
+
+          $toolbar.removeClass('disabled');
+          $('.entries-message').html('<br>' + message);
           $initialSpinnerLoading.removeClass('animated');
           $('.table-entries').css('visibility', 'visible');
-          $('#versions').removeClass('hidden');
-          $toolbar.removeClass('disabled');
 
-          updatePagination({
-            count: rows.length
-          });
+          return Promise.reject(error);
         });
-    }).catch(function onFetchError(error) {
-      if (typeof Raven !== 'undefined') {
-        if (error instanceof Error) {
-          Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
-        } else if (typeof Raven !== 'undefined') {
-          Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
-        }
-      }
-
-      var message = Fliplet.parseError(error, 'Error loading data source.');
-
-      $toolbar.removeClass('disabled');
-      $('.entries-message').html('<br>' + message);
-      $initialSpinnerLoading.removeClass('animated');
-      $('.table-entries').css('visibility', 'visible');
-
-      return Promise.reject(error);
     });
 }
 
@@ -609,6 +616,7 @@ function fetchCurrentDataSourceEntries() {
     }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
+      currentDataSourceDefinition = dataSource.definition || {};
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
@@ -880,6 +888,8 @@ function saveCurrentData() {
   Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
     dataSource.definition = dataSource.definition || {};
     dataSource.definition.columnsWidths = widths;
+
+    currentDataSourceDefinition = dataSource.definition;
 
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
@@ -1329,27 +1339,21 @@ $('#app')
 
     $('[href="#entries"]').click();
 
+    var verifyChanges;
+
     if (table && table.hasChanges()) {
-      Fliplet.Modal.confirm({
+      verifyChanges = Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
-      }).then(function(result) {
-        if (!result) {
-          return;
-        }
-
-        $('#save-rules').addClass('hidden');
-
-        try {
-          table.destroy();
-        } catch (e) {
-          // Fail silently
-        }
-
-        $('[data-order-date]').removeClass('asc').addClass('desc');
-
-        getDataSources();
       });
     } else {
+      verifyChanges = Promise.resolve(true);
+    }
+
+    verifyChanges.then(function(confirmed) {
+      if (!confirmed) {
+        return;
+      }
+
       $('#save-rules').addClass('hidden');
 
       try {
@@ -1361,7 +1365,7 @@ $('#app')
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
-    }
+    });
   })
   .on('click', '[data-show-source]', function() {
     $('[data-show-source]').addClass('active-source');
@@ -1920,13 +1924,19 @@ $('#page-size').change(function() {
     return;
   }
 
+  var currentPageSize = pageSize;
+
   pageSize = +this.value || undefined;
 
   if (!pageSize) {
     pageOffset = 0;
   }
 
-  updateDataSourceEntries();
+  updateDataSourceEntries().then(function(updated) {
+    if (!updated) {
+      pageSize = currentPageSize;
+    }
+  });
 });
 
 $('#page-prev > a').click(function(e) {
@@ -1936,8 +1946,14 @@ $('#page-prev > a').click(function(e) {
     return;
   }
 
+  var currentPageOffset = pageOffset;
+
   pageOffset = Math.max(pageOffset - pageSize, 0);
-  updateDataSourceEntries();
+  updateDataSourceEntries().then(function(updated) {
+    if (!updated) {
+      pageOffset = currentPageOffset;
+    }
+  });
 });
 
 $('#page-next > a').click(function(e) {
@@ -1947,8 +1963,14 @@ $('#page-next > a').click(function(e) {
     return;
   }
 
+  var currentPageOffset = pageOffset;
+
   pageOffset = Math.min(pageOffset + pageSize, currentDataSourceRowsCount);
-  updateDataSourceEntries();
+  updateDataSourceEntries().then(function(updated) {
+    if (!updated) {
+      pageOffset = currentPageOffset;
+    }
+  });
 });
 
 $('#page-first > a').click(function(e) {
@@ -1958,8 +1980,14 @@ $('#page-first > a').click(function(e) {
     return;
   }
 
+  var currentPageOffset = pageOffset;
+
   pageOffset = 0;
-  updateDataSourceEntries();
+  updateDataSourceEntries().then(function(updated) {
+    if (!updated) {
+      pageOffset = currentPageOffset;
+    }
+  });
 });
 
 $('#page-last > a').click(function(e) {
@@ -1969,8 +1997,14 @@ $('#page-last > a').click(function(e) {
     return;
   }
 
+  var currentPageOffset = pageOffset;
+
   pageOffset = (Math.ceil(currentDataSourceRowsCount / pageSize) - 1) * pageSize;
-  updateDataSourceEntries();
+  updateDataSourceEntries().then(function(updated) {
+    if (!updated) {
+      pageOffset = currentPageOffset;
+    }
+  });
 });
 
 function findSecurityRule() {
