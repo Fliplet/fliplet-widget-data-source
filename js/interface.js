@@ -526,6 +526,9 @@ function updateDataSourceEntries() {
           var mergedData = {};
 
           rows.map(function(row) {
+            // @TODO: Remove this if data source entries are returned without order attribute
+            delete row.order;
+
             return row.data;
           }).forEach(function(dataItem) {
             Object.assign(mergedData, dataItem);
@@ -907,7 +910,7 @@ function saveCurrentData() {
     var ids = [];
 
     // Generate an object mapping client IDs to new entry IDs
-    _.forEach(response.clientIds, function(entry) {
+    _.forEach(response && response.clientIds, function(entry) {
       clientIds.push(entry.clientId);
       ids.push(entry.id);
     });

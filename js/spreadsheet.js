@@ -862,8 +862,6 @@ function spreadsheet(options) {
             entry.data[header] = visualRow[index];
           }
 
-          entry.order = order;
-
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {
             entry.data[header] = parseCellValue(entry.data[header]);
