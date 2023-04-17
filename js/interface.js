@@ -1350,10 +1350,16 @@ $('#app')
       $('#show-versions').show();
       table.onSaveComplete();
     }).catch(function(err) {
-      Fliplet.Modal.alert({
-        title: 'Error saving data source',
-        message: Fliplet.parseError(err)
-      });
+      var errorJSON = err && err.responseJSON || {};
+
+      if (errorJSON.type && errorJSON.type.indexOf('billing.enforcement') > -1) {
+        Fliplet.Studio.emit('show-enforcement-warning', errorJSON);
+      } else {
+        Fliplet.Modal.alert({
+          title: 'Error saving data source',
+          message: Fliplet.parseError(err)
+        });
+      }
 
       table.setChanges(true);
       table.onSaveError();
