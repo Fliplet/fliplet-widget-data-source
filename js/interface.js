@@ -911,12 +911,18 @@ function createDataSource(createOptions, options) {
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
-        return Fliplet.Modal.alert({
-          message: Fliplet.parseError(error)
-        })
-          .then(function() {
-            return createDataSource(createOptions, options);
-          });
+        var errorJSON = error && error.responseJSON || {};
+
+        if (errorJSON.type && errorJSON.type.indexOf('billing.enforcement') > -1) {
+          Fliplet.Studio.emit('show-enforcement-warning', errorJSON);
+        } else {
+          Fliplet.Modal.alert({
+            message: Fliplet.parseError(error)
+          })
+            .then(function() {
+              return createDataSource(createOptions, options);
+            });
+        }
       });
   });
 }
