@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Data source component",
+  "description": "This is the schema for the data source object, including name, columns, access rules, and entries.",
+  "properties": {
+    "name": {
+      "title": "The name of the data source.",
+      "type": "string"
+    },
+    "columns": {
+      "title": "The list of columns included in the data source.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accessRules": {
+      "title": "The access rules for the data source.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "title": "The type of access rule. Possible values are 'select', 'insert', 'update', 'delete'.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["select", "insert", "update", "delete"]
+            }
+          },
+          "allow": {
+            "title": "The access rule allowing specific conditions.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "tokens": {
+                    "title": "Access is allowed based on tokens provided.",
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "required": ["tokens"]
+              },
+              {
+                "title": "Access is allowed for 'loggedIn' users or 'all' users.",
+                "type": "string",
+                "enum": ["loggedIn", "all"]
+              },
+              {
+                "title": "Access is allowed based on user properties.",
+                "type": "object",
+                "properties": {
+                  "user": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "equals": {
+                          "title": "Property value must be equal to the specified string.",
+                          "type": "string"
+                        },
+                        "notequals": {
+                          "title": "Property value must not be equal to the specified string.",
+                          "type": "string"
+                        },
+                        "contains": {
+                          "title": "Property value must contain the specified string.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": ["user"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "appId": {
+            "title": "The list of application IDs allowed for access.",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "enabled": {
+            "title": "Specifies whether the access rule is enabled or disabled.",
+            "type": "boolean"
+          },
+          "include": {
+            "title": "The list of columns to include for this access rule.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "title": "The list of columns to exclude for this access rule.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "require": {
+            "title": "The list of columns or property requirements for this access rule.",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "title": "The required column for this access rule.",
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "equals": {
+                        "title": "Property value must be equal to the specified string.",
+                        "type": "string"
+                      },
+                      "notequals": {
+                        "title": "Property value must not be equal to the specified string.",
+                        "type": "string"
+                      },
+                      "contains": {
+                        "title": "Property value must contain the specified string.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              ]
+            }
+          },
+          "name": {
+            "title": "The name of the access rule.",
+            "type": "string"
+          },
+          "script": {
+            "title": "The custom script used for evaluating the access rule.",
+            "type": "string"
+          }
+        },
+        "required": ["type", "enabled"]
+      }
+    },
+    "entries": {
+      "title": "The entries (data) for the data source.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": ["name", "columns", "accessRules", "entries"]
+}
