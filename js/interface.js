@@ -911,7 +911,11 @@ function createDataSource(createOptions, options) {
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
-        return Fliplet.Modal.alert({
+        if (error.responseJSON  && error.responseJSON.handled) {
+          return;
+        }
+
+        Fliplet.Modal.alert({
           message: Fliplet.parseError(error)
         })
           .then(function() {
