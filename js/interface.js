@@ -911,7 +911,7 @@ function createDataSource(createOptions, options) {
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
-        if (error.responseJSON  && error.responseJSON.handled) {
+        if (Fliplet.Error.isHandled(error)) {
           return;
         }
 
