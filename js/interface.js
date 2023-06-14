@@ -1354,6 +1354,10 @@ $('#app')
       $('#show-versions').show();
       table.onSaveComplete();
     }).catch(function(err) {
+      if (Fliplet.Error.isHandled(err)) {
+        return;
+      }
+
       Fliplet.Modal.alert({
         title: 'Error saving data source',
         message: Fliplet.parseError(err)
