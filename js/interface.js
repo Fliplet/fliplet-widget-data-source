@@ -911,7 +911,11 @@ function createDataSource(createOptions, options) {
       return browseDataSource(createdDataSource.id);
     })
       .catch(function(error) {
-        return Fliplet.Modal.alert({
+        if (Fliplet.Error.isHandled(error)) {
+          return;
+        }
+
+        Fliplet.Modal.alert({
           message: Fliplet.parseError(error)
         })
           .then(function() {
@@ -1350,6 +1354,10 @@ $('#app')
       $('#show-versions').show();
       table.onSaveComplete();
     }).catch(function(err) {
+      if (Fliplet.Error.isHandled(err)) {
+        return;
+      }
+
       Fliplet.Modal.alert({
         title: 'Error saving data source',
         message: Fliplet.parseError(err)
