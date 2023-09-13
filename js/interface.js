@@ -29,6 +29,7 @@ var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
+var filteredDataSources;
 var dataSources;
 var trashedDataSources;
 var allDataSources;
@@ -1871,9 +1872,9 @@ function getFilteredSpecificTokenList() {
     });
   });
 
-  currentDataSourceRules = rules;
+  filteredDataSources = rules;
 
-  if (currentDataSourceRules.length === 0) {
+  if (filteredDataSources.length === 0) {
     addSecurityRule();
   }
 
@@ -1958,7 +1959,7 @@ $('body').on('change', '.tokens-list', function() {
       });
     });
 
-    currentDataSourceRules = rules;
+    filteredDataSources = rules;
   }
 });
 
@@ -2310,7 +2311,7 @@ $('#show-access-rules').click(function() {
   }
 
   getApps.then(function(apps) {
-    currentDataSourceRules.forEach(function(rule, index) {
+    (selectedTokenId ? filteredDataSources : currentDataSourceRules).forEach(function(rule, index) {
       var tpl = Fliplet.Widget.Templates['templates.accessRule'];
 
       if (typeof rule.type === 'string') {
@@ -2478,16 +2479,9 @@ function getSecurityRule() {
 $('[data-clear-filter]').click(function(event) {
   event.preventDefault();
 
+  selectedTokenId = '';
   $('#specific-token-filter').removeClass('hidden');
   $('#save-rules').addClass('hidden');
-
-  var rule = getSecurityRule();
-
-  if (!rule && currentDataSourceRules.length > 0) {
-    currentFinalRules.push(currentDataSourceRules[0]);
-  }
-
-  currentDataSourceRules = currentFinalRules;
 
   $('#specific-token-filter').addClass('hidden');
   $('#show-access-rules').click();
@@ -2676,7 +2670,18 @@ $('body').on('click', '[data-rule-delete]', function(event) {
 
   var index = parseInt($(this).closest('tr').data('rule-index'), 10);
 
-  currentDataSourceRules.splice(index, 1);
+  if (selectedTokenId) {
+    var deletedItem = filteredDataSources[index];
+
+    filteredDataSources.splice(index, 1);
+    currentDataSourceRules = currentDataSourceRules.filter(function(dataSourceRule) {
+      return JSON.stringify(dataSourceRule) !== JSON.stringify(deletedItem);
+    });
+  } else {
+    currentDataSourceRules.splice(index, 1);
+  }
+
+  selectedTokenId = '';
   markDataSourceRulesUIWithChanges();
 });
 
