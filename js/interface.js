@@ -2675,7 +2675,7 @@ $('body').on('click', '[data-rule-delete]', function(event) {
 
     filteredDataSources.splice(index, 1);
     currentDataSourceRules = currentDataSourceRules.filter(function(dataSourceRule) {
-      return JSON.stringify(dataSourceRule) !== JSON.stringify(deletedItem);
+      return !_.isEqual(dataSourceRule, deletedItem);
     });
   } else {
     currentDataSourceRules.splice(index, 1);
