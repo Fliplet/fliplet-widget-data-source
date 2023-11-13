@@ -43,6 +43,7 @@ var entryMap = {
   original: {},
   entries: {}
 };
+var initialColumnList = [];
 var currentFinalRules;
 var integrationTokenList = [];
 var selectedTokenId;
@@ -85,6 +86,11 @@ var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
 });
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
+
+const columnsToFunction = (columns) => {
+  if (typeof columns[0] === 'string') return (column) => ({ data: columns[column], id: column });
+  return (column) => columns[column];
+}
 
 Fliplet.API.request({
   url: 'v1/apps/tokens'
@@ -468,6 +474,7 @@ function initializeTable(options) {
         resolve();
       }, 0);
     } catch (e) {
+      console.log('Error initializing table', e);
       reject(e);
     }
   });
@@ -549,16 +556,16 @@ function updateDataSourceEntries() {
             });
           }
 
-          var columns = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
+          initialColumnList = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
 
           return initializeTable({
-            columns: columns,
+            columns: initialColumnList,
             rows: [],
             initialLoad: true
           })
             .then(function() {
               table = spreadsheet({
-                columns: columns,
+                columns: initialColumnList,
                 rows: rows,
                 pageSize: pageSize,
                 pageOffset: pageOffset,
@@ -784,6 +791,16 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
   });
 }
 
+function getColumnsCommitPayload(columns) {
+  columns = columns || [];
+
+
+  const columnsDeleted = [];
+  const columnsRenamed = [];
+
+
+}
+
 /**
  * Computes payload for the commit API by comparing a list of entries against the cached original entries
  * @param {Array} entries - Latest entries to be committed
@@ -919,7 +936,7 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ columns: columns, rows: entries });
+    table.setData({ columns, rows: entries });
   });
 }
 

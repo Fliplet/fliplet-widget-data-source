@@ -82,7 +82,7 @@ function spreadsheet(options) {
       console.error('We must pass an array of the cell coordinates to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
-      selectedCell);
+        selectedCell);
 
       return false;
     }
@@ -331,7 +331,7 @@ function spreadsheet(options) {
    */
   function columnValueRenderer() {
     var td = arguments[1];
-    var value = arguments[5];
+    var value = arguments[4];
     var escaped = Handsontable.helper.stringify(value);
 
     td.innerHTML = escaped;
@@ -399,6 +399,8 @@ function spreadsheet(options) {
   // Data as an array
   spreadsheetData = prepareData(rows, columns);
 
+  console.log({ spreadsheetData, columns, rows })
+
   var hotSettings = {
     stretchH: 'all',
     manualColumnResize: true,
@@ -458,7 +460,11 @@ function spreadsheet(options) {
         renderer: columnValueRenderer
       };
     },
-    data: spreadsheetData,
+    data: rows.map(({data}) => data),
+    columns: (column) => ({
+      data: spreadsheetData[0][column],
+      id: column
+    }),
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
     minCols: 2,
@@ -495,7 +501,7 @@ function spreadsheet(options) {
             var newHeader = generateColumnName();
 
             newHeader = validateOrFixColumnName(newHeader);
-            hot.setDataAtCell(0, change[1], newHeader);
+            hot.setDataAtRowProp(0, change[1], newHeader);
           }
         }
       });
@@ -503,8 +509,7 @@ function spreadsheet(options) {
     afterChangesObserved: function() {
       // Deal with the undo/redo stack
       var data = getData({ removeEmptyRows: false, useSourceData: true });
-      var columns = getColumns();
-      var preparedData = prepareData(data, columns);
+      var preparedData = data;
 
       // Add current change to stack
       HistoryStack.add({
@@ -900,7 +905,7 @@ function spreadsheet(options) {
 
     var rows = options.rows || [];
     var columns = options.columns || [];
-    var preparedData = prepareData(rows, columns);
+    var preparedData = rows;
 
     dataLoaded = false;
     hot.loadData(preparedData);
