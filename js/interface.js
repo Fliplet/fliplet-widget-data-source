@@ -809,7 +809,6 @@ function getColumnsCommitPayload(columns) {
 function getCommitPayload(entries) {
   entries = entries || [];
 
-
   var inserted = [];
   var updated = [];
   var deleted = [];
@@ -841,7 +840,7 @@ function getCommitPayload(entries) {
   _.forIn(entryMap.original, function (original) {
     var entry = entryMap.entries[original.id];
 
-    if (!entry) {
+    if (!entry && original.id) {
       deleted.push(original.id);
 
       return;
@@ -888,7 +887,7 @@ function saveCurrentData() {
     entries: payload.entries,
     delete: payload.delete,
     columns: columns,
-    returnEntries: false
+    returnEntries: true
   }).then((response) => {
     const clientIds = [];
     const ids = [];

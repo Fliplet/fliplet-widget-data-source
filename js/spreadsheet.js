@@ -16,7 +16,7 @@ const columnsInfo = {
   array: [], // { id: number; data: string; width: number; }[]
   defaultWidth: 250,
   init(columns) {
-    this.array = columns.map((data, index) => ({ data, id: `${new Date().getTime()}${index}`, width: this.defaultWidth }));
+    this.array = columns.map((data, index) => ({ data, id: Fliplet.guid(), width: this.defaultWidth }));
     this.original = structuredClone(this.array);
   },
   count() {
@@ -40,7 +40,7 @@ const columnsInfo = {
     return `Column (${lastGenericColumnNumber + 1})`;
   },
   add(at) {
-    this.array.splice(at, 0, { data: this.generateColumnName(), id: `${new Date().getTime()}0`, width: this.defaultWidth });
+    this.array.splice(at, 0, { data: this.generateColumnName(), id: Fliplet.guid(), width: this.defaultWidth });
     this.updateHot()
   },
   remove(at, count) {
@@ -717,7 +717,7 @@ function spreadsheet(options) {
     const emptyRow = headers.reduce((acc, header) => ({ ...acc, [header]: undefined }), {});
 
     // Get entries with the correct order
-    return visual.map((visualRow) => {
+    return visual.map((visualRow, index) => {
       if (visualRow.length === 0) {
         return emptyRow;
       }
@@ -726,7 +726,10 @@ function spreadsheet(options) {
         [headers[index]]: parseCellValue(value),
       }), {});
 
-      return source.find(sourceRowObj => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowObj[key]) || value === sourceRowObj[key]));
+      const row = source.find(sourceRowObj => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowObj[key]) || value === sourceRowObj[key]));
+      row.order = index;
+
+      return row;
     });
   }
 
