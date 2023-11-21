@@ -5,6 +5,77 @@ var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 
+const hotHelpers = {
+  getColumnWidths() {
+    return hot.getColHeader().map((header, index) => hot.getColWidth(index));
+  },
+};
+
+const columnsInfo = {
+  original: [],
+  array: [], // { id: number; data: string; width: number; }[]
+  defaultWidth: 250,
+  init(columns) {
+    this.array = columns.map((data, index) => ({ data, id: `${new Date().getTime()}${index}`, width: this.defaultWidth }));
+    this.original = structuredClone(this.array);
+  },
+  count() {
+    return this.array.length;
+  },
+  headers() {
+    return this.array.map(({ data }) => data);
+  },
+  widths() {
+    return this.array.map(({ width }) => width);
+  },
+  updateWidths() {
+    const widths = hotHelpers.getColumnWidths();
+    this.array.forEach((column, index) => {
+      column.width = widths[index];
+    });
+  },
+  generateColumnName() {
+    const lastGenericColumn = this.headers().filter(column => column.startsWith('Column')).sort().pop();
+    const lastGenericColumnNumber = lastGenericColumn ? parseInt(lastGenericColumn.match(/\((\d+)\)/)[1]) : 0;
+    return `Column (${lastGenericColumnNumber + 1})`;
+  },
+  add(at) {
+    this.array.splice(at, 0, { data: this.generateColumnName(), id: `${new Date().getTime()}0`, width: this.defaultWidth });
+    this.updateHot()
+  },
+  remove(at, count) {
+    this.array.splice(at, count || 1);
+    this.updateHot()
+  },
+  moveColumns(from, count, to) {
+    const before = this.array;
+    const columns = this.array.splice(from, count);
+    this.array.splice(to, 0, ...columns);
+
+    console.log({ before, after: this.array })
+    this.updateHot()
+  },
+  changes() {
+    return {
+      removed: this.original.filter(({ id }) => !this.array.find(column => column.id === id)),
+      renamed: this.original.filter(({ id, data }) => {
+        const columnObj = this.array.find(column => column.id === id);
+        return columnObj && columnObj.data !== data;
+      }).map(({ id, data }) => ({
+        before: data,
+        after: this.array.find(column => column.id === id).data,
+      })),
+    }
+  },
+  updateHot() {
+    hot.updateSettings({
+      columns: columnsInfo.array,
+      colHeaders: columnsInfo.headers(),
+      colWidths: columnsInfo.widths(),
+    });
+  },
+}
+
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
   var rows = options.rows || [];
@@ -14,48 +85,7 @@ function spreadsheet(options) {
   var sortConfig = options.sortConfig || {};
   var dataLoaded = false;
   var dataHasChanges = false;
-  var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
-
-  /**
-   * Given an array of data source entries it does return an array
-   * of data prepared to be consumed by Handsontable
-   * @param {Array} rows - Entries to be processed
-   * @param {Array} columns - List of columns
-   * @param {Boolean} isFirstRender - defines if it was first render to prepare the data for correct rendering without data changes after changes are made
-   * @returns {Array} Data to be loaded into Handsontable
-   */
-  function prepareData(rows, columns) {
-    var preparedData = rows.map(function(row) {
-      var dataRow = columns.map(function(header) {
-        var value = row.data[header];
-
-        // Stringify values for rendering objects for the first rendering and when undoing changes to the table (Ctrl + Z in the table cell)
-        if (typeof value === 'object' && value !== null) {
-          value = JSON.stringify(value);
-        }
-
-        if (value === -0) {
-          return 0;
-        }
-
-        if (Number.isNaN(value)) {
-          return undefined;
-        }
-
-        return value;
-      });
-
-      dataRow.id = row.id;
-
-      return dataRow;
-    });
-
-    // Add columns as first row
-    preparedData.unshift(columns);
-
-    return preparedData;
-  }
 
   function onChange() {
     if (!dataLoaded) {
@@ -326,25 +356,6 @@ function spreadsheet(options) {
   }
 
   /**
-   * Style the first row (columns headings)
-   * @returns {undefined}
-   */
-  function columnValueRenderer() {
-    var td = arguments[1];
-    var value = arguments[4];
-    var escaped = Handsontable.helper.stringify(value);
-
-    td.innerHTML = escaped;
-    td.classList.add('column-header-cell');
-  }
-
-  function getColWidths() {
-    return hot.getColHeader().map(function getColWithFromHeader(header, index) {
-      return hot.getColWidth(index);
-    });
-  }
-
-  /**
    * Sort data source entries based on column
    * @param {Number} columnIndex - Index of column to be sorted by
    * @param {Boolean} [ascending] - Undefined if the column is not sorted
@@ -368,7 +379,7 @@ function spreadsheet(options) {
 
     // Fetch and render data source entries based on updated sort order
     return updateDataSourceEntries()
-      .then(function(updated) {
+      .then(function (updated) {
         if (!updated) {
           // Revert cached definition
           currentDataSourceDefinition.order = currentSortOrder;
@@ -394,12 +405,7 @@ function spreadsheet(options) {
 
   // Reset history stack
   HistoryStack.reset();
-
-  // Don't bind data to data source object
-  // Data as an array
-  spreadsheetData = prepareData(rows, columns);
-
-  console.log({ spreadsheetData, columns, rows })
+  columnsInfo.init(columns);
 
   var hotSettings = {
     stretchH: 'all',
@@ -407,13 +413,12 @@ function spreadsheet(options) {
     manualColumnMove: true,
     manualRowResize: true,
     manualRowMove: false,
-    colWidths: 250,
-    fixedRowsTop: 1,
-    colHeaders: true,
-    rowHeaders: function(rowIndex) {
-      return rowIndex ? pageOffset + rowIndex : '';
+    colWidths: columnsInfo.defaultWidth,
+    colHeaders: columnsInfo.headers(),
+    rowHeaders: function (rowIndex) {
+      return pageOffset + rowIndex + 1;
     },
-    afterGetColHeader: function(i, TH) {
+    afterGetColHeader: function (i, TH) {
       if (!sortConfig.column || !sortConfig.sortOrderClass) {
         return;
       }
@@ -427,7 +432,7 @@ function spreadsheet(options) {
       rowsLimit: 1000000000
     },
     columnSorting: true,
-    beforeColumnSort: function(columnIndex) {
+    beforeColumnSort: function (columnIndex) {
       var columnClasslist = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex].classList;
       // Get current sort order
       var ascending = !columnClasslist.contains('ascending') && !columnClasslist.contains('descending')
@@ -451,26 +456,12 @@ function spreadsheet(options) {
     sortIndicator: true,
     selectionMode: 'range',
     renderAllRows: true,
-    cells: function(rowIndex) {
-      if (rowIndex !== 0) {
-        return;
-      }
-
-      return {
-        renderer: columnValueRenderer
-      };
-    },
-    data: rows.map(({data}) => data),
-    columns: (column) => ({
-      data: spreadsheetData[0][column],
-      id: column
-    }),
+    data: rows.map(({ data }) => data),
+    columns: columnsInfo.array,
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
-    minCols: 2,
-    minSpareCols: 1,
     // Hooks
-    beforeChange: function(changes) {
+    beforeChange: function (changes) {
       onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
@@ -479,65 +470,22 @@ function spreadsheet(options) {
       if ((window.event.key === 'Delete' || window.event.key === 'Backspace') && changes[0][0] !== 0) {
         return;
       }
-
-      // Check if the change was on columns row and validate
-      // If we change row without header we put header for this row
-      // In this case user won't lose his data if he forgot to input header
-      changes.forEach(function(change) {
-        if (change[0] === 0) {
-          if (change[3] === change[2]) {
-            return;
-          }
-
-          if (change[3] === '') {
-            change[3] = generateColumnName();
-          }
-
-          change[3] = validateOrFixColumnName(change[3]);
-        } else {
-          var header = getColumns()[change[1]];
-
-          if (!header) {
-            var newHeader = generateColumnName();
-
-            newHeader = validateOrFixColumnName(newHeader);
-            hot.setDataAtRowProp(0, change[1], newHeader);
-          }
-        }
-      });
     },
-    afterChangesObserved: function() {
-      // Deal with the undo/redo stack
-      var data = getData({ removeEmptyRows: false, useSourceData: true });
-      var preparedData = data;
-
+    afterChangesObserved: function () {
       // Add current change to stack
       HistoryStack.add({
-        data: preparedData,
-        colWidths: colWidths
+        data: getData({ removeEmptyRows: false, useSourceData: true }),
+        columns: columnsInfo.array
       });
     },
-    afterRemoveRow: function() {
+    afterRemoveRow: function () {
       onChange();
     },
-    afterRemoveCol: function(index, amount, originalArr, source) {
-      // Remove columns widths from the widths array
-      colWidths.splice(index, amount);
-
-      hot.getSettings().manualColumnResize = false;
-      hot.updateSettings({ colWidths: colWidths });
-      hot.getSettings().manualColumnResize = true;
-      hot.updateSettings({});
-
-      if (source !== 'removeEmptyColumn') {
-        onChange();
-      }
-    },
-    beforePaste: function(data, coords) {
+    beforePaste: function (data, coords) {
       var cellsToSelect = [];
 
       // Checks if the entire row is selected
-      if (getColWidths().length === coords[0].endCol - coords[0].startCol + 1) {
+      if (columnsInfo.count() === coords[0].endCol - coords[0].startCol + 1) {
         // Changes selection to first cell of each selected row
         // to prevent populating with duplicates of the entire row
         for (var i = 0; i < coords[0].endRow - coords[0].startRow + 1; i++) {
@@ -555,57 +503,33 @@ function spreadsheet(options) {
       removeLastEmptyColumn(data);
       removeLastEmptyRow(data);
     },
-    beforeRemoveCol: function() {
-      // Set current widths to get them after column column is removed
-      colWidths = getColWidths();
-    },
-    beforeCreateCol: function(index, amount, source) {
+    beforeCreateCol: function (index, amount, source) {
       // Set current widths to get them after column column is created
       // Source auto means that column was created by lib to add empty col at the end of the table
       // If we return false/undefined column will not be created
       if (source === 'auto') {
         return true;
       }
-
-      colWidths = getColWidths();
     },
-    beforeColumnMove: function(items, index) {
-      colWidths = getColWidths();
-
-      var length = items.length;
-      var colsToMove = colWidths.splice(items[0], length);
-      var i;
-
-      if (index < items[0]) {
-        for (i = 0; i < length; i++) {
-          colWidths.splice(index + i, 0, colsToMove[i]);
-        }
-      } else {
-        var newIndex = index - length;
-
-        for (i = 0; i < length; i++) {
-          colWidths.splice(newIndex + i, 0, colsToMove[i]);
-        }
-      }
-
-      hot.updateSettings({ colWidths: colWidths });
+    beforeColumnMove: function (items, index) {
+      columnsInfo.moveColumns(items[0], items.length, index);
     },
-    afterColumnMove: function() {
+    afterColumnMove: function () {
       // TODO: Add similar checks to avoid column width screwing up
       onChange();
     },
-    afterColumnResize: function() {
-      colWidths = getColWidths();
+    afterColumnResize: function () {
+      columnsInfo.updateWidths();
 
       // Update column sizes in background
-      return Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
+      return Fliplet.DataSources.getById(currentDataSourceId).then(function (dataSource) {
         dataSource.definition = dataSource.definition || {};
         dataSource.definition.columnsWidths = colWidths;
 
         return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
       }).catch(console.error);
     },
-    beforeRowMove: function(movedRows) {
+    beforeRowMove: function (movedRows) {
       // No rows moved. Cancel action.
       if (!movedRows || !movedRows.length) {
         return false;
@@ -618,39 +542,20 @@ function spreadsheet(options) {
         return false;
       }
     },
-    afterRowMove: function() {
+    afterRowMove: function () {
       onChange();
     },
-    afterCreateRow: function() {
+    afterCreateRow: function () {
       onChange();
     },
-    afterCreateCol: function(index, amount, source) {
-      // Source auto means that column was created by lib to add empty col at the end of the table
-      if (source === 'auto') {
-        return true;
-      }
-
-      // Column name
-      for (var i = 0; i < amount; i++) {
-        var columnName = generateColumnName();
-
-        hot.setDataAtCell(0, index + i, columnName);
-      }
-
-      // Add this new width before set the widths again
-      colWidths.splice(index, 0, 50);
-      hot.updateSettings({ colWidths: colWidths });
-
-      onChange();
-    },
-    afterRender: function(isForced) {
+    afterRender: function (isForced) {
       // isForced show as if render happened because of the load data or data change (true) or duo scroll (false).
       // rendered < 3 is show as that we do not need to access this if more than 3 times.
       // Because we trigger afterRender event 2 times before UI show as a table it self.
-      if (isForced && rendered < 3 ) {
+      if (isForced && rendered < 3) {
         var tabs = $sourceContents.find('ul.nav.nav-tabs li');
 
-        tabs.each(function(index) {
+        tabs.each(function (index) {
           if (!tabs[index].classList[0]) {
             $(tabs[index]).show();
           }
@@ -660,17 +565,17 @@ function spreadsheet(options) {
         rendered += 1;
       }
     },
-    afterLoadData: function() {
+    afterLoadData: function () {
       dataLoaded = true;
 
       if (!options.initialLoad) {
         $('.entries-message').html('');
       }
     },
-    afterSelectionEnd: function(r, c, r2, c2) {
+    afterSelectionEnd: function (r, c, r2, c2) {
       s = [r, c, r2, c2];
     },
-    beforeKeyDown: function(event) {
+    beforeKeyDown: function (event) {
       var editor = hot.getActiveEditor();
 
       if (editor && editor._opened) {
@@ -679,7 +584,7 @@ function spreadsheet(options) {
 
       event = event || window.event;
 
-      if ((event.ctrlKey || event.metaKey) && event.keyCode === 65 ) {
+      if ((event.ctrlKey || event.metaKey) && event.keyCode === 65) {
         var selectedCell = hot.getSelected();
         var whereToLook = closestData(selectedCell);
         var selectedRange = coordinatesToSelect(selectedCell, whereToLook);
@@ -704,40 +609,12 @@ function spreadsheet(options) {
 
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
-  // Initialize colWidths if they wasn't stored locally
-  if (!colWidths || !colWidths.length) {
-    colWidths = getColWidths();
-  }
-
   HistoryStack.add({
-    data: spreadsheetData,
-    colWidths: colWidths
+    data: hotSettings.data,
+    columns: columnsInfo.array
   });
 
   copyPastePlugin = hot.getPlugin('copyPaste');
-
-  function getColumns() {
-    return hot && hot.getDataAtRow(0);
-  }
-
-  /**
-   * Generates a column name in the form
-   * Column 1, Column 2, and so on...
-   * @param {String} [name] - Custom name
-   * @returns {String} Name of column
-   */
-  function generateColumnName(name) {
-    name = name || 'Column ';
-
-    var headers = getColumns();
-    var columnName = name + '(' + columnNameCounter + ')';
-
-    columnNameCounter = columnNameCounter + 1;
-
-    return headers.indexOf(columnName) > -1
-      ? generateColumnName()
-      : columnName;
-  }
 
   function removeLastEmptyColumn(data) {
     var dataLength = data.length;
@@ -755,7 +632,7 @@ function spreadsheet(options) {
     }
 
     if (lastColumnLength === 0) {
-      data.forEach(function(elem) {
+      data.forEach(function (elem) {
         elem.pop();
       });
       removeLastEmptyColumn(data);
@@ -782,24 +659,6 @@ function spreadsheet(options) {
     }
   }
 
-  /**
-   * Fixes column name for the user
-   * There can't be duplicated column names
-   * @param {String} name - Column name
-   * @returns {Boolean} Validated name
-   */
-  function validateOrFixColumnName(name) {
-    var headers = getColumns();
-
-    if (headers.indexOf(name) > -1) {
-      var newName = generateColumnName(name);
-
-      return newName;
-    }
-
-    return name;
-  }
-
   function addMaxHeightToCells(instance, td) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
 
@@ -813,104 +672,73 @@ function spreadsheet(options) {
 
   /**
    * Check is a row is not empty. Empty means that all elements doesn't have a value
-   * @param {Array} row - Row to be assessed
+   * @param {Array | Object} row - Row to be assessed
    * @returns {Boolean} Returns TRUE if the row isn't empty
    */
   function isNotEmpty(row) {
-    return row.some(function(field) {
-      return [null, undefined, ''].indexOf(field) === -1;
-    });
+    if (!row) {
+      return false;
+    }
+
+    const testNotEmpty = (field) => ![null, undefined, ''].includes(field);
+
+    if (Array.isArray(row)) {
+      return row.some(testNotEmpty);
+    }
+
+    return Object.values(row).some(testNotEmpty);
   }
 
   function getData(options) {
     options = options || { removeEmptyRows: true };
 
-    var headers = getColumns();
-    var entries = [];
+    const headers = columnsInfo.headers();
 
     // Because source array doesn't keep in sync with visual array and
     // we need to have the row id's. Visual data give us data with correct order
     // but without the id's, and physical data give us data with id's but
     // might not be in the order visually presented. So we need this magic...
 
-    // Get data like we see it and exclude columns row.
-    var visual = hot.getData().slice(1);
+    let visual = hot.getData();
+    const sourceRows = hot.getSourceData();
 
-    // Get data from the source and exclude columns row.
     // For example moving rows doesn't keep the visual/source order in sync
-    var source = options.useSourceData
-      ? hot.getSourceData().slice(1)
-      : HistoryStack.getCurrent().getData().slice(1);
+    let source = options.useSourceData
+      ? sourceRows
+      : HistoryStack.getCurrent().getData();
+
+    console.log({ source, visual })
 
     if (options.removeEmptyRows) {
       visual = visual.filter(isNotEmpty);
       source = source.filter(isNotEmpty);
     }
 
-    // And finally we pick the IDs to visual from source
-    visual.forEach(function findSourceEntry(visualRow, order) {
-      // We need to sort both visual and source rows because
-      // moving columns doesn't keep the source data in order
-      var sortedVisual = _.clone(visualRow).sort();
-      var sortedSource;
-      var entry;
+    const emptyRow = headers.reduce((acc, header) => ({ ...acc, [header]: undefined }), {});
 
-      // Loop through the source columns to get the ID
-      for (var i = 0; i < source.length; i++) {
-        sortedSource = _.clone(source[i]).sort();
-
-        // If the visual and source rows aren't the same,
-        if (!_.isEqual(_.compact(sortedVisual), _.compact(sortedSource))) {
-          // Next loop
-          continue;
-        }
-
-        // Assume the entry ID based on source and visual data being the same
-        // QUESTION: What if there is more than 1 entry with the same data? Does the latter one not get written?
-        entry = { id: source[i].id, data: {} };
-
-        // Build entry data
-        // eslint-disable-next-line no-loop-func
-        headers.forEach(function buildDataEntry(header, index) {
-          if (header === null) {
-            return;
-          }
-
-          if (!_.isNil(visualRow[index])) {
-            entry.data[header] = visualRow[index];
-          }
-
-          // Only parse the column value when required
-          if (options.parseJSON && typeof entry.data[header] === 'string') {
-            entry.data[header] = parseCellValue(entry.data[header]);
-          }
-        });
-
-        entries.push(entry);
-
-        // Entry is found. Remove it from source so the array
-        // gets smaller through each iteration and shortens the loop
-        source.splice(i, 1);
-
-        // Stop the for-loop
-        break;
+    // Get entries with the correct order
+    return visual.map((visualRow) => {
+      if (visualRow.length === 0) {
+        return emptyRow;
       }
-    });
+      const visualRowObj = visualRow.reduce((acc, value, index) => ({
+        ...acc,
+        [headers[index]]: parseCellValue(value),
+      }), {});
 
-    return entries;
+      return source.find(sourceRowObj => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowObj[key]) || value === sourceRowObj[key]));
+    });
   }
 
   function setData(options) {
     options = options || {};
 
-    var rows = options.rows || [];
-    var columns = options.columns || [];
-    var preparedData = rows;
+    const entries = options.entries || [];
 
     dataLoaded = false;
-    hot.loadData(preparedData);
+    hot.loadData(entries);
 
-    HistoryStack.getCurrent().setData(preparedData);
+    HistoryStack.getCurrent().setData(entries);
   }
 
   /**
@@ -991,11 +819,9 @@ function spreadsheet(options) {
   }
 
   return {
-    getData: getData,
+    getData,
     setData: setData,
-    getColumns: getColumns,
-    getColWidths: getColWidths,
-    destroy: function() {
+    destroy: function () {
       reset(true);
 
       return hot.destroy();
@@ -1006,7 +832,8 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
-    onChange: onChange
+    onChange: onChange,
+    columnsInfo
   };
 }
 
@@ -1023,7 +850,7 @@ function openOverlay() {
     size: 'small',
     classes: 'kb-shortcuts-overlay',
     showOnInit: true,
-    beforeOpen: function() {
+    beforeOpen: function () {
       // Reset (just in case)
       $('.mac').removeClass('active');
       $('.win').removeClass('active');
@@ -1060,7 +887,7 @@ function getEventType(event) {
 }
 
 // Capture undo/redo shortcuts
-document.addEventListener('keydown', function(event) {
+document.addEventListener('keydown', function (event) {
   if (getEventType(event) === 'undo') {
     HistoryStack.back();
   }
@@ -1072,33 +899,33 @@ document.addEventListener('keydown', function(event) {
 
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
-  .on('click', '[data-action="insert-row-before"]', function() {
+  .on('click', '[data-action="insert-row-before"]', function () {
     hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
   })
-  .on('click', '[data-action="insert-row-after"]', function() {
+  .on('click', '[data-action="insert-row-after"]', function () {
     hot.alter('insert_row', s[2] + 1, 1, 'Toolbar.rowAfter');
   })
-  .on('click', '[data-action="insert-column-left"]', function() {
-    hot.alter('insert_col', s[3], 1, 'Toolbar.columnLeft');
+  .on('click', '[data-action="insert-column-left"]', function () {
+    columnsInfo.add(s[3]);
   })
-  .on('click', '[data-action="insert-column-right"]', function() {
-    hot.alter('insert_col', s[3] + 1, 1, 'Toolbar.columnRight');
+  .on('click', '[data-action="insert-column-right"]', function () {
+    columnsInfo.add(s[3] + 1);
   })
   .on('click', '[data-action="remove-row"]', function removeRow() {
-    var index = s[0] < s[2] ? s[0] : s[2];
+    var index = Math.min(s[0], s[2]);
     var amount = Math.abs(s[0] - s[2]) + 1;
 
     hot.alter('remove_row', index, amount, 'Toolbar.removeRow');
   })
-  .on('click', '[data-action="remove-column"]', function removeColumn() {
-    var index = s[1] < s[3] ? s[1] : s[3];
+  .on('click', '[data-action="remove-column"]', function () {
+    var index = Math.min(s[1], s[3]);
     var amount = Math.abs(s[1] - s[3]) + 1;
 
-    hot.alter('remove_col', index, amount, 'Toolbar.removeColumn');
+    columnsInfo.remove(index, amount);
   })
   .on('click', '[data-action="undo"]', HistoryStack.back)
   .on('click', '[data-action="redo"]', HistoryStack.forward)
-  .on('click', '[data-action="copy"]', function() {
+  .on('click', '[data-action="copy"]', function () {
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
       copyPastePlugin.copy();
@@ -1106,7 +933,7 @@ $('#toolbar')
       openOverlay();
     }
   })
-  .on('click', '[data-action="cut"]', function() {
+  .on('click', '[data-action="cut"]', function () {
     try {
       hot.selectCell(s[0], s[1], s[2], s[3]);
       copyPastePlugin.cut();
@@ -1114,7 +941,7 @@ $('#toolbar')
       openOverlay();
     }
   })
-  .on('click', '[data-action="paste"], [data-action="find"]', function() {
+  .on('click', '[data-action="paste"], [data-action="find"]', function () {
     openOverlay();
   });
 
@@ -1125,7 +952,7 @@ $('#entries [data-toggle="tooltip"]').tooltip({
   trigger: 'hover'
 });
 
-$('#entries [data-toggle="tooltip"]').on('click', function() {
+$('#entries [data-toggle="tooltip"]').on('click', function () {
   try {
     // jQuery UI API
     $(this).tooltip('close');

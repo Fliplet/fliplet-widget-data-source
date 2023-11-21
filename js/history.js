@@ -1,5 +1,5 @@
 // A set of APIs for managing the UI history states
-Fliplet.Registry.set('history-stack', (function() {
+Fliplet.Registry.set('history-stack', (function () {
   var stack = [];
   var currentIndex = 0;
 
@@ -8,20 +8,6 @@ Fliplet.Registry.set('history-stack', (function() {
     currentIndex = 0;
   }
 
-  // Clone data without losing the ID
-  function cloneSpreadsheetData(data) {
-    return _.map(data, function(row) {
-      var entry = [];
-
-      _.forEach(row, function(column) {
-        entry.push(column);
-      });
-
-      entry.id = row.id;
-
-      return entry;
-    });
-  }
 
   function add(state) {
     state = state || {};
@@ -32,8 +18,9 @@ Fliplet.Registry.set('history-stack', (function() {
     }
 
     // Add current change to stack
+    console.log({ state })
     stack.push({
-      data: cloneSpreadsheetData(state.data),
+      data: structuredClone(state.data),
       colWidths: state.colWidths
     });
 
@@ -54,14 +41,14 @@ Fliplet.Registry.set('history-stack', (function() {
     var currentState = stack[index];
 
     return {
-      getData: function() {
-        return currentState ? cloneSpreadsheetData(currentState.data) : undefined;
+      getData: function () {
+        return currentState ? structuredClone(currentState.data) : undefined;
       },
-      getColWidths: function() {
+      getColWidths: function () {
         return currentState ? currentState.colWidths : undefined;
       },
-      setData: function(newData) {
-        currentState.data = cloneSpreadsheetData(newData);
+      setData: function (newData) {
+        currentState.data = structuredClone(newData);
       }
     };
   }
@@ -74,7 +61,7 @@ Fliplet.Registry.set('history-stack', (function() {
     }
 
     // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(_.cloneDeep(state.getData()));
+    hot.loadData(state.getData());
     hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();
