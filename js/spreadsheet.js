@@ -16,7 +16,7 @@ const columnsInfo = {
   array: [], // { id: number; data: string; width: number; }[]
   defaultWidth: 250,
   init(columns) {
-    this.array = columns.map((data, index) => ({ data, id: Fliplet.guid(), width: this.defaultWidth }));
+    this.array = columns.map((data) => ({ data, id: Fliplet.guid(), width: this.defaultWidth }));
     this.original = structuredClone(this.array);
   },
   count() {
@@ -456,7 +456,7 @@ function spreadsheet(options) {
     sortIndicator: true,
     selectionMode: 'range',
     renderAllRows: true,
-    data: rows.map(({ data }) => data),
+    data: rows.map(({ data, id }) => ({...data, _id: id})),
     columns: columnsInfo.array,
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
@@ -610,7 +610,7 @@ function spreadsheet(options) {
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
 
   HistoryStack.add({
-    data: hotSettings.data,
+    data: rows,
     columns: columnsInfo.array
   });
 
@@ -676,17 +676,19 @@ function spreadsheet(options) {
    * @returns {Boolean} Returns TRUE if the row isn't empty
    */
   function isNotEmpty(row) {
-    if (!row) {
-      return false;
-    }
-
     const testNotEmpty = (field) => ![null, undefined, ''].includes(field);
 
     if (Array.isArray(row)) {
       return row.some(testNotEmpty);
     }
 
-    return Object.values(row).some(testNotEmpty);
+    const rowData = row?.data;
+
+    if (!rowData) {
+      return false;
+    }
+
+    return Object.values(rowData).some(testNotEmpty);
   }
 
   function getData(options) {
@@ -704,20 +706,17 @@ function spreadsheet(options) {
 
     // For example moving rows doesn't keep the visual/source order in sync
     let source = options.useSourceData
-      ? sourceRows
+      ? sourceRows.map(data => ({ data, id: data._id }))
       : HistoryStack.getCurrent().getData();
 
-    console.log({ source, visual })
 
-    if (options.removeEmptyRows) {
-      visual = visual.filter(isNotEmpty);
-      source = source.filter(isNotEmpty);
-    }
+    const filteredVisual = options.removeEmptyRows ? visual.filter(isNotEmpty) : visual;
+    const filteredSource = options.removeEmptyRows ? source.filter(isNotEmpty) : source;
 
-    const emptyRow = headers.reduce((acc, header) => ({ ...acc, [header]: undefined }), {});
+    const emptyRow = { data: headers.reduce((acc, header) => ({ ...acc, [header]: undefined }), {}) };
 
     // Get entries with the correct order
-    return visual.map((visualRow, index) => {
+    return filteredVisual.map((visualRow, index) => {
       if (visualRow.length === 0) {
         return emptyRow;
       }
@@ -726,10 +725,10 @@ function spreadsheet(options) {
         [headers[index]]: parseCellValue(value),
       }), {});
 
-      const row = source.find(sourceRowObj => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowObj[key]) || value === sourceRowObj[key]));
-      row.order = index;
 
-      return row;
+      const row = filteredSource.find(({ data: sourceRowData }) => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowData[key]) || value === sourceRowData[key]));
+
+      return { data: row.data, id: row.id, order: index };
     });
   }
 
@@ -739,7 +738,7 @@ function spreadsheet(options) {
     const entries = options.entries || [];
 
     dataLoaded = false;
-    hot.loadData(entries);
+    hot.loadData(entries.map(({ data }) => data));
 
     HistoryStack.getCurrent().setData(entries);
   }

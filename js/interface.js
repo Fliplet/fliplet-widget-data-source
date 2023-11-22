@@ -803,15 +803,15 @@ function getColumnsCommitPayload(columns) {
 
 /**
  * Computes payload for the commit API by comparing a list of entries against the cached original entries
- * @param {Array} entries - Latest entries to be committed
+ * @param {Array} entriesPayload - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
-function getCommitPayload(entries) {
-  entries = entries || [];
+function getCommitPayload(entriesPayload) {
+  const entries = entriesPayload || [];
 
-  var inserted = [];
-  var updated = [];
-  var deleted = [];
+  const inserted = [];
+  const updated = [];
+  const deleted = [];
 
   // Track entries that weren't new
   entryMap.entries = {};

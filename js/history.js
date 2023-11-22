@@ -60,8 +60,7 @@ Fliplet.Registry.set('history-stack', (function () {
       return;
     }
 
-    // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(state.getData());
+    hot.loadData(state.getData().map(({data}) => data));
     hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();
