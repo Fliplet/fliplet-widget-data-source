@@ -728,6 +728,10 @@ function spreadsheet(options) {
 
       const row = filteredSource.find(({ data: sourceRowData }) => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowData[key]) || value === sourceRowData[key]));
 
+      if (row) {
+        filteredSource.splice(filteredSource.indexOf(row), 1);
+      }
+
       return { data: row.data, id: row.id, order: index };
     });
   }
