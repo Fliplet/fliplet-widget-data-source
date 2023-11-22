@@ -742,7 +742,11 @@ function spreadsheet(options) {
     const entries = options.entries || [];
 
     dataLoaded = false;
-    hot.loadData(entries.map(({ data }) => data));
+    hot.loadData(entries.map(({ data }) => {
+      const rowData = {...data};
+      delete rowData._id;
+      return rowData;
+    }));
 
     HistoryStack.getCurrent().setData(entries);
   }

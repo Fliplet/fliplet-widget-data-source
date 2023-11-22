@@ -542,7 +542,7 @@ function updateDataSourceEntries() {
             Object.assign(mergedData, dataItem);
           });
 
-          var computedColumns = _.keys(mergedData);
+          const computedColumns = Object.keys(mergedData);
 
           // Columns mismatched
           if (computedColumns.length !== currentDataSourceColumns.length && typeof Raven !== 'undefined') {
@@ -556,7 +556,7 @@ function updateDataSourceEntries() {
             });
           }
 
-          initialColumnList = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
+          initialColumnList = _.uniq(_.concat(currentDataSourceColumns, computedColumns)).filter(column => column !== "_id");
 
           return initializeTable({
             columns: initialColumnList,
