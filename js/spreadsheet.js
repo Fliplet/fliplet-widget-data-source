@@ -35,8 +35,8 @@ const columnsInfo = {
     });
   },
   generateColumnName() {
-    const lastGenericColumn = this.headers().filter(column => column.startsWith('Column')).sort().pop();
-    const lastGenericColumnNumber = lastGenericColumn ? parseInt(lastGenericColumn.match(/\((\d+)\)/)[1]) : 0;
+    const lastGenericColumn = this.headers().filter(column => column.startsWith('Column (')).sort().pop();
+    const lastGenericColumnNumber = lastGenericColumn ? parseInt(lastGenericColumn.match(/\((\d+)\)/)?.[1] || '1') : 0;
     return `Column (${lastGenericColumnNumber + 1})`;
   },
   add(at) {
@@ -456,7 +456,7 @@ function spreadsheet(options) {
     sortIndicator: true,
     selectionMode: 'range',
     renderAllRows: true,
-    data: rows.map(({ data, id }) => ({...data, _id: id})),
+    data: rows.map(({ data, id }) => ({ ...data, _id: id })),
     columns: columnsInfo.array,
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
@@ -717,7 +717,7 @@ function spreadsheet(options) {
 
     // Get entries with the correct order
     return filteredVisual.map((visualRow, index) => {
-      if (visualRow.length === 0) {
+      if (visualRow.length === 0 || isCellEmpty(visualRow)) {
         return emptyRow;
       }
       const visualRowObj = visualRow.reduce((acc, value, index) => ({
@@ -728,10 +728,11 @@ function spreadsheet(options) {
 
       const row = filteredSource.find(({ data: sourceRowData }) => Object.entries(visualRowObj).every(([key, value]) => (!value && !sourceRowData[key]) || value === sourceRowData[key]));
 
-      if (row) {
-        filteredSource.splice(filteredSource.indexOf(row), 1);
+      if (!row) {
+        return emptyRow;
       }
 
+      filteredSource.splice(filteredSource.indexOf(row), 1);
       return { data: row.data, id: row.id, order: index };
     });
   }
@@ -743,7 +744,7 @@ function spreadsheet(options) {
 
     dataLoaded = false;
     hot.loadData(entries.map(({ data }) => {
-      const rowData = {...data};
+      const rowData = { ...data };
       delete rowData._id;
       return rowData;
     }));
