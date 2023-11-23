@@ -22,6 +22,10 @@ const columnsInfo = {
   count() {
     return this.array.length;
   },
+  getDataPrependedWithColumnHeadersRow(data) {
+    const keysRow = this.headers().reduce((acc, key) => ({ ...acc, [key]: key }), {});
+    return [keysRow, ...data];
+  },
   headers() {
     return this.array.map(({ data }) => data);
   },
@@ -416,7 +420,7 @@ function spreadsheet(options) {
     colWidths: columnsInfo.defaultWidth,
     colHeaders: columnsInfo.headers(),
     rowHeaders: function (rowIndex) {
-      return pageOffset + rowIndex + 1;
+      return rowIndex ? pageOffset + rowIndex : '';
     },
     afterGetColHeader: function (i, TH) {
       if (!sortConfig.column || !sortConfig.sortOrderClass) {
@@ -456,7 +460,7 @@ function spreadsheet(options) {
     sortIndicator: true,
     selectionMode: 'range',
     renderAllRows: true,
-    data: rows.map(({ data, id }) => ({ ...data, _id: id })),
+    data: columnsInfo.getDataPrependedWithColumnHeadersRow(rows.map(({ data, id }) => ({ ...data, _id: id }))),
     columns: columnsInfo.array,
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
@@ -706,7 +710,7 @@ function spreadsheet(options) {
 
     // For example moving rows doesn't keep the visual/source order in sync
     let source = options.useSourceData
-      ? sourceRows.map(data => ({ data, id: data._id }))
+      ? sourceRows.slice(1).map(data => ({ data, id: data._id }))
       : HistoryStack.getCurrent().getData();
 
 
@@ -743,11 +747,11 @@ function spreadsheet(options) {
     const entries = options.entries || [];
 
     dataLoaded = false;
-    hot.loadData(entries.map(({ data }) => {
+    hot.loadData(columnsInfo.getDataPrependedWithColumnHeadersRow(entries.map(({ data }) => {
       const rowData = { ...data };
       delete rowData._id;
       return rowData;
-    }));
+    })));
 
     HistoryStack.getCurrent().setData(entries);
   }

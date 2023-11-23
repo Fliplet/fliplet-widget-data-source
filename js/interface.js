@@ -2955,3 +2955,72 @@ $('[data-cancel]').click(function (event) {
 
   $('[data-dismiss="modal"]').click();
 });
+
+
+// structure: th > div > span.colHeader.colSorting 
+// on click on th if span.colHeader has no attribute contenteditable, create div span.colEdit
+// on click on span.colEdit, add contenteditable to span.colHeader remove class colSorting, and disable all click events on it 
+// on blur on span.colEdit, remove contenteditable from span.colHeader, add class colSorting, and enable all click events on it
+
+const colEdit = $('<span data-edit-column-name>[Edit]</span>');
+
+$('body').on('click', '[data-edit-column-name]', function (event) {
+  const parent = $(this).parent();
+  const colHeader = parent.find('.colHeader');
+  const colEditButton = parent.find('[data-edit-column-name]');
+
+  colEditButton.remove();
+  colHeader.removeClass('columnSorting');
+
+  parent.attr('contenteditable', true);
+
+  // apply focus on the element and change style to input like, with proper cursor
+  parent.css('cursor', 'text');
+  parent.addClass('current area highlight');
+  parent.focus();
+
+  //move cursor to the end of the text
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.setStart(parent[0], parent.children().length);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  // prevent firing click propagation down the tree
+  parent.on('click', function (event) {
+    event.stopPropagation();
+  });
+
+
+  parent.on('blur', function (event) {
+    // print value of content to console
+    console.log(parent[0].textContent);
+
+    parent.attr('contenteditable', false);
+    colHeader.addClass('columnSorting');
+    parent.removeClass('current area highlight');
+    parent.css('cursor', 'unset');
+    parent.off('click');
+  });
+
+  // on hit enter prevent breaking the line and blur the input
+  parent.on('keydown', function (event) {
+    if (event.keyCode === 13) {
+      event.preventDefault();
+      parent.blur();
+    }
+  })
+
+})
+
+$('body').on('click', 'th div', function (event) {
+  $('th div [data-edit-column-name]').remove();
+
+  const parent = $(this).parent();
+  if (parent.attr('contenteditable')) {
+    return;
+  }
+
+  $(this).append(colEdit);
+});
