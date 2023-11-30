@@ -38,13 +38,83 @@ const columnsInfo = {
       column.width = widths[index];
     });
   },
+  updateColumnNames(newColumnsArray = null) {
+    this.validateAndFixColumnNames();
+
+    const headersRow = newColumnsArray || hot.getData()[0];
+
+    const headersNamesDiff = this.headers().map((header, index) => ({
+      before: header,
+      after: headersRow[index],
+    })).filter(({ before, after }) => before !== after);
+
+    if (!headersNamesDiff.length) {
+      return;
+    }
+    const tableData = hot.getSourceData();
+
+    headersNamesDiff.forEach(({ before, after }) => {
+      const column = this.array.find(column => column.data === before);
+      column.data = after;
+    });
+
+    // Apply changes on the cloned table data to avoid triggering the afterChange hook on each row update
+    const tableDataCloned = structuredClone(tableData);
+
+    tableDataCloned.forEach((row) => {
+      headersNamesDiff.forEach(({ before, after }) => {
+        row[after] = row[before];
+        delete row[before];
+      });
+    });
+
+    hot.loadData(tableDataCloned);
+  },
   generateColumnName() {
-    const lastGenericColumn = this.headers().filter(column => column.startsWith('Column (')).sort().pop();
+    const lastGenericColumn = this.headers().filter(column => column?.startsWith('Column (')).sort().pop();
     const lastGenericColumnNumber = lastGenericColumn ? parseInt(lastGenericColumn.match(/\((\d+)\)/)?.[1] || '1') : 0;
     return `Column (${lastGenericColumnNumber + 1})`;
   },
-  add(at) {
-    this.array.splice(at, 0, { data: this.generateColumnName(), id: Fliplet.guid(), width: this.defaultWidth });
+  validateAndFixColumnNames() {
+    const headers = this.headers();
+
+    // fill empty headers
+    headers.forEach((header, index) => {
+      if (!header) {
+        headers[index] = this.generateColumnName();
+      }
+    });
+
+    // resolve duplicates
+    const headersSet = new Set(headers);
+    if (headers.length === headersSet.size) {
+      return;
+    }
+
+    headers.forEach((header) => {
+      const occurencesIndexes = headers.reduce((acc, column, index) => {
+        if (column === header) {
+          acc.push(index);
+        }
+        return acc;
+      })
+
+      if (occurences.length === 1) {
+        return;
+      };
+
+      occurencesIndexes.forEach((index, occurenceIndex) => {
+        if (occurenceIndex === 0) {
+          return;
+        }
+
+        const column = this.array[index];
+        column.data = `${column.data} (${occurenceIndex + 1})`;
+      });
+    });
+  },
+  add(at, numberOfColumnsToAdd = 1) {
+    this.array.splice(at, 0, ...Array.from({ length: numberOfColumnsToAdd }, () => ({ data: this.generateColumnName(), id: Fliplet.guid(), width: this.defaultWidth })));
     this.updateHot()
   },
   remove(at, count) {
@@ -72,9 +142,11 @@ const columnsInfo = {
     }
   },
   updateHot() {
+    this.validateAndFixColumnNames();
+
     hot.updateSettings({
       columns: columnsInfo.array,
-      colHeaders: columnsInfo.headers(),
+      colHeaders: true,
       colWidths: columnsInfo.widths(),
     });
   },
@@ -360,6 +432,19 @@ function spreadsheet(options) {
   }
 
   /**
+   * Style the first row (columns headings)
+   * @returns {undefined}
+   */
+  function columnValueRenderer() {
+    var td = arguments[1];
+    var value = arguments[5];
+    var escaped = Handsontable.helper.stringify(value);
+
+    td.innerHTML = escaped;
+    td.classList.add('column-header-cell');
+  }
+
+  /**
    * Sort data source entries based on column
    * @param {Number} columnIndex - Index of column to be sorted by
    * @param {Boolean} [ascending] - Undefined if the column is not sorted
@@ -418,7 +503,8 @@ function spreadsheet(options) {
     manualRowResize: true,
     manualRowMove: false,
     colWidths: columnsInfo.defaultWidth,
-    colHeaders: columnsInfo.headers(),
+    fixedRowsTop: 1,
+    colHeaders: true,
     rowHeaders: function (rowIndex) {
       return rowIndex ? pageOffset + rowIndex : '';
     },
@@ -462,6 +548,15 @@ function spreadsheet(options) {
     renderAllRows: true,
     data: columnsInfo.getDataPrependedWithColumnHeadersRow(rows.map(({ data, id }) => ({ ...data, _id: id }))),
     columns: columnsInfo.array,
+    cells: function (rowIndex) {
+      if (rowIndex !== 0) {
+        return;
+      }
+
+      return {
+        renderer: columnValueRenderer
+      };
+    },
     renderer: addMaxHeightToCells,
     minRows: pageSize + 1,
     // Hooks
@@ -474,8 +569,11 @@ function spreadsheet(options) {
       if ((window.event.key === 'Delete' || window.event.key === 'Backspace') && changes[0][0] !== 0) {
         return;
       }
+
     },
     afterChangesObserved: function () {
+      columnsInfo.updateColumnNames();
+
       // Add current change to stack
       HistoryStack.add({
         data: getData({ removeEmptyRows: false, useSourceData: true }),
@@ -486,7 +584,15 @@ function spreadsheet(options) {
       onChange();
     },
     beforePaste: function (data, coords) {
-      var cellsToSelect = [];
+
+      // if pasted data is range of cells, it should have the same amount of elements in each row, even if they are empty
+      const pastedDataColumnsCount = data[0].length;
+      if (pastedDataColumnsCount > columnsInfo.count()) {
+        columnsInfo.add(columnsInfo.count(), pastedDataColumnsCount - columnsInfo.count());
+      }
+
+      columnsInfo.updateColumnNames(data[0]);
+
 
       // Checks if the entire row is selected
       if (columnsInfo.count() === coords[0].endCol - coords[0].startCol + 1) {
