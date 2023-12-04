@@ -60,7 +60,7 @@ Fliplet.Registry.set('history-stack', (function () {
       return;
     }
 
-    hot.loadData(state.getData().map(({data}) => data));
+    hot.loadData(state.getData().splice(1).map(({ data }) => data));
     hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();

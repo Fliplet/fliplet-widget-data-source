@@ -791,16 +791,6 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
   });
 }
 
-function getColumnsCommitPayload(columns) {
-  columns = columns || [];
-
-
-  const columnsDeleted = [];
-  const columnsRenamed = [];
-
-
-}
-
 /**
  * Computes payload for the commit API by comparing a list of entries against the cached original entries
  * @param {Array} entriesPayload - Latest entries to be committed
@@ -859,7 +849,7 @@ function getCommitPayload(entriesPayload) {
   };
 }
 
-function saveCurrentData() {
+async function saveCurrentData() {
 
   table.onSave();
 
@@ -881,28 +871,31 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
+  const { renamed: renameColumns, removed: deleteColumns } = table.columnsInfo.changes();
   const payload = getCommitPayload(entries);
 
-  return currentDataSource.commit({
+  const response = await currentDataSource.commit({
     entries: payload.entries,
     delete: payload.delete,
     columns: columns,
-    returnEntries: true
-  }).then((response) => {
-    const clientIds = [];
-    const ids = [];
+    renameColumns,
+    deleteColumns,
+    returnEntries: true,
+  })
 
-    // Generate an object mapping client IDs to new entry IDs
-    response.clientIds.forEach((entry) => {
-      clientIds.push(entry.clientId);
-      ids.push(entry.id);
-    });
+  const clientIds = [];
+  const ids = [];
 
-    const clientIdMap = _.zipObject(clientIds, ids);
-
-    cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ entries });
+  // Generate an object mapping client IDs to new entry IDs
+  response.clientIds.forEach((entry) => {
+    clientIds.push(entry.clientId);
+    ids.push(entry.id);
   });
+
+  const clientIdMap = _.zipObject(clientIds, ids);
+
+  cacheOriginalEntries(entries, clientIdMap);
+  table.setData({ entries });
 }
 
 // Append a data source to the DOM

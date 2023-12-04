@@ -43,6 +43,11 @@ const columnsInfo = {
 
     const headersRow = newColumnsArray || hot.getData()[0];
 
+    // sanitize column names from line breaks and limit length to 100 characters
+    headersRow.forEach((header) => {
+      header = header?.replace(/[\r\n]+/g, ' ').substring(0, 100);
+    });
+
     const headersNamesDiff = this.headers().map((header, index) => ({
       before: header,
       after: headersRow[index],
@@ -51,7 +56,6 @@ const columnsInfo = {
     if (!headersNamesDiff.length) {
       return;
     }
-    const tableData = hot.getSourceData();
 
     headersNamesDiff.forEach(({ before, after }) => {
       const column = this.array.find(column => column.data === before);
@@ -59,6 +63,7 @@ const columnsInfo = {
     });
 
     // Apply changes on the cloned table data to avoid triggering the afterChange hook on each row update
+    const tableData = hot.getSourceData();
     const tableDataCloned = structuredClone(tableData);
 
     tableDataCloned.forEach((row) => {
@@ -67,6 +72,8 @@ const columnsInfo = {
         delete row[before];
       });
     });
+
+    console.log(({tableDataCloned}))
 
     hot.loadData(tableDataCloned);
   },
@@ -91,15 +98,16 @@ const columnsInfo = {
       return;
     }
 
+    // TODO: Fix this logic to consider separately duplicates for different headers
     headers.forEach((header) => {
       const occurencesIndexes = headers.reduce((acc, column, index) => {
         if (column === header) {
           acc.push(index);
         }
         return acc;
-      })
+      }, [])
 
-      if (occurences.length === 1) {
+      if (occurencesIndexes.length === 1) {
         return;
       };
 
@@ -118,8 +126,21 @@ const columnsInfo = {
     this.updateHot()
   },
   remove(at, count) {
-    this.array.splice(at, count || 1);
+    const removedColumns = this.array.splice(at, count || 1);
+    const tableData = hot.getSourceData();
+
     this.updateHot()
+
+    // Apply changes on the cloned table data to avoid triggering the afterChange hook on each row update
+    const tableDataCloned = structuredClone(tableData);
+
+    tableDataCloned.forEach((row) => {
+      removedColumns.forEach((removedCol) => {
+        delete row[removedCol];
+      });
+    });
+
+    hot.loadData(tableDataCloned);
   },
   moveColumns(from, count, to) {
     const before = this.array;
@@ -131,7 +152,7 @@ const columnsInfo = {
   },
   changes() {
     return {
-      removed: this.original.filter(({ id }) => !this.array.find(column => column.id === id)),
+      removed: this.original.filter(({ id }) => !this.array.find(column => column.id === id)).map(({ data }) => data),
       renamed: this.original.filter(({ id, data }) => {
         const columnObj = this.array.find(column => column.id === id);
         return columnObj && columnObj.data !== data;
@@ -584,6 +605,8 @@ function spreadsheet(options) {
       onChange();
     },
     beforePaste: function (data, coords) {
+      // TODO: clear empty rows from data
+
 
       // if pasted data is range of cells, it should have the same amount of elements in each row, even if they are empty
       const pastedDataColumnsCount = data[0].length;
@@ -626,6 +649,10 @@ function spreadsheet(options) {
     },
     afterColumnMove: function () {
       // TODO: Add similar checks to avoid column width screwing up
+      onChange();
+    },
+    afterColumnRemove: function () {
+      // TODO Ensure that triggers showing save button
       onChange();
     },
     afterColumnResize: function () {
