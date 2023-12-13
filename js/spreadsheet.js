@@ -38,20 +38,37 @@ const columnsInfo = {
       column.width = widths[index];
     });
   },
-  updateColumnNames(newColumnsArray = null) {
-    this.validateAndFixColumnNames();
-
-    const headersRow = newColumnsArray || hot.getData()[0];
+  updateColumnNames(newColumnsArray = null, startIndex = 0) {
+    const headersRowClone = structuredClone(hot.getData()[0]);
+    console.log({ before: [...headersRowClone], newColumnsArray, startIndex })
+    if (newColumnsArray) {
+      headersRowClone.splice(startIndex, newColumnsArray.length, ...newColumnsArray);
+    }
+    console.log({ headersRowAfterMerge: headersRowClone })
 
     // sanitize column names from line breaks and limit length to 100 characters
-    headersRow.forEach((header) => {
-      header = header?.replace(/[\r\n]+/g, ' ').substring(0, 100);
-    });
+    const sanitizedHeadersRow = headersRowClone.map((header) => header?.replace(/[\r\n]+/g, ' ').substring(0, 100));
+    const headersRowWithGenericNames = sanitizedHeadersRow.map((header, index) => header || this.generateColumnName(index));
+
+    const duplicateDetectionData = headersRowWithGenericNames.map((header, index) => ({ data: header, index }));
+    const listOfDuplicates = Object.entries(Object.groupBy(duplicateDetectionData, ({ data }) => data)).filter(([, value]) => value.length > 1).map(([, value]) => value);
+
+    const headersRowWithUniqueNames = listOfDuplicates.reduce((acc, duplicates) => {
+      duplicates.sort(({data})=> this.headers().includes(data) ? 1 : 0);
+      const [first, ...rest] = duplicates;
+      rest.forEach(({ data, index: headerIndex }, index) => {
+        acc[headerIndex] = `${data} (${index + 1})`;
+      });
+      return acc;
+    }, headersRowWithGenericNames);
+
 
     const headersNamesDiff = this.headers().map((header, index) => ({
       before: header,
-      after: headersRow[index],
+      after: headersRowWithUniqueNames[index],
     })).filter(({ before, after }) => before !== after);
+
+    console.log({ headersNamesDiff })
 
     if (!headersNamesDiff.length) {
       return;
@@ -62,65 +79,58 @@ const columnsInfo = {
       column.data = after;
     });
 
+
     // Apply changes on the cloned table data to avoid triggering the afterChange hook on each row update
     const tableData = hot.getSourceData();
     const tableDataCloned = structuredClone(tableData);
 
     tableDataCloned.forEach((row) => {
+      const clonedRow = structuredClone(row);
       headersNamesDiff.forEach(({ before, after }) => {
-        row[after] = row[before];
-        delete row[before];
+        row[after] = clonedRow[before];
+        if (!headersRowWithUniqueNames.includes(before)) {
+          delete row[before];
+        }
       });
     });
 
-    console.log(({tableDataCloned}))
+    tableDataCloned[0] = Object.fromEntries(headersRowWithUniqueNames.map((header) => [header, header]));
+    console.log(({ headersRowWithUniqueNames, headers: this.headers(), arr: this.array, tableDataCloned, }))
 
+    this.updateHot();
     hot.loadData(tableDataCloned);
+
   },
   generateColumnName() {
     const lastGenericColumn = this.headers().filter(column => column?.startsWith('Column (')).sort().pop();
     const lastGenericColumnNumber = lastGenericColumn ? parseInt(lastGenericColumn.match(/\((\d+)\)/)?.[1] || '1') : 0;
     return `Column (${lastGenericColumnNumber + 1})`;
   },
-  validateAndFixColumnNames() {
-    const headers = this.headers();
+  // validateAndFixColumnNames(headers) {
+  //   console.log('validateAndFixColumnNames', this.headers())
+  //   const headers = this.headers();
 
-    // fill empty headers
-    headers.forEach((header, index) => {
-      if (!header) {
-        headers[index] = this.generateColumnName();
-      }
-    });
+  //   // fill empty headers
+  //   headers.forEach((header, index) => {
+  //     if (!header) {
+  //       headers[index] = this.generateColumnName();
+  //     }
+  //   });
 
-    // resolve duplicates
-    const headersSet = new Set(headers);
-    if (headers.length === headersSet.size) {
-      return;
-    }
+  //   // resolve duplicates
+  //   const headersSet = new Set(headers);
+  //   if (headers.length === headersSet.size) {
+  //     return;
+  //   }
 
-    // TODO: Fix this logic to consider separately duplicates for different headers
-    headers.forEach((header) => {
-      const occurencesIndexes = headers.reduce((acc, column, index) => {
-        if (column === header) {
-          acc.push(index);
-        }
-        return acc;
-      }, [])
-
-      if (occurencesIndexes.length === 1) {
-        return;
-      };
-
-      occurencesIndexes.forEach((index, occurenceIndex) => {
-        if (occurenceIndex === 0) {
-          return;
-        }
-
-        const column = this.array[index];
-        column.data = `${column.data} (${occurenceIndex + 1})`;
-      });
-    });
-  },
+  //   const listOfDuplicates = Object.entries(Object.groupBy(headers, ([{ data }]) => data)).filter(([, value]) => value.length > 1).map(([, value]) => value);
+  //   listOfDuplicates.forEach((duplicates) => {
+  //     const [first, ...rest] = duplicates;
+  //     rest.forEach((duplicate, index) => {
+  //       duplicate.data = `${duplicate.data} (${index + 1})`;
+  //     });
+  //   });
+  // },
   add(at, numberOfColumnsToAdd = 1) {
     this.array.splice(at, 0, ...Array.from({ length: numberOfColumnsToAdd }, () => ({ data: this.generateColumnName(), id: Fliplet.guid(), width: this.defaultWidth })));
     this.updateHot()
@@ -163,7 +173,7 @@ const columnsInfo = {
     }
   },
   updateHot() {
-    this.validateAndFixColumnNames();
+    // this.validateAndFixColumnNames();
 
     hot.updateSettings({
       columns: columnsInfo.array,
@@ -582,6 +592,7 @@ function spreadsheet(options) {
     minRows: pageSize + 1,
     // Hooks
     beforeChange: function (changes) {
+      console.log('beforeChange', { changes })
       onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
@@ -592,8 +603,9 @@ function spreadsheet(options) {
       }
 
     },
-    afterChangesObserved: function () {
-      columnsInfo.updateColumnNames();
+    afterChangesObserved: function (changes) {
+      console.log('afterChangesObserved', { changes })
+      // columnsInfo.updateColumnNames();
 
       // Add current change to stack
       HistoryStack.add({
@@ -605,16 +617,10 @@ function spreadsheet(options) {
       onChange();
     },
     beforePaste: function (data, coords) {
+      console.log('beforePaste', { data, coords });
       // TODO: clear empty rows from data
 
-
-      // if pasted data is range of cells, it should have the same amount of elements in each row, even if they are empty
-      const pastedDataColumnsCount = data[0].length;
-      if (pastedDataColumnsCount > columnsInfo.count()) {
-        columnsInfo.add(columnsInfo.count(), pastedDataColumnsCount - columnsInfo.count());
-      }
-
-      columnsInfo.updateColumnNames(data[0]);
+      columnsInfo.updateColumnNames(data[0], coords[0].startCol);
 
 
       // Checks if the entire row is selected
