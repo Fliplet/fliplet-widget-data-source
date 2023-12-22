@@ -519,6 +519,8 @@ function spreadsheet(options) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
+      HistoryStack.columnsInfo.removeColumn(index, amount, originalArr, source);
+
       hot.getSettings().manualColumnResize = false;
       hot.updateSettings({ colWidths: colWidths });
       hot.getSettings().manualColumnResize = true;
@@ -583,6 +585,7 @@ function spreadsheet(options) {
         }
       }
 
+      HistoryStack.columnsInfo.moveColumn(items, index);
       hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function() {

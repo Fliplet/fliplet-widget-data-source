@@ -3,17 +3,73 @@ Fliplet.Registry.set('history-stack', (function() {
   var stack = [];
   var currentIndex = 0;
 
+  const columnsInfo = {
+    original: () => stack[0].data[0],
+    reference: [],
+    getReference: () => {
+      if (!columnsInfo.reference.length) {
+        columnsInfo.reference = columnsInfo.original();
+      }
+      return columnsInfo.reference;
+    },
+    current: () => stack[currentIndex].data[0],
+    removedSinceReference: [],
+    removeColumn: (index, amount) => {
+      const reference = columnsInfo.getReference();
+      const removed = columnsInfo.reference.slice(index, index + amount);
+
+      const removedSinceReference = removed.filter(column => reference.includes(column));
+      columnsInfo.removedSinceReference = [...new Set([...columnsInfo.removedSinceReference, ...removedSinceReference])];
+
+      columnsInfo.reference.splice(index, amount);
+    },
+    moveColumn: (columnOriginalIndexes, toIndex) => {
+      const reference = columnsInfo.getReference();
+      const columnsToMove = columnOriginalIndexes.map(index => reference[index]);
+
+      const referenceTemp = [...reference];
+      referenceTemp.splice(columnOriginalIndexes[0], columnOriginalIndexes.length);
+      referenceTemp.splice(toIndex, 0, ...columnsToMove);
+
+      columnsInfo.reference = referenceTemp;
+    },
+    getRenamedColumns: () => {
+      const reference = columnsInfo.getReference();
+      const current = columnsInfo.current();
+      const renamedIndexes = reference.reduce((acc, column, index) => {
+        if (column !== current[index]) {
+          acc.push(index);
+        };
+        return acc;
+      }, []);
+
+      return renamedIndexes.map(index => ({
+        column: reference[index],
+        newColumn: current[index],
+      }));
+    },
+    getCommitPayload: () => ({
+      deleteColumns: columnsInfo.removedSinceReference,
+      renameColumns: columnsInfo.getRenamedColumns(),
+    }),
+    reset: () => {
+      columnsInfo.removedSinceReference = [];
+      columnsInfo.reference = [];
+    }
+  };
+
   function reset() {
     stack = [];
     currentIndex = 0;
+    columnsInfo.reset();
   }
 
   // Clone data without losing the ID
   function cloneSpreadsheetData(data) {
-    return _.map(data, function(row) {
+    return _.map(data, function (row) {
       var entry = [];
 
-      _.forEach(row, function(column) {
+      _.forEach(row, function (column) {
         entry.push(column);
       });
 
@@ -126,6 +182,7 @@ Fliplet.Registry.set('history-stack', (function() {
     add: add,
     back: back,
     forward: forward,
-    getCurrent: getCurrent
+    getCurrent: getCurrent,
+    columnsInfo,
   };
 })());
