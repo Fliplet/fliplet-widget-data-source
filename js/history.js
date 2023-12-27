@@ -12,9 +12,9 @@ Fliplet.Registry.set('history-stack', (function() {
       }
       return columnsInfo.reference;
     },
-    current: () => stack[currentIndex].data[0],
+    current: [],
     removedSinceReference: [],
-    removeColumn: (index, amount) => {
+    removeColumns: (index, amount) => {
       const reference = columnsInfo.getReference();
       const removed = columnsInfo.reference.slice(index, index + amount);
 
@@ -23,19 +23,25 @@ Fliplet.Registry.set('history-stack', (function() {
 
       columnsInfo.reference.splice(index, amount);
     },
-    moveColumn: (columnOriginalIndexes, toIndex) => {
+    moveColumnsInCollection: (collection, columnOriginalIndexes, toIndex) => {
+      const columnsToMove = columnOriginalIndexes.map(index => collection[index]);
+
+      const collectionClone = [...collection];
+      collectionClone.splice(columnOriginalIndexes[0], columnOriginalIndexes.length);
+      collectionClone.splice(toIndex, 0, ...columnsToMove);
+
+      return collectionClone;
+    },
+    moveColumns: (columnOriginalIndexes, toIndex) => {
       const reference = columnsInfo.getReference();
-      const columnsToMove = columnOriginalIndexes.map(index => reference[index]);
+      const current = columnsInfo.current;
 
-      const referenceTemp = [...reference];
-      referenceTemp.splice(columnOriginalIndexes[0], columnOriginalIndexes.length);
-      referenceTemp.splice(toIndex, 0, ...columnsToMove);
-
-      columnsInfo.reference = referenceTemp;
+      columnsInfo.current = columnsInfo.moveColumnsInCollection(current, columnOriginalIndexes, toIndex);
+      columnsInfo.reference = columnsInfo.moveColumnsInCollection(reference, columnOriginalIndexes, toIndex);
     },
     getRenamedColumns: () => {
       const reference = columnsInfo.getReference();
-      const current = columnsInfo.current();
+      const current = columnsInfo.current;
       const renamedIndexes = reference.reduce((acc, column, index) => {
         if (column !== current[index]) {
           acc.push(index);
@@ -53,15 +59,16 @@ Fliplet.Registry.set('history-stack', (function() {
       renameColumns: columnsInfo.getRenamedColumns(),
     }),
     reset: () => {
+      const newReference = stack[currentIndex].data[0];
+      columnsInfo.reference = newReference;
+      columnsInfo.current = newReference;
       columnsInfo.removedSinceReference = [];
-      columnsInfo.reference = [];
     }
   };
 
   function reset() {
     stack = [];
     currentIndex = 0;
-    columnsInfo.reset();
   }
 
   // Clone data without losing the ID
@@ -97,6 +104,9 @@ Fliplet.Registry.set('history-stack', (function() {
     if (stack.length > 1) {
       currentIndex++;
     }
+    
+    // store columns info
+    columnsInfo.current = [...state.data[0]];
 
     toggleUndoRedo();
   }

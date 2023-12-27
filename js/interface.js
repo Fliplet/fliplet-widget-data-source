@@ -19,7 +19,6 @@ var $btnShowAllSource = $('[data-show-all-source]');
 var $toolbar = $('#toolbar');
 var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
-const HistoryStack = Fliplet.Registry.get('history-stack');
 var currentDataSource;
 var currentDataSourceId;
 var currentDataSourceType;
@@ -901,6 +900,8 @@ function saveCurrentData() {
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
   var payload = getCommitPayload(entries);
+  
+  const HistoryStack = Fliplet.Registry.get('history-stack');
   const { deleteColumns, renameColumns } = HistoryStack.columnsInfo.getCommitPayload();
 
   return currentDataSource.commit({
@@ -923,6 +924,8 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
+    HistoryStack.columnsInfo.reset();
+
     table.setData({ columns: columns, rows: entries });
   });
 }

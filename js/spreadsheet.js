@@ -82,7 +82,7 @@ function spreadsheet(options) {
       console.error('We must pass an array of the cell coordinates to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
-      selectedCell);
+        selectedCell);
 
       return false;
     }
@@ -585,11 +585,11 @@ function spreadsheet(options) {
         }
       }
 
-      HistoryStack.columnsInfo.moveColumn(items, index);
       hot.updateSettings({ colWidths: colWidths });
     },
-    afterColumnMove: function() {
+    afterColumnMove: function (items, index) {
       // TODO: Add similar checks to avoid column width screwing up
+      HistoryStack.columnsInfo.moveColumns(items, index);
       onChange();
     },
     afterColumnResize: function() {
