@@ -906,6 +906,8 @@ function spreadsheet(options) {
     var preparedData = prepareData(rows, columns);
 
     dataLoaded = false;
+    // Set empty data to the table to avoid the trailing column displacement
+    hot.loadData([[]]);
     hot.loadData(preparedData);
 
     HistoryStack.getCurrent().setData(preparedData);

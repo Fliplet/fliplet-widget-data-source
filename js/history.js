@@ -43,7 +43,7 @@ Fliplet.Registry.set('history-stack', (function() {
       const reference = columnsInfo.getReference();
       const current = columnsInfo.current;
       const renamedIndexes = reference.reduce((acc, column, index) => {
-        if (column !== current[index]) {
+        if (column && current[index] && column !== current[index]) {
           acc.push(index);
         };
         return acc;

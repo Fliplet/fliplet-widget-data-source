@@ -844,7 +844,6 @@ function getCommitPayload(entries) {
 
 function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
   const currentOrderByColumn = currentDataSourceDefinition.order?.[0]?.[0]?.split('.')[1];
-  console.log('currentOrderByColumn', currentOrderByColumn, { currentDataSourceDefinition });
   if (!currentOrderByColumn) {
     return;
   }
@@ -854,7 +853,7 @@ function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
     return;
   }
 
-  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn).newColumn;
+  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn)?.newColumn;
   if (renamedOrderByColumn) {
     currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
   }
