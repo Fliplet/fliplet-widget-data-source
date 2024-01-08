@@ -19,7 +19,7 @@ Fliplet.Registry.set('history-stack', (function() {
       const removed = columnsInfo.reference.slice(index, index + amount);
 
       const removedSinceReference = removed.filter(column => reference.includes(column));
-      columnsInfo.removedSinceReference = [...new Set([...columnsInfo.removedSinceReference, ...removedSinceReference])];
+      columnsInfo.removedSinceReference = [...new Set([...columnsInfo.removedSinceReference, ...removedSinceReference])].filter(Boolean);
 
       columnsInfo.reference.splice(index, amount);
     },

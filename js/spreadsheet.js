@@ -585,11 +585,12 @@ function spreadsheet(options) {
         }
       }
 
+      HistoryStack.columnsInfo.moveColumns(items, index);
+
       hot.updateSettings({ colWidths: colWidths });
     },
     afterColumnMove: function (items, index) {
       // TODO: Add similar checks to avoid column width screwing up
-      HistoryStack.columnsInfo.moveColumns(items, index);
       onChange();
     },
     afterColumnResize: function() {

@@ -473,6 +473,26 @@ function initializeTable(options) {
   });
 }
 
+async function setTableData({ columns, rows, sortConfig }) {
+  await initializeTable({
+    columns,
+    rows: [],
+    initialLoad: true
+  });
+  
+  table = spreadsheet({
+    columns,
+    rows,
+    pageSize,
+    pageOffset,
+    sortConfig: sortConfig || getSortConfigForTable(getDataSourceQuery()),
+  });
+
+  updatePagination({
+    count: rows.length
+  });
+}
+
 /**
  * Update the table with latest data source entries
  * @returns {Promise<Boolean>} Returns TRUE if the data source entries are updated
@@ -524,21 +544,12 @@ function updateDataSourceEntries() {
 
           $('#show-versions').show();
 
-          var mergedData = {};
+          const computedColumns = [...new Set(rows.flatMap(({ data }) => Object.keys(data)))];
 
-          rows.map(function (row) {
-            // @TODO: Remove this if data source entries are returned without order attribute
-            delete row.order;
-
-            return row.data;
-          }).forEach(function (dataItem) {
-            Object.assign(mergedData, dataItem);
-          });
-
-          var computedColumns = _.keys(mergedData);
+          const columnsMismatched = computedColumns.length !== currentDataSourceColumns.length || JSON.stringify(computedColumns) !== JSON.stringify(currentDataSourceColumns);
 
           // Columns mismatched
-          if (computedColumns.length !== currentDataSourceColumns.length && typeof Raven !== 'undefined') {
+          if (columnsMismatched && typeof Raven !== 'undefined') {
             // Monitor how often this happens
             Raven.captureMessage('Column mismatch detected', {
               extra: {
@@ -549,31 +560,19 @@ function updateDataSourceEntries() {
             });
           }
 
-          var columns = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
+          const columns = columnsMismatched ? [...new Set([...currentDataSourceColumns, ...computedColumns])] : currentDataSourceColumns;
 
-          return initializeTable({
-            columns: columns,
-            rows: [],
-            initialLoad: true
+          return setTableData({ 
+            columns,
+            rows,
+            sortConfig
           })
             .then(function () {
-              table = spreadsheet({
-                columns: columns,
-                rows: rows,
-                pageSize: pageSize,
-                pageOffset: pageOffset,
-                sortConfig: sortConfig
-              });
-
               clearTimeout(loadingTimeout);
               $initialSpinnerLoading.removeClass('animated');
               $('.table-entries').css('visibility', 'visible');
               $('#versions').removeClass('hidden');
               $toolbar.removeClass('disabled');
-
-              updatePagination({
-                count: rows.length
-              });
 
               return true;
             });
@@ -609,8 +608,8 @@ function resetPagination() {
 function fetchCurrentDataSourceEntries(paginationReset = true) {
   if (paginationReset) {
     resetPagination();
-
   }
+  
   return Fliplet.DataSources.connect(currentDataSourceId).then(function (source) {
     clearLiveDataTimer();
 
@@ -946,7 +945,7 @@ function saveCurrentData() {
     cacheOriginalEntries(entries, clientIdMap);
     HistoryStack.columnsInfo.reset();
 
-    table.setData({ columns: columns, rows: entries });
+    setTableData({ columns, rows: entries });
   });
 }
 
