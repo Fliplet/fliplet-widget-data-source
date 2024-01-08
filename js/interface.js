@@ -491,6 +491,9 @@ async function setTableData({ columns, rows, sortConfig }) {
   updatePagination({
     count: rows.length
   });
+
+  const preparedData = table.prepareData(rows, columns);
+  HistoryStack.getCurrent().setData(preparedData);
 }
 
 /**

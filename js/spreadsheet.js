@@ -899,21 +899,6 @@ function spreadsheet(options) {
     return entries;
   }
 
-  function setData(options) {
-    options = options || {};
-
-    var rows = options.rows || [];
-    var columns = options.columns || [];
-    var preparedData = prepareData(rows, columns);
-
-    dataLoaded = false;
-    // Set empty data to the table to avoid the trailing column displacement
-    hot.loadData([[]]);
-    hot.loadData(preparedData);
-
-    HistoryStack.getCurrent().setData(preparedData);
-  }
-
   /**
    * Cast the value of a cell to the expected type
    * @param {String} str - String value of a cell
@@ -993,7 +978,7 @@ function spreadsheet(options) {
 
   return {
     getData: getData,
-    setData: setData,
+    prepareData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
