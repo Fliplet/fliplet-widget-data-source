@@ -833,7 +833,7 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry, original)) {
+    if (_.isEqual(entry.data, original.data)) {
       return;
     }
 
