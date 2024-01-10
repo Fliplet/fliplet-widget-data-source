@@ -452,7 +452,7 @@ function spreadsheet(options) {
     renderAllRows: true,
     cells: function(rowIndex) {
       if (rowIndex !== 0) {
-        return;
+        return {};
       }
 
       return {
