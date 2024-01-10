@@ -4,6 +4,7 @@ var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
+const ColumnsTracking = Fliplet.Registry.get('columns-tracking');
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -82,7 +83,7 @@ function spreadsheet(options) {
       console.error('We must pass an array of the cell coordinates to the closestData function. First element is cell' +
         'row and second element is cell col. In this case script will act as if there was a value in the cell. ' +
         'Value that was passed - ',
-        selectedCell);
+      selectedCell);
 
       return false;
     }
@@ -519,7 +520,7 @@ function spreadsheet(options) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
-      HistoryStack.columnsInfo.removeColumn(index, amount, originalArr, source);
+      ColumnsTracking.removeColumns(index, amount, originalArr, source);
 
       hot.getSettings().manualColumnResize = false;
       hot.updateSettings({ colWidths: colWidths });
@@ -585,11 +586,11 @@ function spreadsheet(options) {
         }
       }
 
-      HistoryStack.columnsInfo.moveColumns(items, index);
+      ColumnsTracking.moveColumns(items, index);
 
       hot.updateSettings({ colWidths: colWidths });
     },
-    afterColumnMove: function (items, index) {
+    afterColumnMove: function() {
       // TODO: Add similar checks to avoid column width screwing up
       onChange();
     },

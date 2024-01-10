@@ -3,69 +3,6 @@ Fliplet.Registry.set('history-stack', (function() {
   var stack = [];
   var currentIndex = 0;
 
-  const columnsInfo = {
-    original: () => stack[0].data[0],
-    reference: [],
-    getReference: () => {
-      if (!columnsInfo.reference.length) {
-        columnsInfo.reference = columnsInfo.original();
-      }
-      return columnsInfo.reference;
-    },
-    current: [],
-    removedSinceReference: [],
-    removeColumns: (index, amount) => {
-      const reference = columnsInfo.getReference();
-      const removed = columnsInfo.reference.slice(index, index + amount);
-
-      const removedSinceReference = removed.filter(column => reference.includes(column));
-      columnsInfo.removedSinceReference = [...new Set([...columnsInfo.removedSinceReference, ...removedSinceReference])].filter(Boolean);
-
-      columnsInfo.reference.splice(index, amount);
-    },
-    moveColumnsInCollection: (collection, columnOriginalIndexes, toIndex) => {
-      const columnsToMove = columnOriginalIndexes.map(index => collection[index]);
-
-      const collectionClone = [...collection];
-      collectionClone.splice(columnOriginalIndexes[0], columnOriginalIndexes.length);
-      collectionClone.splice(toIndex, 0, ...columnsToMove);
-
-      return collectionClone;
-    },
-    moveColumns: (columnOriginalIndexes, toIndex) => {
-      const reference = columnsInfo.getReference();
-      const current = columnsInfo.current;
-
-      columnsInfo.current = columnsInfo.moveColumnsInCollection(current, columnOriginalIndexes, toIndex);
-      columnsInfo.reference = columnsInfo.moveColumnsInCollection(reference, columnOriginalIndexes, toIndex);
-    },
-    getRenamedColumns: () => {
-      const reference = columnsInfo.getReference();
-      const current = columnsInfo.current;
-      const renamedIndexes = reference.reduce((acc, column, index) => {
-        if (column && current[index] && column !== current[index]) {
-          acc.push(index);
-        };
-        return acc;
-      }, []);
-
-      return renamedIndexes.map(index => ({
-        column: reference[index],
-        newColumn: current[index],
-      }));
-    },
-    getCommitPayload: () => ({
-      deleteColumns: columnsInfo.removedSinceReference,
-      renameColumns: columnsInfo.getRenamedColumns(),
-    }),
-    reset: () => {
-      const newReference = stack[currentIndex].data[0];
-      columnsInfo.reference = newReference;
-      columnsInfo.current = newReference;
-      columnsInfo.removedSinceReference = [];
-    }
-  };
-
   function reset() {
     stack = [];
     currentIndex = 0;
@@ -73,10 +10,10 @@ Fliplet.Registry.set('history-stack', (function() {
 
   // Clone data without losing the ID
   function cloneSpreadsheetData(data) {
-    return _.map(data, function (row) {
+    return _.map(data, function(row) {
       var entry = [];
 
-      _.forEach(row, function (column) {
+      _.forEach(row, function(column) {
         entry.push(column);
       });
 
@@ -104,32 +41,38 @@ Fliplet.Registry.set('history-stack', (function() {
     if (stack.length > 1) {
       currentIndex++;
     }
-    
-    // store columns info
-    columnsInfo.current = [...state.data[0]];
+
+    // Store columns info
+    const ColumnsTracking = Fliplet.Registry.get('columns-tracking');
+
+    ColumnsTracking.saveStateAsCurrent([...state.data[0]]);
 
     toggleUndoRedo();
   }
 
-  function getCurrent(offset) {
-    if (typeof offset === 'undefined') {
-      offset = 0;
-    }
-
-    var index = currentIndex + offset;
-    var currentState = stack[index];
+  function getAtIndex(index, offset = 0) {
+    const indexToGet = index + offset;
+    const state = stack[indexToGet];
 
     return {
       getData: function() {
-        return currentState ? cloneSpreadsheetData(currentState.data) : undefined;
+        return state ? cloneSpreadsheetData(state.data) : undefined;
       },
       getColWidths: function() {
-        return currentState ? currentState.colWidths : undefined;
+        return state ? state.colWidths : undefined;
       },
       setData: function(newData) {
-        currentState.data = cloneSpreadsheetData(newData);
+        state.data = cloneSpreadsheetData(newData);
       }
     };
+  }
+
+  function getFirst(offset) {
+    return getAtIndex(0, offset);
+  }
+
+  function getCurrent(offset) {
+    return getAtIndex(currentIndex, offset);
   }
 
   function loadCurrent() {
@@ -193,6 +136,6 @@ Fliplet.Registry.set('history-stack', (function() {
     back: back,
     forward: forward,
     getCurrent: getCurrent,
-    columnsInfo,
+    getFirst: getFirst
   };
 })());

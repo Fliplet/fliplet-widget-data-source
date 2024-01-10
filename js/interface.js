@@ -479,13 +479,13 @@ async function setTableData({ columns, rows, sortConfig }) {
     rows: [],
     initialLoad: true
   });
-  
+
   table = spreadsheet({
     columns,
     rows,
     pageSize,
     pageOffset,
-    sortConfig: sortConfig || getSortConfigForTable(getDataSourceQuery()),
+    sortConfig: sortConfig || getSortConfigForTable(getDataSourceQuery())
   });
 
   updatePagination({
@@ -493,6 +493,7 @@ async function setTableData({ columns, rows, sortConfig }) {
   });
 
   const preparedData = table.prepareData(rows, columns);
+
   HistoryStack.getCurrent().setData(preparedData);
 }
 
@@ -563,9 +564,11 @@ function updateDataSourceEntries() {
             });
           }
 
-          const columns = columnsMismatched ? [...new Set([...currentDataSourceColumns, ...computedColumns])] : currentDataSourceColumns;
+          const columns = columnsMismatched
+            ? [...new Set([...currentDataSourceColumns, ...computedColumns])]
+            : currentDataSourceColumns;
 
-          return setTableData({ 
+          return setTableData({
             columns,
             rows,
             sortConfig
@@ -612,7 +615,7 @@ function fetchCurrentDataSourceEntries(paginationReset = true) {
   if (paginationReset) {
     resetPagination();
   }
-  
+
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
@@ -840,25 +843,34 @@ function getCommitPayload(entries) {
     updated.push(entry);
   });
 
+
+  const columnsPayload = ColumnsTracking.getCommitPayload();
+
   return {
     entries: updated.concat(inserted),
-    delete: deleted
+    delete: deleted,
+    deleteColumns: columnsPayload.deleteColumns,
+    renameColumns: columnsPayload.renameColumns
   };
 }
 
 function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
-  const currentOrderByColumn = currentDataSourceDefinition.order?.[0]?.[0]?.split('.')[1];
+  const currentOrderByColumnDefinition = _.get(currentDataSourceDefinition, ['order', 0, 0]);
+  const currentOrderByColumn = currentOrderByColumnDefinition && currentOrderByColumnDefinition.split('.')[1];
+
   if (!currentOrderByColumn) {
     return;
   }
 
   if (removedColumns.includes(currentOrderByColumn)) {
     currentDataSourceDefinition.order = undefined;
+
     return;
   }
 
-  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn)?.newColumn;
-  if (renamedOrderByColumn) {
+  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
+
+  if (renamedOrderByColumn.newColumn) {
     currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
   }
 }
@@ -922,16 +934,14 @@ function saveCurrentData() {
 
   var payload = getCommitPayload(entries);
 
-  const HistoryStack = Fliplet.Registry.get('history-stack');
-  const { deleteColumns, renameColumns } = HistoryStack.columnsInfo.getCommitPayload();
-  validateOrFixDefinitionOrderBy(deleteColumns, renameColumns);
+  validateOrFixDefinitionOrderBy(payload.deleteColumns, payload.renameColumns);
 
   return currentDataSource.commit({
+    columns: columns,
+    deleteColumns: payload.deleteColumns,
+    renameColumns: payload.renameColumns,
     entries: payload.entries,
     delete: payload.delete,
-    columns: columns,
-    deleteColumns,
-    renameColumns,
     returnEntries: false
   }).then(function(response) {
     var clientIds = [];
@@ -946,7 +956,7 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    HistoryStack.columnsInfo.reset();
+    ColumnsTracking.reset();
 
     setTableData({ columns, rows: entries });
   });
