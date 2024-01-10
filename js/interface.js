@@ -611,8 +611,8 @@ function resetPagination() {
   pageSize = +$('#page-size').val() || undefined;
 }
 
-function fetchCurrentDataSourceEntries(paginationReset = true) {
-  if (paginationReset) {
+function fetchCurrentDataSourceEntries(options = { resetPagination: true }) {
+  if (options.resetPagination) {
     resetPagination();
   }
 
@@ -1982,7 +1982,7 @@ $('#page-size').change(function() {
     pageOffset = 0;
   }
 
-  fetchCurrentDataSourceEntries(false).then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageSize = currentPageSize;
     }
@@ -1999,7 +1999,7 @@ $('#page-prev > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = Math.max(pageOffset - pageSize, 0);
-  fetchCurrentDataSourceEntries(false).then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -2016,7 +2016,7 @@ $('#page-next > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = Math.min(pageOffset + pageSize, currentDataSourceRowsCount);
-  fetchCurrentDataSourceEntries(false).then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -2033,7 +2033,7 @@ $('#page-first > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = 0;
-  fetchCurrentDataSourceEntries(false).then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -2050,7 +2050,7 @@ $('#page-last > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = (Math.ceil(currentDataSourceRowsCount / pageSize) - 1) * pageSize;
-  fetchCurrentDataSourceEntries(false).then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
