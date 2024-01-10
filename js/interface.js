@@ -473,6 +473,30 @@ function initializeTable(options) {
   });
 }
 
+async function setTableData({ columns, rows, sortConfig }) {
+  await initializeTable({
+    columns,
+    rows: [],
+    initialLoad: true
+  });
+
+  table = spreadsheet({
+    columns,
+    rows,
+    pageSize,
+    pageOffset,
+    sortConfig: sortConfig || getSortConfigForTable(getDataSourceQuery())
+  });
+
+  updatePagination({
+    count: rows.length
+  });
+
+  const preparedData = table.prepareData(rows, columns);
+
+  HistoryStack.getCurrent().setData(preparedData);
+}
+
 /**
  * Update the table with latest data source entries
  * @returns {Promise<Boolean>} Returns TRUE if the data source entries are updated
@@ -524,21 +548,12 @@ function updateDataSourceEntries() {
 
           $('#show-versions').show();
 
-          var mergedData = {};
+          const computedColumns = [...new Set(rows.flatMap(({ data }) => Object.keys(data)))];
 
-          rows.map(function(row) {
-            // @TODO: Remove this if data source entries are returned without order attribute
-            delete row.order;
-
-            return row.data;
-          }).forEach(function(dataItem) {
-            Object.assign(mergedData, dataItem);
-          });
-
-          var computedColumns = _.keys(mergedData);
+          const columnsMismatched = computedColumns.length !== currentDataSourceColumns.length || JSON.stringify(computedColumns) !== JSON.stringify(currentDataSourceColumns);
 
           // Columns mismatched
-          if (computedColumns.length !== currentDataSourceColumns.length && typeof Raven !== 'undefined') {
+          if (columnsMismatched && typeof Raven !== 'undefined') {
             // Monitor how often this happens
             Raven.captureMessage('Column mismatch detected', {
               extra: {
@@ -549,31 +564,21 @@ function updateDataSourceEntries() {
             });
           }
 
-          var columns = _.uniq(_.concat(currentDataSourceColumns, computedColumns));
+          const columns = columnsMismatched
+            ? [...new Set([...currentDataSourceColumns, ...computedColumns])]
+            : currentDataSourceColumns;
 
-          return initializeTable({
-            columns: columns,
-            rows: [],
-            initialLoad: true
+          return setTableData({
+            columns,
+            rows,
+            sortConfig
           })
             .then(function() {
-              table = spreadsheet({
-                columns: columns,
-                rows: rows,
-                pageSize: pageSize,
-                pageOffset: pageOffset,
-                sortConfig: sortConfig
-              });
-
               clearTimeout(loadingTimeout);
               $initialSpinnerLoading.removeClass('animated');
               $('.table-entries').css('visibility', 'visible');
               $('#versions').removeClass('hidden');
               $toolbar.removeClass('disabled');
-
-              updatePagination({
-                count: rows.length
-              });
 
               return true;
             });
@@ -606,8 +611,10 @@ function resetPagination() {
   pageSize = +$('#page-size').val() || undefined;
 }
 
-function fetchCurrentDataSourceEntries() {
-  resetPagination();
+function fetchCurrentDataSourceEntries(options = { resetPagination: true }) {
+  if (options.resetPagination) {
+    resetPagination();
+  }
 
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
@@ -829,17 +836,43 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry, original)) {
+    if (_.isEqual(entry.data, original.data)) {
       return;
     }
 
     updated.push(entry);
   });
 
+
+  const columnsPayload = ColumnsTracking.getCommitPayload();
+
   return {
     entries: updated.concat(inserted),
-    delete: deleted
+    delete: deleted,
+    deleteColumns: columnsPayload.deleteColumns,
+    renameColumns: columnsPayload.renameColumns
   };
+}
+
+function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
+  const currentOrderByColumnDefinition = _.get(currentDataSourceDefinition, ['order', 0, 0]);
+  const currentOrderByColumn = currentOrderByColumnDefinition && currentOrderByColumnDefinition.split('.')[1];
+
+  if (!currentOrderByColumn) {
+    return;
+  }
+
+  if (removedColumns.includes(currentOrderByColumn)) {
+    currentDataSourceDefinition.order = undefined;
+
+    return;
+  }
+
+  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
+
+  if (renamedOrderByColumn.newColumn) {
+    currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
+  }
 }
 
 function saveCurrentData() {
@@ -901,10 +934,14 @@ function saveCurrentData() {
 
   var payload = getCommitPayload(entries);
 
+  validateOrFixDefinitionOrderBy(payload.deleteColumns, payload.renameColumns);
+
   return currentDataSource.commit({
+    columns: columns,
+    deleteColumns: payload.deleteColumns,
+    renameColumns: payload.renameColumns,
     entries: payload.entries,
     delete: payload.delete,
-    columns: columns,
     returnEntries: false
   }).then(function(response) {
     var clientIds = [];
@@ -919,7 +956,9 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ columns: columns, rows: entries });
+    ColumnsTracking.reset();
+
+    setTableData({ columns, rows: entries });
   });
 }
 
@@ -1943,7 +1982,7 @@ $('#page-size').change(function() {
     pageOffset = 0;
   }
 
-  updateDataSourceEntries().then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageSize = currentPageSize;
     }
@@ -1960,7 +1999,7 @@ $('#page-prev > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = Math.max(pageOffset - pageSize, 0);
-  updateDataSourceEntries().then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -1977,7 +2016,7 @@ $('#page-next > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = Math.min(pageOffset + pageSize, currentDataSourceRowsCount);
-  updateDataSourceEntries().then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -1994,7 +2033,7 @@ $('#page-first > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = 0;
-  updateDataSourceEntries().then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }
@@ -2011,7 +2050,7 @@ $('#page-last > a').click(function(e) {
   var currentPageOffset = pageOffset;
 
   pageOffset = (Math.ceil(currentDataSourceRowsCount / pageSize) - 1) * pageSize;
-  updateDataSourceEntries().then(function(updated) {
+  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
     if (!updated) {
       pageOffset = currentPageOffset;
     }

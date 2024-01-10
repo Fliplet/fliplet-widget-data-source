@@ -4,6 +4,7 @@ var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
+const ColumnsTracking = Fliplet.Registry.get('columns-tracking');
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -519,6 +520,8 @@ function spreadsheet(options) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
+      ColumnsTracking.removeColumns(index, amount, originalArr, source);
+
       hot.getSettings().manualColumnResize = false;
       hot.updateSettings({ colWidths: colWidths });
       hot.getSettings().manualColumnResize = true;
@@ -582,6 +585,8 @@ function spreadsheet(options) {
           colWidths.splice(newIndex + i, 0, colsToMove[i]);
         }
       }
+
+      ColumnsTracking.moveColumns(items, index);
 
       hot.updateSettings({ colWidths: colWidths });
     },
@@ -895,19 +900,6 @@ function spreadsheet(options) {
     return entries;
   }
 
-  function setData(options) {
-    options = options || {};
-
-    var rows = options.rows || [];
-    var columns = options.columns || [];
-    var preparedData = prepareData(rows, columns);
-
-    dataLoaded = false;
-    hot.loadData(preparedData);
-
-    HistoryStack.getCurrent().setData(preparedData);
-  }
-
   /**
    * Cast the value of a cell to the expected type
    * @param {String} str - String value of a cell
@@ -987,7 +979,7 @@ function spreadsheet(options) {
 
   return {
     getData: getData,
-    setData: setData,
+    prepareData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
