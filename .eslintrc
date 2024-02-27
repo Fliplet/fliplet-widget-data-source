@@ -16,6 +16,8 @@
     "currentDataSourceDefinition": true,
     "updateDataSourceEntries": true,
     "FILTER_STORAGE_KEY": true,
-    "resetPagination": true
+    "resetPagination": true,
+    "HistoryStack": true,
+    "ColumnsTracking": true
   }
 }
