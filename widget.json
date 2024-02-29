@@ -37,6 +37,7 @@
       "vendor/bootstrap-tokenfield.min.js",
 
       "js/history.js",
+      "js/columnsTracking.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/interface.js",

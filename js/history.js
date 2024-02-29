@@ -42,28 +42,37 @@ Fliplet.Registry.set('history-stack', (function() {
       currentIndex++;
     }
 
+    // Store columns info
+    const ColumnsTracking = Fliplet.Registry.get('columns-tracking');
+
+    ColumnsTracking.saveStateAsCurrent([...state.data[0]]);
+
     toggleUndoRedo();
   }
 
-  function getCurrent(offset) {
-    if (typeof offset === 'undefined') {
-      offset = 0;
-    }
-
-    var index = currentIndex + offset;
-    var currentState = stack[index];
+  function getAtIndex(index, offset = 0) {
+    const indexToGet = index + offset;
+    const state = stack[indexToGet];
 
     return {
       getData: function() {
-        return currentState ? cloneSpreadsheetData(currentState.data) : undefined;
+        return state ? cloneSpreadsheetData(state.data) : undefined;
       },
       getColWidths: function() {
-        return currentState ? currentState.colWidths : undefined;
+        return state ? state.colWidths : undefined;
       },
       setData: function(newData) {
-        currentState.data = cloneSpreadsheetData(newData);
+        state.data = cloneSpreadsheetData(newData);
       }
     };
+  }
+
+  function getFirst(offset) {
+    return getAtIndex(0, offset);
+  }
+
+  function getCurrent(offset) {
+    return getAtIndex(currentIndex, offset);
   }
 
   function loadCurrent() {
@@ -126,6 +135,7 @@ Fliplet.Registry.set('history-stack', (function() {
     add: add,
     back: back,
     forward: forward,
-    getCurrent: getCurrent
+    getCurrent: getCurrent,
+    getFirst: getFirst
   };
 })());

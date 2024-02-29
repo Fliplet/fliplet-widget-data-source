@@ -13,6 +13,11 @@
     "searchField": true,
     "$sourceContents": true,
     "$initialSpinnerLoading": true,
-    "currentDataSourceDefinition": true
+    "currentDataSourceDefinition": true,
+    "updateDataSourceEntries": true,
+    "FILTER_STORAGE_KEY": true,
+    "resetPagination": true,
+    "HistoryStack": true,
+    "ColumnsTracking": true
   }
 }
