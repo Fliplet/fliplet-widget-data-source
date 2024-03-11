@@ -16,7 +16,6 @@ var $allowBtnFilter = $('button[data-allow]');
 var $typeCheckbox = $('input[name="type"]');
 var $activeDataSourceTable = $('#data-sources');
 var $btnShowAllSource = $('[data-show-all-source]');
-var $toolbar = $('#toolbar');
 var $activeSortedColumn;
 var preconfiguredRules = Fliplet.Registry.get('preconfigured-rules');
 var currentDataSource;
@@ -26,6 +25,7 @@ var currentDataSourceType;
 var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
+var currentDataSourceColumnsCount;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
@@ -35,7 +35,7 @@ var trashedDataSources;
 var allDataSources;
 var table;
 var isShowingAll = false;
-var currentDataSourceColumns;
+var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
 var columnsListMode = 'include';
@@ -50,9 +50,6 @@ var selectedTokenName;
 var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
-var pageSize;
-var pageOffset;
-var initialPageSize = +$('#page-size').val();
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -91,27 +88,6 @@ Fliplet.API.request({
 }).then(function(response) {
   integrationTokenList = response.appTokens;
 });
-
-/**
- * Updates pagination
- * @param {*} options - A map of options for the function
- * @param {Number} [options.count=pageSize] - Number of entries shown in the entry range
- * @returns {undefined}
- */
-function updatePagination(options = {}) {
-  var start = pageOffset + 1;
-  var end = start + (options.count || pageSize) - 1;
-  var total = currentDataSourceRowsCount || 'many';
-  var text = pageSize
-    ? `${TN(start)} to ${TN(end)} of ${TN(total)} ${total === 1 ? 'entry' : 'entries'}`
-    : `${end} ${end === 1 ? 'entry' : 'entries'}`;
-
-  $('.entry-range').text(text);
-
-  $('#page-prev, #page-first').toggleClass('disabled', !pageOffset);
-  $('#page-next, #page-last').toggleClass('disabled', end === currentDataSourceRowsCount);
-}
-
 
 // Fetch all data sources
 function getDataSources() {
@@ -375,267 +351,116 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
-function getDataSourceQuery() {
-  // @TODO: Add support for requesting data source columns at the same time
-  var query = {
-    order: [
-      ['updatedAt', 'DESC']
-    ],
-    includePagination: true
-  };
-
-  if (pageSize) {
-    query.limit = pageSize;
-    query.offset = pageOffset;
-  }
-
-  if (currentDataSourceDefinition.order) {
-    query.order = currentDataSourceDefinition.order;
-  }
-
-  return query;
-}
-
-function getDataSourceEntries(query) {
-  var getData;
-
-  if (!currentDataSourceRowsCount && (!currentDataSourceColumns || !currentDataSourceColumns.length)) {
-    currentDataSourceColumns = ['Column 1', 'Column 2'];
-
-    var rows = [{
-      data: {
-        'Column 1': 'demo data',
-        'Column 2': 'demo data'
-      }
-    }, {
-      data: {
-        'Column 1': 'demo data',
-        'Column 2': 'demo data'
-      }
-    }];
-
-    currentDataSourceRowsCount = rows.length;
-    getData = Promise.resolve({
-      entries: rows,
-      pagination: {
-        total: rows.length,
-        offset: 0,
-        limit: pageSize
-      }
-    });
-  } else {
-    getData = currentDataSource.find(query);
-  }
-
-  $toolbar.addClass('disabled');
-
-  return getData;
-}
-
-function getSortConfigForTable(dataSourceQuery) {
-  if (!dataSourceQuery || !dataSourceQuery.order || !dataSourceQuery.order.length) {
-    return true;
-  }
-
-  var sortConfig = dataSourceQuery.order[0];
-
-  return {
-    column: sortConfig[0].split('.')[1],
-    sortOrderClass: sortConfig[1] === 'ASC' ? 'ascending' : 'descending'
-  };
-}
-
-function initializeTable(options) {
-  // Destroy existing instance, if any
-  try {
-    table.destroy();
-  } catch (e) {
-    // Fail silently
-  }
-
-  if (!initialLoad) {
-    return Promise.resolve();
-  }
-
-  return new Promise(function(resolve, reject) {
-    try {
-      table = spreadsheet(options);
-
-      setTimeout(function() {
-        table.destroy();
-        initialLoad = false;
-
-        resolve();
-      }, 0);
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-async function setTableData({ columns, rows, sortConfig }) {
-  await initializeTable({
-    columns,
-    rows: [],
-    initialLoad: true
-  });
-
-  table = spreadsheet({
-    columns,
-    rows,
-    pageSize,
-    pageOffset,
-    sortConfig: sortConfig || getSortConfigForTable(getDataSourceQuery())
-  });
-
-  updatePagination({
-    count: rows.length
-  });
-
-  const preparedData = table.prepareData(rows, columns);
-
-  HistoryStack.getCurrent().setData(preparedData);
-}
-
-/**
- * Update the table with latest data source entries
- * @returns {Promise<Boolean>} Returns TRUE if the data source entries are updated
- */
-function updateDataSourceEntries() {
-  var sortConfig;
-  var verifyChanges;
-
-  if (table && table.hasChanges()) {
-    verifyChanges = Fliplet.Modal.confirm({
-      message: 'Are you sure? Changes that you made may not be saved.'
-    });
-  } else {
-    verifyChanges = Promise.resolve(true);
-  }
-
-  return verifyChanges
-    .then(function(confirmed) {
-      if (!confirmed) {
-        return false;
-      }
-
-      var query = getDataSourceQuery();
-
-      sortConfig = getSortConfigForTable(query);
-
-      // Wait before showing a timer, in case the query is fast
-      var loadingTimeout = setTimeout(function() {
-        $initialSpinnerLoading.addClass('animated');
-        $('.table-entries').css('visibility', 'hidden');
-      }, 150);
-
-      return getDataSourceEntries(query)
-        .then(function(response) {
-          // @TODO: Add support for requesting data source columns at the same time
-          var rows = response.entries;
-          var pagination = response.pagination;
-
-          currentDataSourceRowsCount = pagination.total;
-
-          if (dataSourceIsLive) {
-            startLiveDataTimer();
-          }
-
-          // Cache entries in a new thread
-          setTimeout(function() {
-            cacheOriginalEntries(rows);
-          }, 0);
-
-          $('#show-versions').show();
-
-          const computedColumns = [...new Set(rows.flatMap(({ data }) => Object.keys(data)))];
-
-          const columnsMismatched = computedColumns.length !== currentDataSourceColumns.length || JSON.stringify(computedColumns) !== JSON.stringify(currentDataSourceColumns);
-
-          // Columns mismatched
-          if (columnsMismatched && typeof Raven !== 'undefined') {
-            // Monitor how often this happens
-            Raven.captureMessage('Column mismatch detected', {
-              extra: {
-                dataSourceId: currentDataSourceId,
-                computedColumns: computedColumns,
-                columns: currentDataSourceColumns
-              }
-            });
-          }
-
-          const columns = columnsMismatched
-            ? [...new Set([...currentDataSourceColumns, ...computedColumns])]
-            : currentDataSourceColumns;
-
-          return setTableData({
-            columns,
-            rows,
-            sortConfig
-          })
-            .then(function() {
-              clearTimeout(loadingTimeout);
-              $initialSpinnerLoading.removeClass('animated');
-              $('.table-entries').css('visibility', 'visible');
-              $('#versions').removeClass('hidden');
-              $toolbar.removeClass('disabled');
-
-              return true;
-            });
-        }).catch(function onFetchError(error) {
-          clearTimeout(loadingTimeout);
-
-          if (typeof Raven !== 'undefined') {
-            if (error instanceof Error) {
-              Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
-            } else if (typeof Raven !== 'undefined') {
-              Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
-            }
-          }
-
-          var message = Fliplet.parseError(error, 'Error loading data source.');
-
-          $toolbar.removeClass('disabled');
-          $('.entries-message').html('<br>' + message);
-          $initialSpinnerLoading.removeClass('animated');
-          $('.table-entries').css('visibility', 'visible');
-
-          return Promise.reject(error);
-        });
-    });
-}
-
-function resetPagination() {
-  // Reset page offset
-  pageOffset = 0;
-  pageSize = +$('#page-size').val() || undefined;
-}
-
-function fetchCurrentDataSourceEntries(options = { resetPagination: true }) {
-  if (options.resetPagination) {
-    resetPagination();
-  }
-
+function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
 
-    return Fliplet.DataSources.getById(currentDataSourceId, {
-      cache: false
-    }).then(function(dataSource) {
+    return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
       var sourceName = dataSource.name;
 
-      currentDataSourceDefinition = dataSource.definition || {};
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
       $sourceContents.find('.editing-data-source-name').text(sourceName);
 
-      currentDataSourceColumns = dataSource.columns || [];
+      columns = dataSource.columns || [];
 
-      return updateDataSourceEntries();
+      if (entries) {
+        return Promise.resolve(entries);
+      }
+
+      return source.find({
+        order: [
+          ['order', 'ASC'],
+          ['id', 'ASC']
+        ]
+      }).catch(function() {
+        return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
+      });
     });
-  });
+  }).then(function(rows) {
+    if (dataSourceIsLive) {
+      startLiveDataTimer();
+    }
+
+    // Cache entries in a new thread
+    setTimeout(function() {
+      cacheOriginalEntries(rows);
+    }, 0);
+
+    $('#show-versions').show();
+
+    if ((!rows || !rows.length) && (!columns || !columns.length)) {
+      rows = [{
+        data: {
+          'Column 1': 'demo data',
+          'Column 2': 'demo data'
+        }
+      }, {
+        data: {
+          'Column 1': 'demo data',
+          'Column 2': 'demo data'
+        }
+      }];
+      columns = ['Column 1', 'Column 2'];
+    } else {
+      var flattenedColumns = {};
+
+      rows.map(function(row) {
+        return row.data;
+      }).forEach(function(dataItem) {
+        Object.assign(flattenedColumns, dataItem);
+      });
+
+      var computedColumns = _.keys(flattenedColumns);
+
+      if (computedColumns.length !== columns.length) {
+        // TODO: Add tracking to verify how often this happens and why
+        // Missing column found
+      }
+
+      columns = _.uniq(_.concat(columns, computedColumns));
+    }
+
+    currentDataSourceRowsCount = rows.length;
+    currentDataSourceColumnsCount = columns.length;
+
+    // On initial load, create an empty spreadsheet as this speeds up subsequent loads
+    if (initialLoad) {
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
+
+      setTimeout(function() {
+        table.destroy();
+        initialLoad = false;
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
+    } else {
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
+    }
+  })
+    .catch(function onFetchError(error) {
+      var message = error;
+
+      if (error instanceof Error) {
+        message = 'Error loading data source.';
+
+        if (typeof Raven !== 'undefined') {
+          Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+        }
+      } else if (typeof Raven !== 'undefined') {
+        Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+      }
+
+      $('.entries-message').html('<br>' + message);
+    });
 }
 
 function previewVersion(version) {
@@ -705,7 +530,7 @@ function fetchCurrentDataSourceVersions() {
         }) : 'No versions for this data source',
         updatedAt: currentDataSourceUpdatedAt,
         entriesCount: currentDataSourceRowsCount,
-        columnsCount: currentDataSourceColumns.length,
+        columnsCount: currentDataSourceColumnsCount,
         versions: versions
       });
 
@@ -836,43 +661,17 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry.data, original.data)) {
+    if (_.isEqual(entry, original)) {
       return;
     }
 
     updated.push(entry);
   });
 
-
-  const columnsPayload = ColumnsTracking.getCommitPayload();
-
   return {
     entries: updated.concat(inserted),
-    delete: deleted,
-    deleteColumns: columnsPayload.deleteColumns,
-    renameColumns: columnsPayload.renameColumns
+    delete: deleted
   };
-}
-
-function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
-  const currentOrderByColumnDefinition = _.get(currentDataSourceDefinition, ['order', 0, 0]);
-  const currentOrderByColumn = currentOrderByColumnDefinition && currentOrderByColumnDefinition.split('.')[1];
-
-  if (!currentOrderByColumn) {
-    return;
-  }
-
-  if (removedColumns.includes(currentOrderByColumn)) {
-    currentDataSourceDefinition.order = undefined;
-
-    return;
-  }
-
-  const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
-
-  if (renamedOrderByColumn.newColumn) {
-    currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
-  }
 }
 
 function saveCurrentData() {
@@ -889,7 +688,7 @@ function saveCurrentData() {
   // Check if all columns are empty and clear them on the data source
   // This way next load will load demo data
   if (!entries.length) {
-    columns = table.getColumns();
+    columns = table.getColumns({ raw: true });
 
     if (_.some(columns)) {
       columns = table.getColumns();
@@ -925,8 +724,6 @@ function saveCurrentData() {
     dataSource.definition = dataSource.definition || {};
     dataSource.definition.columnsWidths = widths;
 
-    currentDataSourceDefinition = dataSource.definition;
-
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
   }).catch(console.error);
 
@@ -934,21 +731,17 @@ function saveCurrentData() {
 
   var payload = getCommitPayload(entries);
 
-  validateOrFixDefinitionOrderBy(payload.deleteColumns, payload.renameColumns);
-
   return currentDataSource.commit({
-    columns: columns,
-    deleteColumns: payload.deleteColumns,
-    renameColumns: payload.renameColumns,
     entries: payload.entries,
     delete: payload.delete,
+    columns: columns,
     returnEntries: false
   }).then(function(response) {
     var clientIds = [];
     var ids = [];
 
     // Generate an object mapping client IDs to new entry IDs
-    _.forEach(response && response.clientIds, function(entry) {
+    _.forEach(response.clientIds, function(entry) {
       clientIds.push(entry.clientId);
       ids.push(entry.id);
     });
@@ -956,9 +749,7 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    ColumnsTracking.reset();
-
-    setTableData({ columns, rows: entries });
+    table.setData({ columns: columns, rows: entries });
   });
 }
 
@@ -997,9 +788,6 @@ function browseDataSource(id) {
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
 
-  // Set initial page size
-  $('#page-size').val(initialPageSize);
-
   // Hide nav tabs and tooltip bar
   var tab = $sourceContents.find('ul.nav.nav-tabs li');
 
@@ -1020,43 +808,40 @@ function browseDataSource(id) {
   return Promise.all([
     fetchCurrentDataSourceEntries(),
     fetchCurrentDataSourceDetails()
-  ])
-    .then(function() {
-      windowResized();
+  ]).then(function() {
+    windowResized();
 
-      if (widgetData.context === 'overlay') {
-        Fliplet.DataSources.get({
-          attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
-          roles: 'publisher,editor',
-          type: null,
-          excludeTypes: 'bookmarks,likes,comments,menu,conversation'
-        }, {
-          cache: false
-        })
-          .then(function(updatedDataSources) {
-            var html = [];
+    if (widgetData.context === 'overlay') {
+      Fliplet.DataSources.get({
+        attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
+        roles: 'publisher,editor',
+        type: null,
+        excludeTypes: 'bookmarks,likes,comments,menu,conversation'
+      }, {
+        cache: false
+      })
+        .then(function(updatedDataSources) {
+          var html = [];
 
-            dataSources = updatedDataSources;
-            dataSources.forEach(function(dataSource) {
-              html.push(getDataSourceRender(dataSource));
-            });
-            $dataSources.html(html.join(''));
-
-            // Show security rules
-            if (widgetData.view === 'access-rules') {
-              $('#show-access-rules').click();
-              addSecurityRule();
-            }
+          dataSources = updatedDataSources;
+          dataSources.forEach(function(dataSource) {
+            html.push(getDataSourceRender(dataSource));
           });
-      }
-    })
-    .catch(function(error) {
-      windowResized();
+          $dataSources.html(html.join(''));
 
-      renderError({
-        message: 'Error loading data source',
-        error: error
-      });
+          // Show security rules
+          if (widgetData.view === 'access-rules') {
+            $('#show-access-rules').click();
+            addSecurityRule();
+          }
+        });
+    }
+  })
+    .catch(function() {
+    // Something went wrong
+    // EG: User try to edit an already deleted data source
+    // TODO: Show some error message
+      getDataSources();
     });
 }
 
@@ -1139,6 +924,28 @@ function createDataSource(createOptions, options) {
           });
       });
   });
+}
+
+function activateFind() {
+  // Returns TRUE if an action is carried out
+
+  // Data sources list view
+  if (!$contents.hasClass('hidden')) {
+    $('.search').focus();
+
+    return true;
+  }
+
+  // Data source view
+  switch ($sourceContents.find('.tab-pane.active').attr('id')) {
+    case 'entries':
+      hot.deselectCell();
+      searchField.focus();
+
+      return true;
+    default:
+      return false;
+  }
 }
 
 function restoreDataSource(id, name) {
@@ -1309,6 +1116,32 @@ Handlebars.registerHelper('momentCalendar', function(date) {
 
 // Events
 
+// Prevent Cmd + F default behavior and use our find
+window.addEventListener('keydown', function(event) {
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
+
+  // Cmd/Ctrl + F
+  if (ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 70) {
+    if (activateFind()) {
+      event.preventDefault();
+    }
+
+    return;
+  }
+});
+
+// Capture browser-find event from outside the iframe to trigger find
+window.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'browser-find') {
+    activateFind();
+  }
+}, false);
+
 $(window).on('resize', windowResized).trigger('resize');
 $('#app')
   .on('click', '[data-order-date]', function() {
@@ -1385,21 +1218,27 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    var verifyChanges;
-
-    if (table && table.hasChanges()) {
-      verifyChanges = Fliplet.Modal.confirm({
+    if (table.hasChanges()) {
+      Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        $('#save-rules').addClass('hidden');
+
+        try {
+          table.destroy();
+        } catch (e) {
+          // Fail silently
+        }
+
+        $('[data-order-date]').removeClass('asc').addClass('desc');
+
+        getDataSources();
       });
     } else {
-      verifyChanges = Promise.resolve(true);
-    }
-
-    verifyChanges.then(function(confirmed) {
-      if (!confirmed) {
-        return;
-      }
-
       $('#save-rules').addClass('hidden');
 
       try {
@@ -1411,7 +1250,7 @@ $('#app')
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
-    });
+    }
   })
   .on('click', '[data-show-source]', function() {
     $('[data-show-source]').addClass('active-source');
@@ -1827,6 +1666,22 @@ $('#app')
     $('.hide-backdoor').removeClass('show');
     $('.backdoor-code').removeClass('show');
   })
+  .on('focus', '.filter-form .form-control', function() {
+    $('.filter-form').addClass('expanded');
+    $('#search-field').attr('placeholder', 'Type to find...');
+  })
+  .on('blur', '.filter-form .form-control', function() {
+    var value = $(this).val();
+
+    if (value === '') {
+      $('.filter-form').removeClass('expanded');
+      $('.find-results').html('');
+      $('#search-field').attr('placeholder', 'Find');
+    }
+  })
+  .on('click', '.find-icon', function() {
+    $('.filter-form .form-control').trigger('focus');
+  })
   .on('click', '[data-back-to-versions]', function(e) {
     e.preventDefault();
 
@@ -1887,7 +1742,7 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table && table.hasChanges()) {
+      if (table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -1967,94 +1822,6 @@ $('#show-users').click(function() {
 
 $('#show-versions').click(function() {
   fetchCurrentDataSourceVersions();
-});
-
-$('#page-size').change(function() {
-  if ($toolbar.hasClass('disabled')) {
-    return;
-  }
-
-  var currentPageSize = pageSize;
-
-  pageSize = +this.value || undefined;
-
-  if (!pageSize) {
-    pageOffset = 0;
-  }
-
-  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
-    if (!updated) {
-      pageSize = currentPageSize;
-    }
-  });
-});
-
-$('#page-prev > a').click(function(e) {
-  e.preventDefault();
-
-  if ($toolbar.hasClass('disabled')) {
-    return;
-  }
-
-  var currentPageOffset = pageOffset;
-
-  pageOffset = Math.max(pageOffset - pageSize, 0);
-  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
-    if (!updated) {
-      pageOffset = currentPageOffset;
-    }
-  });
-});
-
-$('#page-next > a').click(function(e) {
-  e.preventDefault();
-
-  if ($toolbar.hasClass('disabled')) {
-    return;
-  }
-
-  var currentPageOffset = pageOffset;
-
-  pageOffset = Math.min(pageOffset + pageSize, currentDataSourceRowsCount);
-  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
-    if (!updated) {
-      pageOffset = currentPageOffset;
-    }
-  });
-});
-
-$('#page-first > a').click(function(e) {
-  e.preventDefault();
-
-  if ($toolbar.hasClass('disabled')) {
-    return;
-  }
-
-  var currentPageOffset = pageOffset;
-
-  pageOffset = 0;
-  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
-    if (!updated) {
-      pageOffset = currentPageOffset;
-    }
-  });
-});
-
-$('#page-last > a').click(function(e) {
-  e.preventDefault();
-
-  if ($toolbar.hasClass('disabled')) {
-    return;
-  }
-
-  var currentPageOffset = pageOffset;
-
-  pageOffset = (Math.ceil(currentDataSourceRowsCount / pageSize) - 1) * pageSize;
-  fetchCurrentDataSourceEntries({ resetPagination: false }).then(function(updated) {
-    if (!updated) {
-      pageOffset = currentPageOffset;
-    }
-  });
 });
 
 function findSecurityRule() {
@@ -2246,7 +2013,7 @@ function configureAddRuleUI(rule) {
     $('input[name="exclude"]').tokenfield('destroy');
     $('input[name="exclude"]').tokenfield({
       autocomplete: {
-        source: _.compact(currentDataSourceColumns) || [],
+        source: _.compact(columns) || [],
         delay: 100
       },
       showAutocompleteOnFocus: true
