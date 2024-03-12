@@ -4,15 +4,11 @@ var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
-const ColumnsTracking = Fliplet.Registry.get('columns-tracking');
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
   var rows = options.rows || [];
   var columns = options.columns || [];
-  var pageSize = options.pageSize || 2;
-  var pageOffset = options.pageOffset || 0;
-  var sortConfig = options.sortConfig || {};
   var dataLoaded = false;
   var dataHasChanges = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
@@ -345,54 +341,6 @@ function spreadsheet(options) {
     });
   }
 
-  /**
-   * Sort data source entries based on column
-   * @param {Number} columnIndex - Index of column to be sorted by
-   * @param {Boolean} [ascending] - Undefined if the column is not sorted
-   * @returns {Promise} Resolves when the date source entries are updated
-   */
-  function sortDataSourceEntries(columnIndex, ascending) {
-    $initialSpinnerLoading.addClass('animated');
-
-    var currentSortOrder = _.clone(currentDataSourceDefinition.order);
-
-    if (typeof ascending === 'undefined') {
-      delete currentDataSourceDefinition.order;
-    } else {
-      currentDataSourceDefinition.order = [
-        ['data.' + columns[columnIndex], ascending ? 'ASC' : 'DESC']
-      ];
-    }
-
-    // Reset to first page
-    resetPagination();
-
-    // Fetch and render data source entries based on updated sort order
-    return updateDataSourceEntries()
-      .then(function(updated) {
-        if (!updated) {
-          // Revert cached definition
-          currentDataSourceDefinition.order = currentSortOrder;
-
-          // Revert UI state
-          var columnHeader = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex];
-
-          if (columnHeader.classList.contains('ascending')) {
-            columnHeader.classList.remove('ascending');
-          } else if (columnHeader.classList.contains('descending')) {
-            columnHeader.classList.replace('descending', 'ascending');
-          } else {
-            columnHeader.classList.add('descending');
-          }
-
-          return;
-        }
-
-        // Update data source definition in the background
-        Fliplet.DataSources.update(currentDataSourceId, { definition: currentDataSourceDefinition });
-      });
-  }
-
   // Reset history stack
   HistoryStack.reset();
 
@@ -405,54 +353,54 @@ function spreadsheet(options) {
     manualColumnResize: true,
     manualColumnMove: true,
     manualRowResize: true,
-    manualRowMove: false,
+    manualRowMove: true,
     colWidths: 250,
+    minColsNumber: 1,
+    minRowsNumber: 40,
     fixedRowsTop: 1,
     colHeaders: true,
-    rowHeaders: function(rowIndex) {
-      return rowIndex ? pageOffset + rowIndex : '';
-    },
-    afterGetColHeader: function(i, TH) {
-      if (!sortConfig.column || !sortConfig.sortOrderClass) {
-        return;
-      }
-
-      if (sortConfig.column === columns[i]) {
-        TH.querySelector('.columnSorting').classList.add(sortConfig.sortOrderClass);
-      }
-    },
+    rowHeaders: true,
     copyPaste: {
       columnsLimit: 1000,
       rowsLimit: 1000000000
     },
     columnSorting: true,
-    beforeColumnSort: function(columnIndex) {
-      var columnClasslist = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex].classList;
-      // Get current sort order
-      var ascending = !columnClasslist.contains('ascending') && !columnClasslist.contains('descending')
-        ? undefined
-        : columnClasslist.contains('ascending');
+    sortFunction: function sortData(sortOrder, columnMeta) {
+      return function(a, b) {
+        var plugin = hot.getPlugin('columnSorting');
+        var sortFunction;
 
-      // Toggle sort order
-      if (ascending === false) {
-        ascending = undefined;
-      } else {
-        ascending = !ascending;
-      }
+        if (a[0] === 0) {
+          return -1;
+        }
 
-      // Sort data source entries
-      sortDataSourceEntries(columnIndex, ascending);
+        switch (columnMeta.type) {
+          case 'date':
+            sortFunction = plugin.dateSort;
+            break;
+          case 'numeric':
+            sortFunction = plugin.numericSort;
+            break;
+          default:
+            sortFunction = plugin.defaultSort;
+        }
 
-      // Stops Handsontable from executing client-side sorting
-      return false;
+        return sortFunction(sortOrder, columnMeta)(a, b);
+      };
     },
+    afterColumnSort: function() {
+      // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
+      setTimeout(function() {
+        hot.view.wt.draw(true);
+      }, 0);
+    },
+    search: true,
     undo: false,
     sortIndicator: true,
     selectionMode: 'range',
-    renderAllRows: true,
-    cells: function(rowIndex) {
-      if (rowIndex !== 0) {
-        return {};
+    cells: function(row) {
+      if (row !== 0) {
+        return;
       }
 
       return {
@@ -461,9 +409,8 @@ function spreadsheet(options) {
     },
     data: spreadsheetData,
     renderer: addMaxHeightToCells,
-    minRows: pageSize + 1,
-    minCols: 2,
-    minSpareCols: 1,
+    minSpareRows: 40,
+    minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
       onChange();
@@ -512,6 +459,13 @@ function spreadsheet(options) {
         data: preparedData,
         colWidths: colWidths
       });
+
+      // Re-execute search without changing cell selection
+      search('find', {
+        selectCell: false,
+        force: true,
+        focusSearch: false
+      });
     },
     afterRemoveRow: function() {
       onChange();
@@ -519,8 +473,6 @@ function spreadsheet(options) {
     afterRemoveCol: function(index, amount, originalArr, source) {
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
-
-      ColumnsTracking.removeColumns(index, amount, originalArr, source);
 
       hot.getSettings().manualColumnResize = false;
       hot.updateSettings({ colWidths: colWidths });
@@ -585,8 +537,6 @@ function spreadsheet(options) {
           colWidths.splice(newIndex + i, 0, colsToMove[i]);
         }
       }
-
-      ColumnsTracking.moveColumns(items, index);
 
       hot.updateSettings({ colWidths: colWidths });
     },
@@ -660,11 +610,23 @@ function spreadsheet(options) {
         rendered += 1;
       }
     },
-    afterLoadData: function() {
+    afterLoadData: function(firstTime) {
       dataLoaded = true;
 
       if (!options.initialLoad) {
         $('.entries-message').html('');
+      }
+
+      // Clear search in initial load
+      if (firstTime) {
+        search('clear');
+      } else {
+        // Re-execute search without changing cell selection
+        search('find', {
+          selectCell: false,
+          force: true,
+          focusSearch: false
+        });
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
@@ -717,7 +679,7 @@ function spreadsheet(options) {
   copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
-    return hot && hot.getDataAtRow(0);
+    return hot.getDataAtRow(0);
   }
 
   /**
@@ -880,6 +842,8 @@ function spreadsheet(options) {
             entry.data[header] = visualRow[index];
           }
 
+          entry.order = order;
+
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {
             entry.data[header] = parseCellValue(entry.data[header]);
@@ -898,6 +862,20 @@ function spreadsheet(options) {
     });
 
     return entries;
+  }
+
+  function setData(options) {
+    options = options || {};
+
+    var rows = options.rows || [];
+    var columns = options.columns || [];
+    var preparedData = prepareData(rows, columns);
+
+    if (!dataLoaded) {
+      hot.loadData(preparedData);
+    }
+
+    HistoryStack.getCurrent().setData(preparedData);
   }
 
   /**
@@ -967,6 +945,7 @@ function spreadsheet(options) {
   }
 
   function reset(resetHistory) {
+    search('clear');
     setChanges(false);
 
     $('.save-btn').addClass('hidden');
@@ -979,7 +958,7 @@ function spreadsheet(options) {
 
   return {
     getData: getData,
-    prepareData,
+    setData: setData,
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
@@ -997,6 +976,205 @@ function spreadsheet(options) {
   };
 }
 
+// Search
+var searchField = document.getElementById('search-field');
+
+var queryResultIndex;
+var queryResult = [];
+var resultsCount = 0;
+
+function setSearchMessage(msg) {
+  if (msg) {
+    $('.find-results').html(msg);
+
+    return;
+  }
+
+  var value = searchField.value.trim();
+  var foundMessage = resultsCount + ' found';
+
+  if (resultsCount) {
+    foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
+  }
+
+  $('.find-results').html(value !== '' ? foundMessage : '');
+}
+
+function searchSpinner() {
+  setSearchMessage('<i class="fa fa-spinner fa-pulse"></i>');
+}
+
+var previousSearchValue = '';
+
+/**
+ * This will make a search
+ * @param {String} action next | prev | find | clear
+ * @param {Object} options a map of options for the function
+ * @param {Boolean} [options.selectCell=true] If false, the search won't take the user to the search result
+ * @param {Boolean} [options.force=false] If true, a new search will be executed, even if the search term has not changed
+ * @return {void}
+ */
+function search(action, options) {
+  options = options || {};
+
+  if (action === 'clear') {
+    searchField.value = '';
+    searchSpinner();
+    setTimeout(function() {
+      search('find', options);
+    }, 50); // 50ms for spinner to render
+
+    return;
+  }
+
+  var value = searchField.value.trim();
+
+  //  Don't run search again if the value hasn't changed
+  if (action === 'find' && previousSearchValue === value && !options.force) {
+    setSearchMessage();
+
+    return;
+  }
+
+  previousSearchValue = value;
+
+  if (value !== '') {
+    $('.filter-form .find-controls').removeClass('disabled');
+  } else {
+    $('.filter-form .find-controls').addClass('disabled');
+    $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+  }
+
+  if (!hot || !hot.search) {
+    return;
+  }
+
+  var row;
+  var col;
+
+  if (action === 'find') {
+    queryResult = hot.search.query(value);
+    resultsCount = queryResult.length;
+    queryResultIndex = 0;
+
+    if (resultsCount) {
+      $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
+
+      if (options.selectCell !== false) {
+        row = queryResult[queryResultIndex].row;
+        col = queryResult[queryResultIndex].col;
+
+        hot.selectCell(row, col, row, col, true, false);
+        // HACK: Select the cell twice to scroll the viewport to show the cell
+        // in case it was out of view and couldn't be rendered in time
+        hot.selectCell(row, col, row, col, true, false);
+      }
+    } else {
+      $('.find-controls .find-prev, .find-controls .find-next').addClass('disabled');
+    }
+
+    hot.render();
+  } else if (action === 'next' || action === 'prev') {
+    hot.selection.selectedHeader.cols = false;
+
+    if (action === 'next') {
+      queryResultIndex++;
+
+      if (queryResultIndex >= queryResult.length) {
+        queryResultIndex = 0;
+      }
+    }
+
+    if (action === 'prev') {
+      queryResultIndex--;
+
+      if (queryResultIndex < 0) {
+        queryResultIndex = queryResult.length - 1;
+      }
+    }
+
+    if (queryResult[queryResultIndex] && options.selectCell !== false) {
+      row = queryResult[queryResultIndex].row;
+      col = queryResult[queryResultIndex].col;
+
+      hot.selectCell(row, col, row, col, true, false);
+      // HACK: Select the cell twice to scroll the viewport to show the cell
+      // in case it was out of view and couldn't be rendered in time
+      hot.selectCell(row, col, row, col, true, false);
+    }
+  }
+
+  // Update message
+  setSearchMessage();
+
+  if (options.focusSearch !== false) {
+    // Focus back to the search field
+    searchField.focus();
+  }
+}
+
+$('.find-prev, .find-next').on('click', function() {
+  // Simulate prev/next keys press on the search field
+  if ($(this).hasClass('find-prev')) {
+    search('prev');
+  }
+
+  if ($(this).hasClass('find-next')) {
+    search('next');
+  }
+});
+
+// Clear search field
+$('.reset-find').on('click', function() {
+  search('clear');
+});
+
+var debouncedFind = _.debounce(function() {
+  search('find');
+}, 500);
+
+Handsontable.dom.addEvent(searchField, 'keydown', function onKeyDown(event) {
+  // Just the modifiers
+  if ([16, 17, 18, 91, 93].indexOf(event.keyCode) > -1) {
+    return;
+  }
+
+  var ctrlDown = (event.ctrlKey || event.metaKey);
+
+  // Enter & Shift + Enter
+  if (event.keyCode === 13 && !ctrlDown && !event.altKey) {
+    search(event.shiftKey ? 'prev' : 'next');
+
+    return;
+  }
+
+  // Esc
+  if (!ctrlDown && !event.altKey && !event.shiftKey && event.keyCode === 27) {
+    search('clear');
+
+    return;
+  }
+
+  // Cmd/Ctrl (+ Shift) + G
+  if (ctrlDown && !event.altKey && event.keyCode === 71) {
+    search(event.shiftKey ? 'prev' : 'next');
+    event.preventDefault();
+
+    return;
+  }
+
+  // Any other keys, but with Ctrl/Cmd modifier
+  if (ctrlDown) {
+    return;
+  }
+});
+
+Handsontable.dom.addEvent(searchField, 'input', function onInput() {
+  // Typing
+  searchSpinner();
+  debouncedFind();
+});
+
 // CHeck if user is on Apple MacOS system
 function isMac() {
   return navigator.platform.indexOf('Mac') > -1;
@@ -1006,9 +1184,9 @@ function openOverlay() {
   var htmlContent = Fliplet.Widget.Templates['templates.overlay']();
 
   new Fliplet.Utils.Overlay(htmlContent, {
-    title: 'Keyboard shortcuts',
+    title: 'Copying and pasting',
     size: 'small',
-    classes: 'kb-shortcuts-overlay',
+    classes: 'copy-cut-paste-overlay',
     showOnInit: true,
     beforeOpen: function() {
       // Reset (just in case)
@@ -1101,7 +1279,7 @@ $('#toolbar')
       openOverlay();
     }
   })
-  .on('click', '[data-action="paste"], [data-action="find"]', function() {
+  .on('click', '[data-action="paste"]', function() {
     openOverlay();
   });
 
