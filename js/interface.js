@@ -870,7 +870,7 @@ function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
 
   const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
 
-  if (renamedOrderByColumn.newColumn) {
+  if (renamedOrderByColumn && renamedOrderByColumn.newColumn) {
     currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
   }
 }
