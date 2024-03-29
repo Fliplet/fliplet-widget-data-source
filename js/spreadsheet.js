@@ -434,8 +434,8 @@ function spreadsheet(options) {
         : columnClasslist.contains('ascending');
 
       // Toggle sort order
-      if (ascending === false) {
-        ascending = undefined;
+      if (ascending === undefined) {
+        ascending = true;
       } else {
         ascending = !ascending;
       }
