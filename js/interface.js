@@ -854,8 +854,8 @@ function getCommitPayload(entries) {
   };
 }
 
-function validateOrFixDefinitionOrderBy({ dataSourceDefinition, columns, removedColumns, renamedColumns }) {
-  const currentOrderByColumnDefinition = _.get(dataSourceDefinition, ['order', 0, 0]);
+function validateOrFixDefinitionOrderBy(removedColumns, renamedColumns) {
+  const currentOrderByColumnDefinition = _.get(currentDataSourceDefinition, ['order', 0, 0]);
   const currentOrderByColumn = currentOrderByColumnDefinition && currentOrderByColumnDefinition.split('.')[1];
 
   if (!currentOrderByColumn) {
@@ -863,16 +863,15 @@ function validateOrFixDefinitionOrderBy({ dataSourceDefinition, columns, removed
   }
 
   if (removedColumns.includes(currentOrderByColumn)) {
-    dataSourceDefinition.order[0][0] = `data.${columns[0]}`;
-    dataSourceDefinition.order[0][1] = 'ASC';
+    currentDataSourceDefinition.order = undefined;
 
     return;
   }
 
   const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
 
-  if (renamedOrderByColumn.newColumn) {
-    dataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
+  if (renamedOrderByColumn && renamedOrderByColumn.newColumn) {
+    currentDataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
   }
 }
 
@@ -921,14 +920,11 @@ function saveCurrentData() {
 
   var widths = trimColumns(table.getColWidths());
 
-  const payload = getCommitPayload(entries);
-
   // Update column sizes in background
   Fliplet.DataSources.getById(currentDataSourceId).then(function(dataSource) {
     dataSource.definition = dataSource.definition || {};
     dataSource.definition.columnsWidths = widths;
 
-    validateOrFixDefinitionOrderBy({ dataSourceDefinition: dataSource.definition, columns, removedColumns: payload.deleteColumns, renamedColumns: payload.renameColumns });
     currentDataSourceDefinition = dataSource.definition;
 
     return Fliplet.DataSources.update(currentDataSourceId, { definition: dataSource.definition });
@@ -936,6 +932,9 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
+  var payload = getCommitPayload(entries);
+
+  validateOrFixDefinitionOrderBy(payload.deleteColumns, payload.renameColumns);
 
   return currentDataSource.commit({
     columns: columns,
