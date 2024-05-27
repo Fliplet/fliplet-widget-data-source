@@ -356,13 +356,25 @@ function spreadsheet(options) {
 
     var currentSortOrder = _.clone(currentDataSourceDefinition.order);
 
-    if (typeof ascending === 'undefined') {
-      delete currentDataSourceDefinition.order;
-    } else {
-      currentDataSourceDefinition.order = [
-        ['data.' + columns[columnIndex], ascending ? 'ASC' : 'DESC']
-      ];
+    const columnName = columns[columnIndex];
+    const renamedColumn = ColumnsTracking.getRenamedColumns().find(({ newColumn }) => newColumn === columnName);
+
+    const isNewlyAddedColumn = ColumnsTracking.getNewlyAddedColumns(columns).includes(columnName);
+    if (isNewlyAddedColumn) {
+      const error = new Error('Cannot sort by a newly added column. Please save the changes first.');
+      
+      Fliplet.Modal.alert({
+        message: error.message,
+      });
+     
+      throw error;
     }
+
+    const orderColumnName = renamedColumn ? renamedColumn.column : columnName;
+
+    currentDataSourceDefinition.order = [
+      [`data.${orderColumnName}`, ascending ? 'ASC' : 'DESC']
+    ];
 
     // Reset to first page
     resetPagination();
@@ -640,6 +652,8 @@ function spreadsheet(options) {
       // Add this new width before set the widths again
       colWidths.splice(index, 0, 50);
       hot.updateSettings({ colWidths: colWidths });
+
+      ColumnsTracking.addColumn(index, name);
 
       onChange();
     },

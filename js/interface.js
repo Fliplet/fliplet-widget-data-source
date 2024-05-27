@@ -858,11 +858,7 @@ function validateOrFixDefinitionOrderBy({ dataSourceDefinition, columns, removed
   const currentOrderByColumnDefinition = _.get(dataSourceDefinition, ['order', 0, 0]);
   const currentOrderByColumn = currentOrderByColumnDefinition && currentOrderByColumnDefinition.split('.')[1];
 
-  if (!currentOrderByColumn) {
-    return;
-  }
-
-  if (removedColumns.includes(currentOrderByColumn)) {
+  if (!currentOrderByColumn || removedColumns.includes(currentOrderByColumn)) {
     dataSourceDefinition.order[0][0] = `data.${columns[0]}`;
     dataSourceDefinition.order[0][1] = 'ASC';
 
@@ -871,8 +867,8 @@ function validateOrFixDefinitionOrderBy({ dataSourceDefinition, columns, removed
 
   const renamedOrderByColumn = renamedColumns.find(({ column }) => column === currentOrderByColumn);
 
-  if (renamedOrderByColumn.newColumn) {
-    dataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn}`;
+  if (renamedOrderByColumn && renamedOrderByColumn.newColumn) {
+    dataSourceDefinition.order[0][0] = `data.${renamedOrderByColumn.newColumn}`;
   }
 }
 
