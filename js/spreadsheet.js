@@ -351,7 +351,7 @@ function spreadsheet(options) {
    * @param {Boolean} [ascending] - Undefined if the column is not sorted
    * @returns {Promise} Resolves when the date source entries are updated
    */
-  function sortDataSourceEntries(columnIndex, ascending) {
+  async function sortDataSourceEntries(columnIndex, ascending) {
     $initialSpinnerLoading.addClass('animated');
 
     var currentSortOrder = _.clone(currentDataSourceDefinition.order);
@@ -375,34 +375,12 @@ function spreadsheet(options) {
     currentDataSourceDefinition.order = [
       [`data.${orderColumnName}`, ascending ? 'ASC' : 'DESC']
     ];
+    
+    // Update the data source definition
+    await Fliplet.DataSources.update(currentDataSourceId, { definition: currentDataSourceDefinition });
 
-    // Reset to first page
-    resetPagination();
-
-    // Fetch and render data source entries based on updated sort order
-    return updateDataSourceEntries()
-      .then(function(updated) {
-        if (!updated) {
-          // Revert cached definition
-          currentDataSourceDefinition.order = currentSortOrder;
-
-          // Revert UI state
-          var columnHeader = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex];
-
-          if (columnHeader.classList.contains('ascending')) {
-            columnHeader.classList.remove('ascending');
-          } else if (columnHeader.classList.contains('descending')) {
-            columnHeader.classList.replace('descending', 'ascending');
-          } else {
-            columnHeader.classList.add('descending');
-          }
-
-          return;
-        }
-
-        // Update data source definition in the background
-        Fliplet.DataSources.update(currentDataSourceId, { definition: currentDataSourceDefinition });
-      });
+    // Refetch the DS definition and entries
+    return fetchCurrentDataSourceEntries();
   }
 
   // Reset history stack
