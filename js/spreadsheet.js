@@ -351,36 +351,46 @@ function spreadsheet(options) {
    * @param {Boolean} [ascending] - Undefined if the column is not sorted
    * @returns {Promise} Resolves when the date source entries are updated
    */
-  async function sortDataSourceEntries(columnIndex, ascending) {
+  function sortDataSourceEntries(columnIndex, ascending) {
     $initialSpinnerLoading.addClass('animated');
 
     var currentSortOrder = _.clone(currentDataSourceDefinition.order);
 
-    const columnName = columns[columnIndex];
-    const renamedColumn = ColumnsTracking.getRenamedColumns().find(({ newColumn }) => newColumn === columnName);
-
-    const isNewlyAddedColumn = ColumnsTracking.getNewlyAddedColumns(columns).includes(columnName);
-    if (isNewlyAddedColumn) {
-      const error = new Error('Cannot sort by a newly added column. Please save the changes first.');
-      
-      Fliplet.Modal.alert({
-        message: error.message,
-      });
-     
-      throw error;
+    if (typeof ascending === 'undefined') {
+      delete currentDataSourceDefinition.order;
+    } else {
+      currentDataSourceDefinition.order = [
+        ['data.' + columns[columnIndex], ascending ? 'ASC' : 'DESC']
+      ];
     }
 
-    const orderColumnName = renamedColumn ? renamedColumn.column : columnName;
+    // Reset to first page
+    resetPagination();
 
-    currentDataSourceDefinition.order = [
-      [`data.${orderColumnName}`, ascending ? 'ASC' : 'DESC']
-    ];
-    
-    // Update the data source definition
-    await Fliplet.DataSources.update(currentDataSourceId, { definition: currentDataSourceDefinition });
+    // Fetch and render data source entries based on updated sort order
+    return updateDataSourceEntries()
+      .then(function(updated) {
+        if (!updated) {
+          // Revert cached definition
+          currentDataSourceDefinition.order = currentSortOrder;
 
-    // Refetch the DS definition and entries
-    return fetchCurrentDataSourceEntries();
+          // Revert UI state
+          var columnHeader = hot.table.querySelectorAll('.colHeader.columnSorting')[columnIndex];
+
+          if (columnHeader.classList.contains('ascending')) {
+            columnHeader.classList.remove('ascending');
+          } else if (columnHeader.classList.contains('descending')) {
+            columnHeader.classList.replace('descending', 'ascending');
+          } else {
+            columnHeader.classList.add('descending');
+          }
+
+          return;
+        }
+
+        // Update data source definition in the background
+        Fliplet.DataSources.update(currentDataSourceId, { definition: currentDataSourceDefinition });
+      });
   }
 
   // Reset history stack
@@ -630,8 +640,6 @@ function spreadsheet(options) {
       // Add this new width before set the widths again
       colWidths.splice(index, 0, 50);
       hot.updateSettings({ colWidths: colWidths });
-
-      ColumnsTracking.addColumn(index, name);
 
       onChange();
     },
