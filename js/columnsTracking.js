@@ -19,24 +19,6 @@ Fliplet.Registry.set('columns-tracking', (() => {
     return reference;
   };
 
-  const addColumn = (atIndex, name) => {
-    const currentReference = getReference();
-    currentReference.splice(atIndex, 0, undefined);
-    current.splice(atIndex, 0, name);
-  };
-
-  const getNewlyAddedColumns = (currentColumnsArr) => {
-    const referenceColumns = getReference();
-    
-    return currentColumnsArr.reduce((acc, column, index) => {
-      if (referenceColumns[index] === undefined) {
-        acc.push(column);
-      }
-
-      return acc;
-    }, []);
-  };
-
   const removeColumns = (index, amount) => {
     const currentReference = getReference();
     const removed = reference.slice(index, index + amount);
@@ -103,9 +85,6 @@ Fliplet.Registry.set('columns-tracking', (() => {
     saveStateAsCurrent,
     removeColumns,
     moveColumns,
-    getRenamedColumns,
-    addColumn,
-    getNewlyAddedColumns,
     getCommitPayload,
     reset
   };
