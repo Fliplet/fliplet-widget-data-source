@@ -852,3 +852,7 @@ td.data-source-apps {
 .data-source-name {
   word-break: break-all;
 }
+
+.handsontable :is(th, td){
+  height: unset !important;
+}
