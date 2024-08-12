@@ -616,7 +616,6 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
-// eslint-disable-next-line no-unused-vars
 function getCommitPayload(entries) {
   entries = entries || [];
 
@@ -725,17 +724,14 @@ function saveCurrentData() {
 
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
-  // var payload = getCommitPayload(entries);
+  var payload = getCommitPayload(entries);
 
   return currentDataSource.commit({
-    entries: entries,
-    // delete: payload.delete,
+    entries: payload.entries,
+    delete: payload.delete,
     columns: columns,
     returnEntries: false
   }).then(function(response) {
-    return;
-
-    // eslint-disable-next-line no-unreachable
     var clientIds = [];
     var ids = [];
 
@@ -745,7 +741,6 @@ function saveCurrentData() {
       ids.push(entry.id);
     });
 
-    // eslint-disable-next-line no-unreachable
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
