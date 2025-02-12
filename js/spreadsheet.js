@@ -762,15 +762,36 @@ function spreadsheet(options) {
     return name;
   }
 
-  function addMaxHeightToCells(instance, td) {
+  function addMaxHeightToCells(instance, td, row, col, prop, value, cellProperties) {
+    // Apply base text renderer
     Handsontable.renderers.TextRenderer.apply(this, arguments);
 
+    var content = td.innerHTML;
     var wrapper = document.createElement('div');
-
     wrapper.classList.add('cell-wrapper');
-    wrapper.innerHTML = td.innerHTML;
 
+    // Handle objects and arrays
+    if (value && typeof value === 'object') {
+      try {
+        content = JSON.stringify(value);
+      } catch (e) {
+        content = String(value);
+      }
+    }
+
+    wrapper.innerHTML = content;
     td.replaceChildren(wrapper);
+
+    // Force recalculation after a small delay to ensure proper height
+    if (rendered) {
+      setTimeout(function() {
+        var contentHeight = wrapper.scrollHeight;
+        if (contentHeight > 23) { // Default minimum height
+          instance.getSettings().rowHeights[row] = contentHeight + 8; // Add padding
+          instance.render();
+        }
+      }, 0);
+    }
   }
 
   /**
