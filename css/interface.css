@@ -853,6 +853,34 @@ td.data-source-apps {
   word-break: break-all;
 }
 
-.handsontable :is(th, td){
+.handsontable :is(th, td) {
+  min-height: 23px !important;
+  max-height: none !important;
+  padding: 4px !important;
+  box-sizing: border-box !important;
+}
+
+.handsontable td {
   height: unset !important;
+}
+
+.handsontable .cell-wrapper {
+  min-height: 15px;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  word-break: break-word;
+  height: 100%;
+  display: inline;
+  align-items: center;
+}
+
+/* Ensure header cells have proper height */
+.handsontable th .relative {
+  min-height: 23px;
+}
+
+/* Fix for first row after rerender */
+.handsontable tbody tr:first-child td {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
 }
