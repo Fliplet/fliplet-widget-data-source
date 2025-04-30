@@ -858,7 +858,6 @@ td.data-source-apps {
   max-height: none !important;
   padding: 4px !important;
   box-sizing: border-box !important;
-  text-overflow: ellipsis;
 }
 
 .handsontable td {
@@ -868,12 +867,11 @@ td.data-source-apps {
 .handsontable .cell-wrapper {
   min-height: 15px;
   line-height: 1.2;
-  white-space: nowrap;
-  word-break: keep-all;
+  white-space: pre-wrap;
+  word-break: break-word;
   height: 100%;
+  display: inline;
   align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Ensure header cells have proper height */
