@@ -862,7 +862,8 @@ td.data-source-apps {
 }
 
 .handsontable td {
-  height: unset !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
 }
 
 .handsontable .cell-wrapper {
@@ -879,10 +880,13 @@ td.data-source-apps {
 /* Ensure header cells have proper height */
 .handsontable th .relative {
   min-height: 23px;
+  line-height: 1.2;
 }
 
 /* Fix for first row after rerender */
 .handsontable tbody tr:first-child td {
   padding-top: 4px !important;
   padding-bottom: 4px !important;
+  white-space: nowrap;
+  word-break: keep-all;
 }
