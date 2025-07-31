@@ -734,12 +734,6 @@ function saveCurrentData() {
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
   var payload = getCommitPayload(entries);
-  var deletedEntriesKey = 'deleted-entries-' + currentDataSourceId;
-  var deletedEntries = JSON.parse(localStorage.getItem(deletedEntriesKey)) || [];
-
-  deletedEntries.push(...payload.delete);
-
-  localStorage.setItem(deletedEntriesKey, JSON.stringify(deletedEntries));
 
   return currentDataSource.commit({
     entries: payload.entries,
