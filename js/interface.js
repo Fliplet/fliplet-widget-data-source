@@ -423,10 +423,6 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
-      if (table) {
-        table.destroy();
-      }
-
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
       setTimeout(function() {
@@ -439,10 +435,6 @@ function fetchCurrentDataSourceEntries(entries) {
         $('#versions').removeClass('hidden');
       }, 0);
     } else {
-      if (table) {
-        table.destroy();
-      }
-
       table = spreadsheet({ columns: columns, rows: rows });
       $('.table-entries').css('visibility', 'visible');
 
@@ -681,7 +673,6 @@ function saveCurrentData() {
   var columns;
 
   table.onSave();
-  fetchCurrentDataSourceEntries();
 
   var entries = table.getData({
     parseJSON: true,
@@ -754,8 +745,6 @@ function saveCurrentData() {
 
     cacheOriginalEntries(entries, clientIdMap);
     table.setData({ columns: columns, rows: entries });
-
-    return fetchCurrentDataSourceEntries();
   });
 }
 
