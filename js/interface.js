@@ -260,6 +260,29 @@ function renderError(options) {
   });
 }
 
+function waitUntilSized(selector, callback) {
+  const el = document.querySelector(selector);
+
+  function check() {
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  }
+
+  check();
+}
+
+function renderSpreadsheet(rowsData) {
+  waitUntilSized('.table-entries', () => {
+    table = spreadsheet({ columns: columns, rows: rowsData });
+    $('.table-entries').css('visibility', 'visible');
+    $('#versions').removeClass('hidden');
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -423,22 +446,17 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
+      $('.table-entries').css('visibility', 'hidden');
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-      setTimeout(function() {
+
+      requestAnimationFrame(() => {
         table.destroy();
         initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-
-        $('#versions').removeClass('hidden');
-      }, 0);
+        renderSpreadsheet(rows);
+      });
     } else {
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-
-      $('#versions').removeClass('hidden');
+      renderSpreadsheet(rows);
     }
   })
     .catch(function onFetchError(error) {
