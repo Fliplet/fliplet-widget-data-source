@@ -264,6 +264,10 @@ function waitUntilSized(selector, callback) {
   const el = document.querySelector(selector);
 
   function check() {
+    if (!el || !document.contains(el)) {
+      return;
+    }
+    
     const rect = el.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       callback();
@@ -278,7 +282,7 @@ function waitUntilSized(selector, callback) {
 function renderSpreadsheet(rowsData) {
   waitUntilSized('.table-entries', () => {
     table = spreadsheet({ columns: columns, rows: rowsData });
-    $('.table-entries').css('visibility', 'visible');
+    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
     $('#versions').removeClass('hidden');
   });
 }
@@ -446,7 +450,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
-      $('.table-entries').css('visibility', 'hidden');
+      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
 
       if (table) {
         table.destroy();
