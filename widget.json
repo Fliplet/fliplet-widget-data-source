@@ -8,7 +8,6 @@
   "interface": {
     "dependencies": [
       "handlebars",
-      "lodash",
       "jquery",
       "jquery-ui",
       "bootstrap",
@@ -36,6 +35,7 @@
       "vendor/overlay.js",
       "vendor/bootstrap-tokenfield.min.js",
 
+      "js/utils.js",
       "js/history.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
