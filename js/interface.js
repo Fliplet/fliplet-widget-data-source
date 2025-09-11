@@ -451,11 +451,6 @@ function fetchCurrentDataSourceEntries(entries) {
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
       $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
-
-      if (table) {
-        table.destroy();
-      }
-
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
 
@@ -465,10 +460,6 @@ function fetchCurrentDataSourceEntries(entries) {
         renderSpreadsheet(rows);
       });
     } else {
-      if (table) {
-        table.destroy();
-      }
-
       renderSpreadsheet(rows);
     }
   })
@@ -704,7 +695,6 @@ function saveCurrentData() {
   var columns;
 
   table.onSave();
-  fetchCurrentDataSourceEntries();
 
   var entries = table.getData({
     parseJSON: true,
@@ -777,8 +767,6 @@ function saveCurrentData() {
 
     cacheOriginalEntries(entries, clientIdMap);
     table.setData({ columns: columns, rows: entries });
-
-    return fetchCurrentDataSourceEntries();
   });
 }
 
