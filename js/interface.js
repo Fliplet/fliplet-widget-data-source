@@ -426,10 +426,27 @@ function fetchCurrentDataSourceEntries(entries) {
       if (table) {
         table.destroy();
       }
+
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
+
+      setTimeout(function() {
+        table.destroy();
+        initialLoad = false;
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
     } else {
       if (table) {
         table.destroy();
       }
+
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
     }
   })
     .catch(function onFetchError(error) {
