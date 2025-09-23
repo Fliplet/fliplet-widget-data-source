@@ -1004,19 +1004,19 @@ function spreadsheet(options) {
     destroy: function() {
       reset(true);
 
-      // Ensure we do not call methods on a destroyed Handsontable instance
+      // Ensures we do not call methods on a destroyed Handsontable instance
       if (hot && typeof hot.destroy === 'function') {
         try {
           hot.destroy();
         } catch (e) {
-          // Fail silently; we are cleaning up regardless
+          // Fails silently; we are cleaning up regardless
         }
       }
 
-      // Mark as destroyed to stop any deferred work
+      // Marks as destroyed to stop any deferred work
       isDestroyed = true;
 
-      // Nullify reference so external callers can guard with `if (!hot)`
+      // Nullifies reference so external callers can guard with `if (!hot)`
       hot = null;
 
       return;
