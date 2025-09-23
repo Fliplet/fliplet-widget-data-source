@@ -13,7 +13,7 @@ function spreadsheet(options) {
   var dataHasChanges = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
-  var isDestroyed = false; // Flag to prevent actions after instance is destroyed
+  var isDestroyed = false; // Flag to prevent actions after instance is being destroyed
 
   /**
    * Given an array of data source entries it does return an array
