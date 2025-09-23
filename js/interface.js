@@ -58,7 +58,7 @@ var defaultAccessRules = [
 ];
 
 var getApps = Fliplet.Apps.get().then(function(apps) {
-  return _.sortBy(apps, function(app) {
+  return FlipletDSUtils.sortBy(apps, function(app) {
     return app.name.toLowerCase();
   });
 });
@@ -127,7 +127,7 @@ function getDataSources() {
         var filteredDataSources = [];
 
         userDataSources.forEach(function(dataSource, index) {
-          var matchedApp = _.find(dataSource.apps, function(app) {
+          var matchedApp = FlipletDSUtils.find(dataSource.apps, function(app) {
             return dataSource.appId === widgetData.appId || app.id === widgetData.appId;
           });
 
@@ -305,7 +305,7 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceDefinition = dataSource.definition || {};
 
     if (dataSource.apps && dataSource.apps.length > 0) {
-      dataSourceIsLive = _.some(dataSource.apps, function(app) {
+      dataSourceIsLive = FlipletDSUtils.some(dataSource.apps, function(app) {
         return app.productionAppId;
       });
     }
@@ -342,12 +342,12 @@ function fetchCurrentDataSourceUsers() {
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
-  _.forEach(entries, function(entry) {
+  FlipletDSUtils.forEach(entries, function(entry) {
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    entryMap.original[entry.id] = FlipletDSUtils.pick(entry, ['id', 'data', 'order']);
   });
 }
 
@@ -435,14 +435,14 @@ function fetchCurrentDataSourceEntries(entries) {
         Object.assign(flattenedColumns, dataItem);
       });
 
-      var computedColumns = _.keys(flattenedColumns);
+      var computedColumns = FlipletDSUtils.keys(flattenedColumns);
 
       if (computedColumns.length !== columns.length) {
         // TODO: Add tracking to verify how often this happens and why
         // Missing column found
       }
 
-      columns = _.uniq(_.concat(columns, computedColumns));
+      columns = FlipletDSUtils.uniq(FlipletDSUtils.concat(columns, computedColumns));
     }
 
     currentDataSourceRowsCount = rows.length;
@@ -541,7 +541,7 @@ function fetchCurrentDataSourceVersions() {
       var versions = currentDataSourceVersions.map(function(version) {
         version.createdAt = TD(version.createdAt, { format: 'lll', locale: locale });
         version.action = getVersionActionDescription(version);
-        version.entriesCount = _.get(version, 'data.entries.count', 'Unknown');
+        version.entriesCount = FlipletDSUtils.get(version, 'data.entries.count', 'Unknown');
         version.hasEntries = version.entriesCount > 0;
         version.columnsCount = version.data.columns && version.data.columns.length || 'Not defined';
 
@@ -584,7 +584,7 @@ Fliplet.Widget.onSaveRequest(function() {
  * @returns {Array} Columns to be saved
  */
 function trimColumns(columns) {
-  return _.filter(columns, function(column) {
+  return FlipletDSUtils.filter(columns, function(column) {
     return column !== null;
   });
 }
@@ -598,7 +598,7 @@ function toggleSortedIcon(column) {
 }
 
 function getEmptyColumns(columns, entries) {
-  var emptyColumns = _.filter(columns, function(column) {
+  var emptyColumns = FlipletDSUtils.filter(columns, function(column) {
     return emptyColumnNameRegex.test(column);
   });
 
@@ -606,7 +606,7 @@ function getEmptyColumns(columns, entries) {
     return [];
   }
 
-  _.forEach(entries, function(entry) {
+  FlipletDSUtils.forEach(entries, function(entry) {
     // Stop iteration through entries if all empty columns have values (removed from array)
     if (!emptyColumns.length) {
       return false;
@@ -634,7 +634,7 @@ function getEmptyColumns(columns, entries) {
 
 function removeEmptyColumnsInEntries(entries, emptyColumns) {
   return entries.map(function(entry) {
-    entry.data = _.omitBy(entry.data, function(value, key) {
+    entry.data = FlipletDSUtils.omitBy(entry.data, function(value, key) {
       return emptyColumns.includes(key);
     });
 
@@ -678,7 +678,7 @@ function getCommitPayload(entries) {
     entryMap.entries[entry.id] = entry;
   });
 
-  _.forIn(entryMap.original, function(original) {
+  FlipletDSUtils.forIn(entryMap.original, function(original) {
     var entry = entryMap.entries[original.id];
 
     if (!entry) {
@@ -687,7 +687,7 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry, original)) {
+    if (FlipletDSUtils.isEqual(entry, original)) {
       return;
     }
 
@@ -717,7 +717,7 @@ function saveCurrentData() {
   if (!entries.length) {
     columns = table.getColumns({ raw: true });
 
-    if (_.some(columns)) {
+    if (FlipletDSUtils.some(columns)) {
       columns = table.getColumns();
     } else {
       columns = [];
@@ -730,7 +730,7 @@ function saveCurrentData() {
   var emptyColumns = getEmptyColumns(columns, entries);
 
   // Remove empty columns from the table
-  _.forEach(emptyColumns, function(column) {
+  FlipletDSUtils.forEach(emptyColumns, function(column) {
     var columnIndex = columns.indexOf(column);
 
     if (columnIndex !== -1) {
@@ -768,12 +768,14 @@ function saveCurrentData() {
     var ids = [];
 
     // Generate an object mapping client IDs to new entry IDs
-    _.forEach(response.clientIds, function(entry) {
-      clientIds.push(entry.clientId);
-      ids.push(entry.id);
-    });
+    if (response && response.clientIds && Array.isArray(response.clientIds)) {
+      FlipletDSUtils.forEach(response.clientIds, function(entry) {
+        clientIds.push(entry.clientId);
+        ids.push(entry.id);
+      });
+    }
 
-    var clientIdMap = _.zipObject(clientIds, ids);
+    var clientIdMap = FlipletDSUtils.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
     table.setData({ columns: columns, rows: entries });
@@ -788,7 +790,7 @@ function getDataSourceRender(data) {
   var html = '';
 
   if (Array.isArray(data.apps)) {
-    data.apps = _.uniqBy(data.apps, function(app) {
+    data.apps = FlipletDSUtils.uniqBy(data.apps, function(app) {
       return app.id;
     });
   }
@@ -880,7 +882,7 @@ function createDataSource(createOptions, options) {
 
   return Fliplet.Modal.prompt({
     title: 'Enter the name of your new Data Source',
-    value: _.get(options, 'name', ''),
+    value: FlipletDSUtils.get(options, 'name', ''),
     maxlength: 255
   }).then(function(result) {
     if (result === null) {
@@ -915,12 +917,12 @@ function createDataSource(createOptions, options) {
 
     Fliplet.Organizations.get().then(function(organizations) {
       if (widgetData.appId) {
-        _.extend(createOptions, {
+        FlipletDSUtils.extend(createOptions, {
           appId: widgetData.appId,
           name: dataSourceName
         });
       } else {
-        _.extend(createOptions, {
+        FlipletDSUtils.extend(createOptions, {
           organizationId: organizations[0].id,
           name: dataSourceName
         });
@@ -1118,7 +1120,7 @@ function sortDataSources(key, order, data) {
     toBeOrderedDataSources = allDataSources;
   }
 
-  var orderedDataSources = _.orderBy(toBeOrderedDataSources, function(ds) {
+  var orderedDataSources = FlipletDSUtils.orderBy(toBeOrderedDataSources, function(ds) {
     switch (key) {
       case 'updatedAt':
         return new Date(ds[key]).getTime();
@@ -1325,7 +1327,7 @@ $('#app')
         var orderedDataSources = sortDataSources('deletedAt', 'asc', result.dataSources);
 
         dataSourcesToSearch = orderedDataSources;
-        trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
+        trashedDataSources = FlipletDSUtils.sortBy(orderedDataSources, function(dataSource) {
           return dataSource.name.trim().toUpperCase();
         });
 
@@ -1349,7 +1351,7 @@ $('#app')
       var orderedDataSources = sortDataSources('deletedAt', 'desc', result.dataSources);
 
       dataSourcesToSearch = orderedDataSources;
-      trashedDataSources = _.sortBy(orderedDataSources, function(dataSource) {
+      trashedDataSources = FlipletDSUtils.sortBy(orderedDataSources, function(dataSource) {
         return dataSource.name.trim().toUpperCase();
       });
 
@@ -1426,7 +1428,7 @@ $('#app')
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
 
     var usedAppsText = '';
-    var currentDS = _.find(dataSources, function(ds) {
+    var currentDS = FlipletDSUtils.find(dataSources, function(ds) {
       return ds.id === currentDataSourceId;
     });
 
@@ -1435,7 +1437,7 @@ $('#app')
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
-      var appsList = _.map(appUsedIn, function(el) {
+      var appsList = FlipletDSUtils.map(appUsedIn, function(el) {
         return '<li><b>' + el + '</b></li>';
       });
 
@@ -1721,7 +1723,7 @@ $('#app')
     e.preventDefault();
 
     var id = $(this).data('version-preview');
-    var version = _.find(currentDataSourceVersions, { id: id });
+    var version = FlipletDSUtils.find(currentDataSourceVersions, { id: id });
 
     previewVersion(version);
   })
@@ -1855,7 +1857,7 @@ $('#show-versions').click(function() {
 
 function findSecurityRule() {
   var rule = currentDataSourceRules.map(function(rule) {
-    var tokens = _.get(rule, 'allow.tokens');
+  var tokens = FlipletDSUtils.get(rule, 'allow.tokens');
 
     if (!tokens || tokens.indexOf(widgetData.tokenId) === -1) {
       return;
@@ -1869,7 +1871,7 @@ function getSelectedTokenDetails() {
   var tokenSelectedName;
   var tokenSelectedId;
 
-  var tokenDetails = _.find(integrationTokenList, function(integrationToken) {
+  var tokenDetails = FlipletDSUtils.find(integrationTokenList, function(integrationToken) {
     if (widgetData.tokenId) {
       if (integrationToken.id === widgetData.tokenId) {
         return integrationToken;
@@ -1891,8 +1893,8 @@ function setSelectedTokenDetails(id, name) {
 }
 
 function getFilteredSpecificTokenList() {
-  var rules = _.filter(currentDataSourceRules, function(currentRules) {
-    return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
+  var rules = FlipletDSUtils.filter(currentDataSourceRules, function(currentRules) {
+    return FlipletDSUtils.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
       if (widgetData.tokenId && !selectedTokenId) {
         return allowTokenId === widgetData.tokenId;
       }
@@ -1978,8 +1980,8 @@ $('body').on('change', '.tokens-list', function() {
   selectedTokenId  = Number($('.tokens-list :selected').val());
 
   if (widgetData.tokenId && widgetData.tokenId !== selectedTokenId) {
-    var rules = _.filter(currentFinalRules, function(currentRules) {
-      return _.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
+    var rules = FlipletDSUtils.filter(currentFinalRules, function(currentRules) {
+      return FlipletDSUtils.some(currentRules.allow && currentRules.allow.tokens, function(allowTokenId) {
         if (widgetData.tokenId && !selectedTokenId) {
           return allowTokenId === widgetData.tokenId;
         }
@@ -2042,7 +2044,7 @@ function configureAddRuleUI(rule) {
     $('input[name="exclude"]').tokenfield('destroy');
     $('input[name="exclude"]').tokenfield({
       autocomplete: {
-        source: _.compact(columns) || [],
+        source: FlipletDSUtils.compact(columns) || [],
         delay: 100
       },
       showAutocompleteOnFocus: true
@@ -2068,11 +2070,11 @@ function configureAddRuleUI(rule) {
       if (typeof rule.allow === 'string') {
         $('[data-allow="' + rule.allow + '"]').click();
       } else if (typeof rule.allow === 'object' && rule.allow.tokens && rule.allow.tokens.length) {
-        var selectedTokenId = _.first(rule.allow.tokens);
+        var selectedTokenId = FlipletDSUtils.first(rule.allow.tokens);
 
         if (selectedTokenId) {
           // Add token when not found in the list
-          if (!_.find(integrationTokenList, { id: selectedTokenId })) {
+          if (!FlipletDSUtils.find(integrationTokenList, { id: selectedTokenId })) {
             integrationTokenList.push({ id: selectedTokenId, fullName: 'API Token' });
           }
         }
@@ -2087,7 +2089,7 @@ function configureAddRuleUI(rule) {
         $('.filters').html('');
         $('[data-allow="filter"]').click();
 
-        _.forIn(rule.allow.user, function(operation, column) {
+        FlipletDSUtils.forIn(rule.allow.user, function(operation, column) {
           var $field = $('.filters .required-field').last();
           var operationType = Object.keys(operation)[0];
           var value = operation[operationType];
@@ -2209,7 +2211,7 @@ function columnListTemplate(rule, prop) {
     return '<code>' + columns[0] + '</code> only';
   }
 
-  columns = _.clone(columns);
+  columns = FlipletDSUtils.clone(columns);
 
   var lastColumn = columns.pop();
 
@@ -2235,12 +2237,12 @@ $allowBtnFilter.click(function(event) {
 
   if (value === 'tokens') {
     var tpl = Fliplet.Widget.Templates['templates.apiTokenList'];
-    var appTokens = _.groupBy(integrationTokenList, function(token) {
-      return _.get(_.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
+    var appTokens = FlipletDSUtils.groupBy(integrationTokenList, function(token) {
+      return FlipletDSUtils.get(FlipletDSUtils.first(token.apps), 'name', DESCRIPTION_APP_UNKNOWN);
     });
 
     // Sort by key (app name), but keep the unknown grouped tokens at the end of the list
-    var appsList = _.sortBy(_.mapValues(appTokens, function(tokens, name) {
+    var appsList = FlipletDSUtils.sortBy(FlipletDSUtils.mapValues(appTokens, function(tokens, name) {
       return { name: name, tokens: tokens };
     }), function(app) {
       return app.name === DESCRIPTION_APP_UNKNOWN ? 'z' : app.name.toUpperCase();
@@ -2379,19 +2381,19 @@ $('#show-access-rules').click(function() {
         allow: (function() {
           if (rule.allow && typeof rule.allow === 'object') {
             if (rule.allow.tokens) {
-              var token = _.find(integrationTokenList, function(integrationToken) {
-                return _.some(rule.allow.tokens, function(token) {
+              var token = FlipletDSUtils.find(integrationTokenList, function(integrationToken) {
+                return FlipletDSUtils.some(rule.allow.tokens, function(token) {
                   return integrationToken.id === token;
                 });
               });
 
               if (!token && rule.allow.tokens && rule.allow.tokens.length) {
-                token = { id: _.first(rule.allow.tokens), fullName: 'API Token' };
+                token = { id: FlipletDSUtils.first(rule.allow.tokens), fullName: 'API Token' };
               }
 
               return 'Specific token: ID#' + token.id + ' - ' + token.fullName;
             } else if (rule.allow.user) {
-              return 'Specific users<br />' + _.map(Object.keys(rule.allow.user), function(key) {
+              return 'Specific users<br />' + FlipletDSUtils.map(Object.keys(rule.allow.user), function(key) {
                 var operation = rule.allow.user[key];
                 var operationType = Object.keys(operation)[0];
                 var operator = operatorDescription(operationType);
@@ -2420,8 +2422,8 @@ $('#show-access-rules').click(function() {
           return '-';
         })(),
         apps: rule.appId ?
-          _.compact(rule.appId.map(function(appId) {
-            var app = _.find(apps, {
+          FlipletDSUtils.compact(rule.appId.map(function(appId) {
+            var app = FlipletDSUtils.find(apps, {
               id: appId
             });
 
@@ -2471,7 +2473,7 @@ $('#show-access-rules').click(function() {
       update: function() {
         var result = $(this).sortable('toArray', { attribute: 'data-rule-index' });
 
-        currentDataSourceRules = _.map(result, function(r) {
+        currentDataSourceRules = FlipletDSUtils.map(result, function(r) {
           return currentDataSourceRules[r];
         });
 
@@ -2496,7 +2498,7 @@ function getSecurityRule() {
 
   if (currentFinalRules.length > 0) {
     hasSecurityRule = currentFinalRules.some(function(rule) {
-      return _.some(rule.allow && rule.allow.tokens, function(token) {
+      return FlipletDSUtils.some(rule.allow && rule.allow.tokens, function(token) {
         return token && (token === widgetData.tokenId || token === selectedTokenId);
       });
     });
@@ -2569,7 +2571,7 @@ $('[data-save-rule]').click(function(event) {
     } else if ($allow.data('allow') === 'tokens') {
       selectedTokenId  = Number($('.tokens-list :selected').val());
 
-      var tokenFullName = _.find(integrationTokenList, function(token) {
+      var tokenFullName = FlipletDSUtils.find(integrationTokenList, function(token) {
         return token.id === selectedTokenId;
       });
 
@@ -2610,7 +2612,7 @@ $('[data-save-rule]').click(function(event) {
       }
 
       // Ensure multiple fields for the same column name are skipped
-      if (_.find(requiredFields, function(field) {
+      if (FlipletDSUtils.find(requiredFields, function(field) {
         if (typeof field === 'string') {
           return field === column;
         }
@@ -2643,7 +2645,7 @@ $('[data-save-rule]').click(function(event) {
       rule.require = requiredFields;
     }
 
-    var exclude = _.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
+    var exclude = FlipletDSUtils.compact($('input[name="exclude"]').val().split(',').map(column => column.trim()));
 
     if (columnsListMode === 'exclude') {
       if (exclude.length) {
@@ -2704,7 +2706,7 @@ $('body').on('click', '[data-rule-delete]', function(event) {
 
     filteredDataSources.splice(index, 1);
     currentDataSourceRules = currentDataSourceRules.filter(function(dataSourceRule) {
-      return !_.isEqual(dataSourceRule, deletedItem);
+      return !FlipletDSUtils.isEqual(dataSourceRule, deletedItem);
     });
   } else {
     currentDataSourceRules.splice(index, 1);

@@ -192,7 +192,7 @@ function spreadsheet(options) {
         }
       }
 
-      lastRow = _.max([lastRow - 1, 0]);
+      lastRow = FlipletDSUtils.max([lastRow - 1, 0]);
     } else if (moveTo.right) {
       // When data located on the right of the selected cell
       firstCol = startAt[1];
@@ -853,16 +853,16 @@ function spreadsheet(options) {
     visual.forEach(function findSourceEntry(visualRow, order) {
       // We need to sort both visual and source rows because
       // moving columns doesn't keep the source data in order
-      var sortedVisual = _.clone(visualRow).sort();
+      var sortedVisual = FlipletDSUtils.clone(visualRow).sort();
       var sortedSource;
       var entry;
 
       // Loop through the source columns to get the ID
       for (var i = 0; i < source.length; i++) {
-        sortedSource = _.clone(source[i]).sort();
+        sortedSource = FlipletDSUtils.clone(source[i]).sort();
 
         // If the visual and source rows aren't the same,
-        if (!_.isEqual(_.compact(sortedVisual), _.compact(sortedSource))) {
+        if (!FlipletDSUtils.isEqual(FlipletDSUtils.compact(sortedVisual), FlipletDSUtils.compact(sortedSource))) {
           // Next loop
           continue;
         }
@@ -878,7 +878,7 @@ function spreadsheet(options) {
             return;
           }
 
-          if (!_.isNil(visualRow[index])) {
+          if (!FlipletDSUtils.isNil(visualRow[index])) {
             entry.data[header] = visualRow[index];
           }
 
@@ -1184,7 +1184,7 @@ $('.reset-find').on('click', function() {
   search('clear');
 });
 
-var debouncedFind = _.debounce(function() {
+var debouncedFind = FlipletDSUtils.debounce(function() {
   search('find');
 }, 500);
 
