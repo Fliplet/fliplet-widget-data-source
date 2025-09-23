@@ -15,6 +15,7 @@ function spreadsheet(options) {
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is being destroyed
 
+
   /**
    * Given an array of data source entries it does return an array
    * of data prepared to be consumed by Handsontable
@@ -392,15 +393,7 @@ function spreadsheet(options) {
     afterColumnSort: function() {
       // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
       setTimeout(function() {
-        if (isDestroyed || !hot || !hot.view || !hot.view.wt || typeof hot.view.wt.draw !== 'function') {
-          return;
-        }
-
-        try {
-          hot.view.wt.draw(true);
-        } catch (e) {
-          // Ignore draw attempts after destroy
-        }
+        hot.view.wt.draw(true);
       }, 0);
     },
     search: true,
@@ -777,7 +770,6 @@ function spreadsheet(options) {
 
     var content = td.innerHTML;
     var wrapper = document.createElement('div');
-
     wrapper.classList.add('cell-wrapper');
 
     // Handle objects and arrays
@@ -795,19 +787,10 @@ function spreadsheet(options) {
     // Force recalculation after a small delay to ensure proper height
     if (rendered) {
       setTimeout(function() {
-        if (isDestroyed) {
-          return;
-        }
-
         var contentHeight = wrapper.scrollHeight;
-
         if (contentHeight > 23) { // Default minimum height
-          try {
-            instance.getSettings().rowHeights[row] = contentHeight + 8; // Add padding
-            instance.render();
-          } catch (e) {
-            // Ignore render attempts after destroy
-          }
+          instance.getSettings().rowHeights[row] = contentHeight + 8; // Add padding
+          instance.render();
         }
       }, 0);
     }
@@ -1020,6 +1003,7 @@ function spreadsheet(options) {
       hot = null;
 
       return;
+
     },
     reset: reset,
     onSave: onSave,
