@@ -13,8 +13,7 @@ function spreadsheet(options) {
   var dataHasChanges = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
-  var isDestroyed = false; // Flag to prevent actions after instance is being destroyed
-
+  var isDestroyed = false; // Flag to prevent actions after instance is destroyed
 
   /**
    * Given an array of data source entries it does return an array
@@ -393,7 +392,15 @@ function spreadsheet(options) {
     afterColumnSort: function() {
       // Applies fix from https://github.com/handsontable/handsontable/pull/5134 for Handsontable 4.0.0
       setTimeout(function() {
-        hot.view.wt.draw(true);
+        if (isDestroyed || !hot || !hot.view || !hot.view.wt || typeof hot.view.wt.draw !== 'function') {
+          return;
+        }
+
+        try {
+          hot.view.wt.draw(true);
+        } catch (e) {
+          // Ignore draw attempts after destroy
+        }
       }, 0);
     },
     search: true,
@@ -770,6 +777,7 @@ function spreadsheet(options) {
 
     var content = td.innerHTML;
     var wrapper = document.createElement('div');
+
     wrapper.classList.add('cell-wrapper');
 
     // Handle objects and arrays
@@ -787,10 +795,19 @@ function spreadsheet(options) {
     // Force recalculation after a small delay to ensure proper height
     if (rendered) {
       setTimeout(function() {
+        if (isDestroyed) {
+          return;
+        }
+
         var contentHeight = wrapper.scrollHeight;
+
         if (contentHeight > 23) { // Default minimum height
-          instance.getSettings().rowHeights[row] = contentHeight + 8; // Add padding
-          instance.render();
+          try {
+            instance.getSettings().rowHeights[row] = contentHeight + 8; // Add padding
+            instance.render();
+          } catch (e) {
+            // Ignore render attempts after destroy
+          }
         }
       }, 0);
     }
@@ -987,23 +1004,22 @@ function spreadsheet(options) {
     destroy: function() {
       reset(true);
 
-      // Ensures we do not call methods on a destroyed Handsontable instance
+      // Ensure we do not call methods on a destroyed Handsontable instance
       if (hot && typeof hot.destroy === 'function') {
         try {
           hot.destroy();
         } catch (e) {
-          // Fails silently; we are cleaning up regardless
+          // Fail silently; we are cleaning up regardless
         }
       }
 
-      // Marks as destroyed to stop any deferred work
+      // Mark as destroyed to stop any deferred work
       isDestroyed = true;
 
-      // Nullifies reference so external callers can guard with `if (!hot)`
+      // Nullify reference so external callers can guard with `if (!hot)`
       hot = null;
 
       return;
-
     },
     reset: reset,
     onSave: onSave,
