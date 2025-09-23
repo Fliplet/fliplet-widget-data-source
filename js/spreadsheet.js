@@ -1007,7 +1007,7 @@ function spreadsheet(options) {
       // Ensures we do not call methods on a destroyed Handsontable instance
       if (hot && typeof hot.destroy === 'function') {
         try {
-          hot.destroy();
+           hot.destroy();
         } catch (e) {
           // Fails silently; we are cleaning up regardless
         }
