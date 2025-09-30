@@ -272,8 +272,9 @@ function waitUntilSized(selector, callback) {
     if (!el || !document.contains(el)) {
       return;
     }
-    
+
     const rect = el.getBoundingClientRect();
+
     if (rect.width > 0 && rect.height > 0) {
       callback();
     } else {
@@ -306,9 +307,11 @@ function fetchCurrentDataSourceDetails() {
     }
 
     currentDataSourceType = dataSource.type;
-    var accessRules = Array.isArray(dataSource.accessRules) ? dataSource.accessRules : [];
-    currentDataSourceRules = Array.isArray(dataSource.accessRules) ? _.cloneDeep(dataSource.accessRules) : dataSource.accessRules;
-    currentFinalRules = Array.isArray(dataSource.accessRules) ? _.cloneDeep(dataSource.accessRules) : dataSource.accessRules;
+
+    let accessRules = Array.isArray(dataSource.accessRules) ? dataSource.accessRules : [];
+
+    currentDataSourceRules = Array.isArray(dataSource.accessRules) ? JSON.parse(JSON.stringify(dataSource.accessRules)) : dataSource.accessRules;
+    currentFinalRules = Array.isArray(dataSource.accessRules) ? JSON.parse(JSON.stringify(dataSource.accessRules)) : dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
 
     accessRulesEditor.setValue(JSON.stringify(accessRules, null, 2));
@@ -1665,8 +1668,8 @@ $('#app')
       accessRules: accessRulesData
     })
       .then(function() {
-        currentDataSourceRules = _.cloneDeep(accessRulesData);
-        currentFinalRules = _.cloneDeep(accessRulesData);
+        currentDataSourceRules = JSON.parse(JSON.stringify(accessRulesData));
+        currentFinalRules = JSON.parse(JSON.stringify(accessRulesData));
         accessRulesEditor.setValue(formattedAccessRules);
         // Update name on UI
         $('.editing-data-source-name').text(name);
@@ -2467,8 +2470,8 @@ $('#show-access-rules').click(function() {
 
           return '-';
         })(),
-        apps: rule.appId ?
-          _.compact(rule.appId.map(function(appId) {
+        apps: rule.appId
+          ? _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, {
               id: appId
             });
@@ -2827,7 +2830,7 @@ function updateDataSourceRules() {
   }).then(function() {
     var formattedRules = JSON.stringify(Array.isArray(currentDataSourceRules) ? currentDataSourceRules : [], null, 2);
 
-    currentFinalRules = _.cloneDeep(currentDataSourceRules);
+    currentFinalRules = JSON.parse(JSON.stringify(currentDataSourceRules));
     accessRulesEditor.setValue(formattedRules);
     $saveButton.html(buttonLabel).removeClass('disabled').addClass('hidden');
 
