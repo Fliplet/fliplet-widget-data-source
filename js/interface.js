@@ -80,6 +80,11 @@ var customRuleEditor = CodeMirror.fromTextArea($('#custom-rule')[0], {
   lineNumbers: true,
   mode: 'javascript'
 });
+var accessRulesEditor = CodeMirror.fromTextArea($('#access-rules-json')[0], {
+  lineNumbers: true,
+  mode: 'javascript'
+});
+
 
 var emptyColumnNameRegex = /^Column\s\([0-9]+\)$/;
 
@@ -267,8 +272,9 @@ function waitUntilSized(selector, callback) {
     if (!el || !document.contains(el)) {
       return;
     }
-    
+
     const rect = el.getBoundingClientRect();
+
     if (rect.width > 0 && rect.height > 0) {
       callback();
     } else {
@@ -290,6 +296,7 @@ function renderSpreadsheet(rowsData) {
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
+  accessRulesEditor.setValue('[]');
 
   return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
     $settings.find('#id').html(dataSource.id);
@@ -300,9 +307,14 @@ function fetchCurrentDataSourceDetails() {
     }
 
     currentDataSourceType = dataSource.type;
-    currentDataSourceRules = dataSource.accessRules;
-    currentFinalRules = dataSource.accessRules;
+
+    let accessRules = Array.isArray(dataSource.accessRules) ? dataSource.accessRules : [];
+
+    currentDataSourceRules = Array.isArray(dataSource.accessRules) ? JSON.parse(JSON.stringify(dataSource.accessRules)) : dataSource.accessRules;
+    currentFinalRules = Array.isArray(dataSource.accessRules) ? JSON.parse(JSON.stringify(dataSource.accessRules)) : dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+
+    accessRulesEditor.setValue(JSON.stringify(accessRules, null, 2));
 
     if (dataSource.apps && dataSource.apps.length > 0) {
       dataSourceIsLive = _.some(dataSource.apps, function(app) {
@@ -1552,6 +1564,7 @@ $('#app')
     var bundle = !$('#bundle').is(':checked');
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
+    var accessRulesValue = accessRulesEditor.getValue();
 
     $settings.find('#name').parents(':eq(1)').removeClass('has-error');
 
@@ -1586,6 +1599,39 @@ $('#app')
       return;
     }
 
+    var trimmedAccessRules = (accessRulesValue || '').trim();
+    var accessRulesData;
+
+    if (trimmedAccessRules) {
+      try {
+        var parsedAccessRules = JSON.parse(accessRulesValue);
+      } catch (e) {
+        Fliplet.Navigate.popup({
+          popupTitle: 'Invalid settings',
+          popupMessage: 'Access rules must be a valid JSON'
+        });
+
+        return;
+      }
+
+      if (Array.isArray(parsedAccessRules)) {
+        accessRulesData = parsedAccessRules;
+      } else if (parsedAccessRules && typeof parsedAccessRules === 'object' && Array.isArray(parsedAccessRules.accessRules)) {
+        accessRulesData = parsedAccessRules.accessRules;
+      } else {
+        Fliplet.Navigate.popup({
+          popupTitle: 'Invalid access rules',
+          popupMessage: 'Access rules JSON must be an array or an object containing an "accessRules" array.'
+        });
+
+        return;
+      }
+    } else {
+      accessRulesData = [];
+    }
+
+    var formattedAccessRules = JSON.stringify(accessRulesData, null, 2);
+
     try {
       hooks.forEach(function(hook) {
         if (typeof hook.type !== 'string' || !hook.type) {
@@ -1618,9 +1664,13 @@ $('#app')
       name: name,
       bundle: bundle,
       definition: definition,
-      hooks: hooks
+      hooks: hooks,
+      accessRules: accessRulesData
     })
       .then(function() {
+        currentDataSourceRules = JSON.parse(JSON.stringify(accessRulesData));
+        currentFinalRules = JSON.parse(JSON.stringify(accessRulesData));
+        accessRulesEditor.setValue(formattedAccessRules);
         // Update name on UI
         $('.editing-data-source-name').text(name);
 
@@ -1830,6 +1880,7 @@ $('#show-settings').click(function() {
   setTimeout(function() {
     definitionEditor.refresh();
     hooksEditor.refresh();
+    accessRulesEditor.refresh();
   }, 0);
 });
 
@@ -2419,8 +2470,8 @@ $('#show-access-rules').click(function() {
 
           return '-';
         })(),
-        apps: rule.appId ?
-          _.compact(rule.appId.map(function(appId) {
+        apps: rule.appId
+          ? _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, {
               id: appId
             });
@@ -2777,6 +2828,10 @@ function updateDataSourceRules() {
   return Fliplet.DataSources.update(currentDataSourceId, {
     accessRules: currentDataSourceRules
   }).then(function() {
+    var formattedRules = JSON.stringify(Array.isArray(currentDataSourceRules) ? currentDataSourceRules : [], null, 2);
+
+    currentFinalRules = JSON.parse(JSON.stringify(currentDataSourceRules));
+    accessRulesEditor.setValue(formattedRules);
     $saveButton.html(buttonLabel).removeClass('disabled').addClass('hidden');
 
     Fliplet.Modal.alert({
