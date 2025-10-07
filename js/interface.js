@@ -23,6 +23,7 @@ var currentDataSourceId;
 var currentDataSourceType;
 // eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
+
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
@@ -268,9 +269,7 @@ function fetchCurrentDataSourceDetails() {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
 
-    if (!dataSource.bundle) {
-      $('#bundle').prop('checked', true);
-    }
+    $('#bundle-online').prop('checked', dataSource.bundle === false);
 
     currentDataSourceType = dataSource.type;
     currentDataSourceRules = dataSource.accessRules;
@@ -1526,7 +1525,7 @@ $('#app')
       return;
     }
 
-    var bundle = !$('#bundle').is(':checked');
+    var bundle = $('#bundle-online').is(':checked') ? false : true;
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
 
