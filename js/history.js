@@ -10,10 +10,10 @@ Fliplet.Registry.set('history-stack', (function() {
 
   // Clone data without losing the ID
   function cloneSpreadsheetData(data) {
-    return _.map(data, function(row) {
+    return Fliplet.Utils.map(data, function(row) {
       var entry = [];
 
-      _.forEach(row, function(column) {
+      Fliplet.Utils.forEach(row, function(column) {
         entry.push(column);
       });
 
@@ -73,8 +73,8 @@ Fliplet.Registry.set('history-stack', (function() {
       return;
     }
 
-    // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(_.cloneDeep(state.getData()));
+    // Use Fliplet.Utils.cloneDeep to drop the ID in each row to ensure data is loaded correctly
+    hot.loadData(Fliplet.Utils.cloneDeep(state.getData()));
     hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();
