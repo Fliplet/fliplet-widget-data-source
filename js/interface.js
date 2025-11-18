@@ -23,6 +23,7 @@ var currentDataSourceId;
 var currentDataSourceType;
 // eslint-disable-next-line no-unused-vars
 var currentDataSourceDefinition;
+
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
@@ -265,34 +266,6 @@ function renderError(options) {
   });
 }
 
-function waitUntilSized(selector, callback) {
-  const el = document.querySelector(selector);
-
-  function check() {
-    if (!el || !document.contains(el)) {
-      return;
-    }
-
-    const rect = el.getBoundingClientRect();
-
-    if (rect.width > 0 && rect.height > 0) {
-      callback();
-    } else {
-      requestAnimationFrame(check);
-    }
-  }
-
-  check();
-}
-
-function renderSpreadsheet(rowsData) {
-  waitUntilSized('.table-entries', () => {
-    table = spreadsheet({ columns: columns, rows: rowsData });
-    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
-    $('#versions').removeClass('hidden');
-  });
-}
-
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -302,9 +275,7 @@ function fetchCurrentDataSourceDetails() {
     $settings.find('#id').html(dataSource.id);
     $settings.find('[name="name"]').val(dataSource.name);
 
-    if (!dataSource.bundle) {
-      $('#bundle').prop('checked', true);
-    }
+    $('#bundle-online').prop('checked', dataSource.bundle === false);
 
     currentDataSourceType = dataSource.type;
 
@@ -462,26 +433,30 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
-      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
-
       if (table) {
         table.destroy();
       }
 
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-
-      requestAnimationFrame(() => {
+      setTimeout(function() {
         table.destroy();
         initialLoad = false;
-        renderSpreadsheet(rows);
-      });
+
+        table = spreadsheet({ columns: columns, rows: rows });
+        $('.table-entries').css('visibility', 'visible');
+
+        $('#versions').removeClass('hidden');
+      }, 0);
     } else {
       if (table) {
         table.destroy();
       }
 
-      renderSpreadsheet(rows);
+      table = spreadsheet({ columns: columns, rows: rows });
+      $('.table-entries').css('visibility', 'visible');
+
+      $('#versions').removeClass('hidden');
     }
   })
     .catch(function onFetchError(error) {
@@ -1562,7 +1537,7 @@ $('#app')
       return;
     }
 
-    var bundle = !$('#bundle').is(':checked');
+    var bundle = $('#bundle-online').is(':checked') ? false : true;
     var definition = definitionEditor.getValue();
     var hooks = hooksEditor.getValue();
     var accessRulesValue = accessRulesEditor.getValue();
