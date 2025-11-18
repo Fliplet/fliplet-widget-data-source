@@ -889,7 +889,8 @@ function createDataSource(createOptions, options) {
       $('[data-order-date]').removeClass('asc').addClass('desc');
     }
 
-    Fliplet.Organizations.get().then(function(organizations) {
+    // Get current organization in Studio via session
+    Fliplet.User.getCachedSession().then(function(session) {
       if (widgetData.appId) {
         _.extend(createOptions, {
           appId: widgetData.appId,
@@ -897,7 +898,7 @@ function createDataSource(createOptions, options) {
         });
       } else {
         _.extend(createOptions, {
-          organizationId: organizations[0].id,
+          organizationId: session && session.organizationId,
           name: dataSourceName
         });
       }
