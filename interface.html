@@ -173,15 +173,22 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="bundle" class="col-sm-4 control-label">Do you want to exclude this data when downloading the app?</label>
+                    <label class="col-sm-4 control-label">Offline availability</label>
                     <div class="col-sm-8">
-                      <div class="checkbox checkbox-icon">
-                        <input type="checkbox" id="bundle" name="bundle">
-                        <label for="bundle">
-                          <span class="check"><i class="fa fa-check"></i></span> <strong>Yes, exclude my data</strong> - Checking this option won't include the data of this data source in your app. Data will be loaded from the server separately and will require an internet connection.
+                      <div class="radio">
+                        <label>
+                          <input type="radio" id="bundle-available" name="bundle" value="available" checked>
+                          <strong>Available offline</strong>
+                          <p class="help-block">Increases app size and syncs data automatically in the background when updates are available. Works without internet.</p>
                         </label>
                       </div>
-                      <p class="help-block"></p>
+                      <div class="radio">
+                        <label>
+                          <input type="radio" id="bundle-online" name="bundle" value="online">
+                          <strong>Online only</strong>
+                          <p class="help-block">Keeps your app smaller but data requests must go through Fliplet's servers. Requires internet connection.</p>
+                        </label>
+                      </div>
                     </div>
                   </div>
                   <div class="form-group">
@@ -217,17 +224,6 @@
                       <div class="backdoor-code">
                         <pre id="backdoor"></pre>
                         <p class="help-block">Prefix the user email address with the bypass code (eg: <code><span id="backdoor-eg"></span>email@mail.com</code>) and use the verification code <code>999999</code> to validate without receiving emails or text messages.</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <div class="col-sm-4 control-label">
-                      <label for="access-rules-json">Data source Security rules</label>
-                      <p class="help-block">Configure data source security rules using JSON format. This includes access permissions, field-level operator restrictions, and context-specific rules for select, insert, update, and delete operations. Supports both field-specific operator rules (allowedOperators/deniedOperators) and global operator restrictions. Saving settings will overwrite the current security rules.</p>
-                    </div>
-                    <div class="col-sm-8">
-                      <div class="checkbox checkbox-icon">
-                        <textarea class="form-control form-code" id="access-rules-json" rows="15" placeholder="[]"></textarea>
                       </div>
                     </div>
                   </div>
