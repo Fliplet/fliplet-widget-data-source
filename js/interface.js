@@ -2641,11 +2641,6 @@ $('[data-save-rule]').click(function(event) {
 
   if (currentDataSourceRuleIndex === undefined) {
     currentDataSourceRules.push(rule);
-
-    // For Edit security rule adding the rule in current final rules
-    if (!isAddingRule || (widgetData.context === 'overlay' && widgetData.tokenId !== selectedTokenId)) {
-      currentFinalRules.push(rule);
-    }
   } else {
     currentDataSourceRules[currentDataSourceRuleIndex] = rule;
 
