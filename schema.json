@@ -22,11 +22,11 @@
         "type": "object",
         "properties": {
           "type": {
-            "title": "The type of access rule. Possible values are 'select', 'insert', 'update', 'delete'.",
+            "title": "The type of access rule. Possible values are 'select', 'insert', 'update', 'delete', 'count'.",
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["select", "insert", "update", "delete"]
+              "enum": ["select", "insert", "update", "delete", "count"]
             }
           },
           "allow": {
