@@ -2347,6 +2347,9 @@ $('#show-access-rules').click(function() {
             case 'delete':
               description = 'Delete';
               break;
+            case 'count':
+              description = 'Count';
+              break;
             default:
               break;
           }
