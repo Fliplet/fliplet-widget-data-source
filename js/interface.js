@@ -1226,32 +1226,12 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    // Reset pagination state when leaving a data source
-    currentPage = 0;
-    totalEntries = 0;
-    totalPages = 0;
+    function resetAndGoBack() {
+      // Reset pagination state when leaving a data source
+      currentPage = 0;
+      totalEntries = 0;
+      totalPages = 0;
 
-    if (table.hasChanges()) {
-      Fliplet.Modal.confirm({
-        message: 'Are you sure? Changes that you made may not be saved.'
-      }).then(function(result) {
-        if (!result) {
-          return;
-        }
-
-        $('#save-rules').addClass('hidden');
-
-        try {
-          table.destroy();
-        } catch (e) {
-          // Fail silently
-        }
-
-        $('[data-order-date]').removeClass('asc').addClass('desc');
-
-        getDataSources();
-      });
-    } else {
       $('#save-rules').addClass('hidden');
 
       try {
@@ -1263,6 +1243,20 @@ $('#app')
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
+    }
+
+    if (table.hasChanges()) {
+      Fliplet.Modal.confirm({
+        message: 'Are you sure? Changes that you made may not be saved.'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        resetAndGoBack();
+      });
+    } else {
+      resetAndGoBack();
     }
   })
   .on('click', '[data-show-source]', function() {
