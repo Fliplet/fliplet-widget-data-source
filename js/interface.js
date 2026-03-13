@@ -52,6 +52,12 @@ var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
 
+// Pagination state
+var PAGE_SIZE = 500;
+var currentPage = 0;
+var totalEntries = 0;
+var totalPages = 0;
+
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
 var defaultAccessRules = [
@@ -350,13 +356,35 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
+/**
+ * Updates the pagination controls in the UI
+ */
+function updatePaginationControls() {
+  var $pagination = $('.pagination-controls');
+  var pageInfo = Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage);
+
+  // Sync clamped page back
+  currentPage = pageInfo.currentPage;
+  totalPages = pageInfo.totalPages;
+
+  $pagination.find('.pagination-info').text(
+    pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries + ' entries'
+  );
+  $pagination.find('[data-page-prev]').prop('disabled', !pageInfo.hasPrev);
+  $pagination.find('[data-page-next]').prop('disabled', !pageInfo.hasNext);
+  $pagination.toggle(totalEntries > PAGE_SIZE);
+}
+
 function fetchCurrentDataSourceEntries(entries) {
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
 
-    return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+    return Fliplet.API.request({
+      url: 'v1/data-sources/' + currentDataSourceId + '?includeEntriesCount'
+    }).then(function(response) {
+      var dataSource = response.dataSource;
       var sourceName = dataSource.name;
 
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
@@ -365,11 +393,32 @@ function fetchCurrentDataSourceEntries(entries) {
 
       columns = dataSource.columns || [];
 
+      // Track total entries for pagination
+      if (typeof dataSource.entriesCount === 'number') {
+        totalEntries = dataSource.entriesCount;
+        totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
+
+        // Clamp current page if it exceeds total pages (e.g. after deleting entries)
+        if (currentPage >= totalPages) {
+          currentPage = Math.max(0, totalPages - 1);
+        }
+      }
+
       if (entries) {
         return Promise.resolve(entries);
       }
 
-      return source.find({}).catch(function() {
+      // Fetch only the current page of entries using the query endpoint
+      return Fliplet.API.request({
+        url: 'v1/data-sources/' + currentDataSourceId + '/data/query',
+        method: 'POST',
+        data: {
+          limit: PAGE_SIZE,
+          offset: currentPage * PAGE_SIZE
+        }
+      }).then(function(queryResponse) {
+        return queryResponse.entries;
+      }).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
@@ -436,6 +485,7 @@ function fetchCurrentDataSourceEntries(entries) {
         $('.table-entries').css('visibility', 'visible');
 
         $('#versions').removeClass('hidden');
+        updatePaginationControls();
       }, 0);
     } else {
       if (table) {
@@ -446,6 +496,7 @@ function fetchCurrentDataSourceEntries(entries) {
       $('.table-entries').css('visibility', 'visible');
 
       $('#versions').removeClass('hidden');
+      updatePaginationControls();
     }
   })
     .catch(function onFetchError(error) {
@@ -1224,6 +1275,11 @@ $('#app')
 
     $('[href="#entries"]').click();
 
+    // Reset pagination state when leaving a data source
+    currentPage = 0;
+    totalEntries = 0;
+    totalPages = 0;
+
     if (table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
@@ -1373,6 +1429,58 @@ $('#app')
       table.setChanges(true);
       table.onSaveError();
     });
+  })
+  .on('click', '[data-page-prev]', function(event) {
+    event.preventDefault();
+
+    if (currentPage <= 0) {
+      return;
+    }
+
+    if (table.hasChanges()) {
+      Fliplet.Modal.confirm({
+        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        table.setChanges(false);
+        currentPage--;
+        fetchCurrentDataSourceEntries();
+      });
+
+      return;
+    }
+
+    currentPage--;
+    fetchCurrentDataSourceEntries();
+  })
+  .on('click', '[data-page-next]', function(event) {
+    event.preventDefault();
+
+    if (currentPage >= totalPages - 1) {
+      return;
+    }
+
+    if (table.hasChanges()) {
+      Fliplet.Modal.confirm({
+        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        table.setChanges(false);
+        currentPage++;
+        fetchCurrentDataSourceEntries();
+      });
+
+      return;
+    }
+
+    currentPage++;
+    fetchCurrentDataSourceEntries();
   })
   .on('click', '[save-settings]', function() {
     $('form[data-settings]').submit();
