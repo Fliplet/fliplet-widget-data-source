@@ -675,56 +675,7 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @returns {Object} List of new/updated entries and deleted IDs
  */
 function getCommitPayload(entries) {
-  entries = entries || [];
-
-  var inserted = [];
-  var updated = [];
-  var deleted = [];
-
-  // Track entries that weren't new
-  entryMap.entries = {};
-
-  entries.forEach(function(entry) {
-    // Add new entries to inserted array
-    if (typeof entry.id === 'undefined') {
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    // Add a recovered entry as a new entry
-    if (!entryMap.original[entry.id]) {
-      delete entry.id;
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    entryMap.entries[entry.id] = entry;
-  });
-
-  _.forIn(entryMap.original, function(original) {
-    var entry = entryMap.entries[original.id];
-
-    if (!entry) {
-      deleted.push(original.id);
-
-      return;
-    }
-
-    if (_.isEqual(entry, original)) {
-      return;
-    }
-
-    updated.push(entry);
-  });
-
-  return {
-    entries: updated.concat(inserted),
-    delete: deleted
-  };
+  return Pagination.computeCommitPayload(entries, entryMap.original, _.isEqual, Fliplet.guid);
 }
 
 function saveCurrentData() {
@@ -1430,11 +1381,21 @@ $('#app')
       table.onSaveError();
     });
   })
-  .on('click', '[data-page-prev]', function(event) {
+  .on('click', '[data-page-prev], [data-page-next]', function(event) {
     event.preventDefault();
 
-    if (currentPage <= 0) {
+    var isPrev = $(this).is('[data-page-prev]');
+    var newPage = isPrev ? currentPage - 1 : currentPage + 1;
+
+    // Bounds check
+    if (newPage < 0 || newPage >= totalPages) {
       return;
+    }
+
+    function goToPage() {
+      currentPage = newPage;
+      $initialSpinnerLoading.addClass('animated');
+      fetchCurrentDataSourceEntries();
     }
 
     if (table.hasChanges()) {
@@ -1446,41 +1407,13 @@ $('#app')
         }
 
         table.setChanges(false);
-        currentPage--;
-        fetchCurrentDataSourceEntries();
+        goToPage();
       });
 
       return;
     }
 
-    currentPage--;
-    fetchCurrentDataSourceEntries();
-  })
-  .on('click', '[data-page-next]', function(event) {
-    event.preventDefault();
-
-    if (currentPage >= totalPages - 1) {
-      return;
-    }
-
-    if (table.hasChanges()) {
-      Fliplet.Modal.confirm({
-        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
-      }).then(function(result) {
-        if (!result) {
-          return;
-        }
-
-        table.setChanges(false);
-        currentPage++;
-        fetchCurrentDataSourceEntries();
-      });
-
-      return;
-    }
-
-    currentPage++;
-    fetchCurrentDataSourceEntries();
+    goToPage();
   })
   .on('click', '[save-settings]', function() {
     $('form[data-settings]').submit();
