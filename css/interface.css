@@ -248,6 +248,21 @@ a[data-back] {
   text-align: center;
 }
 
+.pagination-controls .pagination-jump {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-controls .pagination-jump input[data-page-jump] {
+  width: 52px;
+  text-align: center;
+  padding: 2px 4px;
+  height: 26px;
+}
+
 .data-source-id {
   color: #bbbbbb;
 }

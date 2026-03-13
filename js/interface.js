@@ -372,6 +372,8 @@ function updatePaginationControls() {
   );
   $pagination.find('[data-page-prev]').prop('disabled', !pageInfo.hasPrev);
   $pagination.find('[data-page-next]').prop('disabled', !pageInfo.hasNext);
+  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages);
+  $pagination.find('[data-page-total]').text(pageInfo.totalPages);
   $pagination.toggle(totalEntries > PAGE_SIZE);
 }
 
@@ -1388,6 +1390,7 @@ $('#app')
 
     function goToPage() {
       currentPage = newPage;
+      $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
       $initialSpinnerLoading.addClass('animated');
       fetchCurrentDataSourceEntries();
     }
@@ -1408,6 +1411,54 @@ $('#app')
     }
 
     goToPage();
+  })
+  .on('change', '[data-page-jump]', function() {
+    var inputPage = parseInt($(this).val(), 10);
+
+    if (isNaN(inputPage) || inputPage < 1 || inputPage > totalPages) {
+      // Reset to current page on invalid input
+      $(this).val(currentPage + 1);
+
+      return;
+    }
+
+    var newPage = inputPage - 1; // Convert 1-based input to 0-based
+
+    if (newPage === currentPage) {
+      return;
+    }
+
+    function goToPage() {
+      currentPage = newPage;
+      $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
+      $initialSpinnerLoading.addClass('animated');
+      fetchCurrentDataSourceEntries();
+    }
+
+    if (table.hasChanges()) {
+      Fliplet.Modal.confirm({
+        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+      }).then(function(result) {
+        if (!result) {
+          $('[data-page-jump]').val(currentPage + 1);
+
+          return;
+        }
+
+        table.setChanges(false);
+        goToPage();
+      });
+
+      return;
+    }
+
+    goToPage();
+  })
+  .on('keydown', '[data-page-jump]', function(event) {
+    if (event.keyCode === 13) {
+      event.preventDefault();
+      $(this).trigger('change');
+    }
   })
   .on('click', '[save-settings]', function() {
     $('form[data-settings]').submit();
