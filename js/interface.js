@@ -391,7 +391,7 @@ function navigateToPage(targetPage) {
   function goToPage() {
     currentPage = targetPage;
     $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
-    $initialSpinnerLoading.addClass('animated');
+    $('.page-loading-overlay').removeClass('hidden');
     fetchCurrentDataSourceEntries();
   }
 
@@ -419,7 +419,12 @@ function navigateToPage(targetPage) {
 function fetchCurrentDataSourceEntries(entries) {
   var thisFetch = ++fetchGeneration;
 
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+  // Reuse existing connection if available, otherwise connect
+  var connectionPromise = currentDataSource
+    ? Promise.resolve(currentDataSource)
+    : Fliplet.DataSources.connect(currentDataSourceId);
+
+  return connectionPromise.then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
@@ -536,6 +541,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
         table = spreadsheet({ columns: columns, rows: rows });
         $('.table-entries').css('visibility', 'visible');
+        $('.page-loading-overlay').addClass('hidden');
 
         $('#versions').removeClass('hidden');
         updatePaginationControls();
@@ -547,6 +553,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
       table = spreadsheet({ columns: columns, rows: rows });
       $('.table-entries').css('visibility', 'visible');
+      $('.page-loading-overlay').addClass('hidden');
 
       $('#versions').removeClass('hidden');
       updatePaginationControls();
@@ -571,6 +578,7 @@ function fetchCurrentDataSourceEntries(entries) {
       }
 
       $('.entries-message').html('<br>' + message);
+      $('.page-loading-overlay').addClass('hidden');
     });
 }
 
@@ -1285,10 +1293,11 @@ $('#app')
     $('[href="#entries"]').click();
 
     function resetAndGoBack() {
-      // Reset pagination state when leaving a data source
+      // Reset pagination and connection state when leaving a data source
       currentPage = 0;
       totalEntries = 0;
       totalPages = 0;
+      currentDataSource = null;
 
       $('#save-rules').addClass('hidden');
 

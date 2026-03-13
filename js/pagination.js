@@ -45,6 +45,7 @@ var Pagination = (function() {
   /**
    * Compute the commit payload by comparing current entries against original cached entries.
    * Separates entries into inserted, updated, and deleted.
+   * NOTE: Mutates entries in place — adds clientId to new entries, deletes id from recovered entries.
    * @param {Array} entries - Current entries from the table
    * @param {Object} originalMap - Map of entry ID → original entry (from cacheOriginalEntries)
    * @param {Function} isEqualFn - Deep equality comparison function (e.g. _.isEqual)
