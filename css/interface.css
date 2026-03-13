@@ -241,6 +241,10 @@ a[data-back] {
   background: #fafafa;
 }
 
+.pagination-controls.hidden {
+  display: none;
+}
+
 .pagination-controls .pagination-info {
   font-size: 13px;
   color: #666;

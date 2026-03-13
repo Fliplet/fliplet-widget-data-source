@@ -57,6 +57,7 @@ var PAGE_SIZE = 500;
 var currentPage = 0;
 var totalEntries = 0;
 var totalPages = 0;
+var fetchGeneration = 0;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -372,20 +373,66 @@ function updatePaginationControls() {
   );
   $pagination.find('[data-page-prev]').prop('disabled', !pageInfo.hasPrev);
   $pagination.find('[data-page-next]').prop('disabled', !pageInfo.hasNext);
-  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages);
+  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', false);
   $pagination.find('[data-page-total]').text(pageInfo.totalPages);
-  $pagination.toggle(totalEntries > PAGE_SIZE);
+  $pagination.toggleClass('hidden', totalEntries <= PAGE_SIZE);
+}
+
+/**
+ * Navigate to a target page, with unsaved-changes confirmation if needed.
+ * Shared by prev/next buttons and page-jump input.
+ * @param {Number} targetPage - 0-based page index to navigate to
+ */
+function navigateToPage(targetPage) {
+  if (targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
+    return;
+  }
+
+  function goToPage() {
+    currentPage = targetPage;
+    $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
+    $initialSpinnerLoading.addClass('animated');
+    fetchCurrentDataSourceEntries();
+  }
+
+  if (table.hasChanges()) {
+    Fliplet.Modal.confirm({
+      message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+    }).then(function(result) {
+      if (!result) {
+        // Reset page-jump input to current page if user cancels
+        $('[data-page-jump]').val(currentPage + 1);
+
+        return;
+      }
+
+      table.setChanges(false);
+      goToPage();
+    });
+
+    return;
+  }
+
+  goToPage();
 }
 
 function fetchCurrentDataSourceEntries(entries) {
+  var thisFetch = ++fetchGeneration;
+
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
 
     return Fliplet.API.request({
-      url: 'v1/data-sources/' + currentDataSourceId + '?includeEntriesCount'
+      url: 'v1/data-sources/' + currentDataSourceId + '?includeEntriesCount',
+      headers: { 'Cache-Control': 'no-cache' }
     }).then(function(response) {
+      // Discard stale response if a newer fetch was started
+      if (thisFetch !== fetchGeneration) {
+        return Promise.reject({ stale: true });
+      }
+
       var dataSource = response.dataSource;
       var sourceName = dataSource.name;
 
@@ -398,12 +445,6 @@ function fetchCurrentDataSourceEntries(entries) {
       // Track total entries for pagination
       if (typeof dataSource.entriesCount === 'number') {
         totalEntries = dataSource.entriesCount;
-        totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
-
-        // Clamp current page if it exceeds total pages (e.g. after deleting entries)
-        if (currentPage >= totalPages) {
-          currentPage = Math.max(0, totalPages - 1);
-        }
       }
 
       if (entries) {
@@ -416,11 +457,21 @@ function fetchCurrentDataSourceEntries(entries) {
         method: 'POST',
         data: {
           limit: PAGE_SIZE,
-          offset: currentPage * PAGE_SIZE
+          offset: currentPage * PAGE_SIZE,
+          order: [['order', 'ASC'], ['id', 'ASC']]
         }
       }).then(function(queryResponse) {
+        // Discard stale response if a newer fetch was started
+        if (thisFetch !== fetchGeneration) {
+          return Promise.reject({ stale: true });
+        }
+
         return queryResponse.entries;
-      }).catch(function() {
+      }).catch(function(err) {
+        if (err && err.stale) {
+          return Promise.reject(err);
+        }
+
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
@@ -502,6 +553,11 @@ function fetchCurrentDataSourceEntries(entries) {
     }
   })
     .catch(function onFetchError(error) {
+      // Silently ignore stale fetch responses (superseded by a newer navigation)
+      if (error && error.stale) {
+        return;
+      }
+
       var message = error;
 
       if (error instanceof Error) {
@@ -1381,81 +1437,22 @@ $('#app')
     event.preventDefault();
 
     var isPrev = $(this).is('[data-page-prev]');
-    var newPage = isPrev ? currentPage - 1 : currentPage + 1;
 
-    // Bounds check
-    if (newPage < 0 || newPage >= totalPages) {
-      return;
-    }
-
-    function goToPage() {
-      currentPage = newPage;
-      $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
-      $initialSpinnerLoading.addClass('animated');
-      fetchCurrentDataSourceEntries();
-    }
-
-    if (table.hasChanges()) {
-      Fliplet.Modal.confirm({
-        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
-      }).then(function(result) {
-        if (!result) {
-          return;
-        }
-
-        table.setChanges(false);
-        goToPage();
-      });
-
-      return;
-    }
-
-    goToPage();
+    navigateToPage(isPrev ? currentPage - 1 : currentPage + 1);
   })
   .on('change', '[data-page-jump]', function() {
     var inputPage = parseInt($(this).val(), 10);
 
     if (isNaN(inputPage) || inputPage < 1 || inputPage > totalPages) {
-      // Reset to current page on invalid input
       $(this).val(currentPage + 1);
 
       return;
     }
 
-    var newPage = inputPage - 1; // Convert 1-based input to 0-based
-
-    if (newPage === currentPage) {
-      return;
-    }
-
-    function goToPage() {
-      currentPage = newPage;
-      $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
-      $initialSpinnerLoading.addClass('animated');
-      fetchCurrentDataSourceEntries();
-    }
-
-    if (table.hasChanges()) {
-      Fliplet.Modal.confirm({
-        message: 'You have unsaved changes. Navigating away will discard them. Continue?'
-      }).then(function(result) {
-        if (!result) {
-          $('[data-page-jump]').val(currentPage + 1);
-
-          return;
-        }
-
-        table.setChanges(false);
-        goToPage();
-      });
-
-      return;
-    }
-
-    goToPage();
+    navigateToPage(inputPage - 1);
   })
   .on('keydown', '[data-page-jump]', function(event) {
-    if (event.keyCode === 13) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       $(this).trigger('change');
     }
