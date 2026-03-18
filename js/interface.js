@@ -1,3 +1,4 @@
+/* global Pagination */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -359,6 +360,7 @@ function startLiveDataTimer() {
 
 /**
  * Updates the pagination controls in the UI
+ * @returns {void}
  */
 function updatePaginationControls() {
   var $pagination = $('.pagination-controls');
