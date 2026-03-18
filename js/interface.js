@@ -384,6 +384,7 @@ function updatePaginationControls() {
  * Navigate to a target page, with unsaved-changes confirmation if needed.
  * Shared by prev/next buttons and page-jump input.
  * @param {Number} targetPage - 0-based page index to navigate to
+ * @returns {void}
  */
 function navigateToPage(targetPage) {
   if (targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
