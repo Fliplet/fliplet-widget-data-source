@@ -121,7 +121,7 @@ function getDataSources() {
 
         $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
-        $('[data-back]').text('See all my app\'s data sources');
+        $('[data-back]').text('See all my project\'s data sources');
         $helpIcon.addClass('hidden');
 
         // Filters data sources
@@ -1408,7 +1408,7 @@ $('#app')
     });
 
     if (currentDS && currentDS.apps && currentDS.apps.length) {
-      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
+      var appPrefix = currentDS.apps.length > 1 ? 'projects: ' : 'project: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
@@ -2404,7 +2404,7 @@ $('#show-access-rules').click(function() {
 
             return app && app.name;
           })).join(', ')
-          : 'All apps',
+          : 'All projects',
         require: rule.require
           ? rule.require.map(function(require) {
             if (typeof require === 'string') {
@@ -2752,7 +2752,7 @@ function updateDataSourceRules() {
     $saveButton.html(buttonLabel).removeClass('disabled').addClass('hidden');
 
     Fliplet.Modal.alert({
-      message: 'Your changes have been applied to all affected apps.'
+      message: 'Your changes have been applied to all affected projects.'
     });
   }).catch(function(error) {
     $saveButton.html(buttonLabel).removeClass('disabled');
