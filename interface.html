@@ -228,6 +228,17 @@
                     </div>
                   </div>
                   <div class="form-group">
+                    <div class="col-sm-4 control-label">
+                      <label for="access-rules-json">Data source Security rules</label>
+                      <p class="help-block">Configure data source security rules using JSON format. This includes access permissions, field-level operator restrictions, and context-specific rules for select, insert, update, and delete operations. Supports both field-specific operator rules (allowedOperators/deniedOperators) and global operator restrictions. Saving settings will overwrite the current security rules.</p>
+                    </div>
+                    <div class="col-sm-8">
+                      <div class="checkbox checkbox-icon">
+                        <textarea class="form-control form-code" id="access-rules-json" rows="15" placeholder="[]"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
                     <hr />
                     <button class="btn text-danger" data-delete-source>Move to trash</button>
                   </div>
