@@ -306,7 +306,12 @@ function fetchCurrentDataSourceUsers() {
 }
 
 /**
- * Cache a list of entries as original entries for comparison when committing changes
+ * Cache a list of entries as original entries for comparison when committing changes.
+ * The cached `order` is the visual row index (position in this list), not the raw
+ * stored `order` value — this matches how table.getData() re-derives order at save
+ * time, so an unchanged row compares equal instead of being re-sent (PR-9). Without
+ * this, rows whose stored `order` is not a clean 0-based sequence (imports, API/DIS
+ * inserts, gaps from deletes) are all falsely flagged as changed.
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
  * @returns {undefined}
@@ -314,12 +319,16 @@ function fetchCurrentDataSourceUsers() {
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
-  _.forEach(entries, function(entry) {
+  _.forEach(entries, function(entry, index) {
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    entryMap.original[entry.id] = {
+      id: entry.id,
+      data: entry.data,
+      order: index
+    };
   });
 }
 
@@ -619,6 +628,96 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
 }
 
 /**
+ * Serialise a value with object keys sorted at every depth, so two structurally
+ * equal objects/arrays always produce the same string regardless of key order.
+ * Plain JSON.stringify is key-order sensitive, which would spuriously re-commit a
+ * JSON/object cell whose keys came back from the grid in a different order.
+ * @param {*} value - Value to serialise
+ * @returns {String} Stable JSON serialisation
+ */
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return '[' + value.map(stableStringify).join(',') + ']';
+  }
+
+  return '{' + Object.keys(value).sort().map(function(key) {
+    return JSON.stringify(key) + ':' + stableStringify(value[key]);
+  }).join(',') + '}';
+}
+
+/**
+ * Normalise a single cell value for change-detection.
+ * The spreadsheet round-trips every value through a text grid (getData +
+ * parseCellValue), so a number stored as 30 comes back as the string "30",
+ * and a blank cell comes back as "" — comparing the raw values would flag
+ * those as changes even though the user changed nothing. We coerce scalars
+ * to their string form and treat null/undefined/"" alike as "blank".
+ * @param {*} value - Raw cell value
+ * @returns {String} Canonical string form ("" for blanks)
+ */
+function normalizeValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  // Objects/arrays: compare structurally via a key-order-stable serialisation
+  if (typeof value === 'object') {
+    return stableStringify(value);
+  }
+
+  return String(value);
+}
+
+/**
+ * Build a canonical, comparable representation of an entry's data.
+ * Blank fields are dropped so an empty cell and an absent column compare equal.
+ * Top-level key order is irrelevant (the maps are compared with _.isEqual); nested
+ * key order is handled by normalizeValue's stable serialisation.
+ * @param {Object} data - Entry data object
+ * @returns {Object} Normalised data map
+ */
+function normalizeData(data) {
+  var normalized = {};
+
+  Object.keys(data || {}).forEach(function(key) {
+    var value = normalizeValue(data[key]);
+
+    if (value !== '') {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
+}
+
+/**
+ * Determine whether a table entry differs from its cached original.
+ * A row counts as changed when its data content changed OR its position
+ * (order) changed — mirroring what the /commit endpoint actually persists
+ * (it only rewrites order when entry.order !== existing.order).
+ * Comparing the whole entry object with _.isEqual (the previous behaviour)
+ * produced false positives because getData() re-derives `order` as the visual
+ * row index and re-parses cell types, so unchanged rows never compared equal
+ * and every row was re-sent on every save (PR-9).
+ * @param {Object} entry - Current entry from the table
+ * @param {Object} original - Cached original entry
+ * @returns {Boolean} True if the entry should be committed
+ */
+function hasEntryChanged(entry, original) {
+  if (!_.isEqual(normalizeData(entry.data), normalizeData(original.data))) {
+    return true;
+  }
+
+  // Position change (reorder). Guard on a defined order to mirror the API,
+  // which only updates order when a value is supplied.
+  return typeof entry.order !== 'undefined' && entry.order !== original.order;
+}
+
+/**
  * Computes payload for the commit API by comparing a list of entries against the cached original entries
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
@@ -663,7 +762,7 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry, original)) {
+    if (!hasEntryChanged(entry, original)) {
       return;
     }
 
