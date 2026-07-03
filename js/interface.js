@@ -628,6 +628,28 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
 }
 
 /**
+ * Serialise a value with object keys sorted at every depth, so two structurally
+ * equal objects/arrays always produce the same string regardless of key order.
+ * Plain JSON.stringify is key-order sensitive, which would spuriously re-commit a
+ * JSON/object cell whose keys came back from the grid in a different order.
+ * @param {*} value - Value to serialise
+ * @returns {String} Stable JSON serialisation
+ */
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return '[' + value.map(stableStringify).join(',') + ']';
+  }
+
+  return '{' + Object.keys(value).sort().map(function(key) {
+    return JSON.stringify(key) + ':' + stableStringify(value[key]);
+  }).join(',') + '}';
+}
+
+/**
  * Normalise a single cell value for change-detection.
  * The spreadsheet round-trips every value through a text grid (getData +
  * parseCellValue), so a number stored as 30 comes back as the string "30",
@@ -642,9 +664,9 @@ function normalizeValue(value) {
     return '';
   }
 
-  // Arrays/objects: compare structurally via a stable serialisation
+  // Objects/arrays: compare structurally via a key-order-stable serialisation
   if (typeof value === 'object') {
-    return JSON.stringify(value);
+    return stableStringify(value);
   }
 
   return String(value);
@@ -652,15 +674,16 @@ function normalizeValue(value) {
 
 /**
  * Build a canonical, comparable representation of an entry's data.
- * Blank fields are dropped so an empty cell and an absent column compare
- * equal, and keys are sorted so key order never affects the comparison.
+ * Blank fields are dropped so an empty cell and an absent column compare equal.
+ * Top-level key order is irrelevant (the maps are compared with _.isEqual); nested
+ * key order is handled by normalizeValue's stable serialisation.
  * @param {Object} data - Entry data object
  * @returns {Object} Normalised data map
  */
 function normalizeData(data) {
   var normalized = {};
 
-  Object.keys(data || {}).sort().forEach(function(key) {
+  Object.keys(data || {}).forEach(function(key) {
     var value = normalizeValue(data[key]);
 
     if (value !== '') {
