@@ -244,4 +244,70 @@ describe('Pagination.computeCommitPayload', function() {
     expect(payload.entries).toHaveLength(0);
     expect(payload.delete).toHaveLength(0);
   });
+
+  // PR-9: the original stored a value as a number (e.g. via API/DIS), but the
+  // spreadsheet round-trips it back through getData() as the string "30".
+  // These must NOT be treated as a change, or every such row is re-sent.
+  it('does not flag a number/string round-trip as a change (PR-9 type coercion)', function() {
+    var originals = {
+      1: { id: 1, data: { age: 30, active: true }, order: 0 }
+    };
+    var entries = [
+      { id: 1, data: { age: '30', active: 'true' }, order: 0 }
+    ];
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.delete).toHaveLength(0);
+  });
+
+  // PR-9: a blank cell ("") and a column that was never set must compare equal —
+  // the truthy-empty trap. Otherwise adding an empty column re-sends every row.
+  it('does not flag a blank cell vs an absent column as a change (PR-9 empty trap)', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'Alice' }, order: 0 }
+    };
+    var entries = [
+      { id: 1, data: { name: 'Alice', note: '' }, order: 0 }
+    ];
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.delete).toHaveLength(0);
+  });
+
+  // PR-9: reorder must still be persisted — a row whose position (order) changed
+  // is sent even when its data is untouched. Guards against dropping order awareness.
+  it('flags rows whose position (order) changed even when data is unchanged', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'Alice' }, order: 0 },
+      2: { id: 2, data: { name: 'Bob' }, order: 1 }
+    };
+    var entries = [
+      { id: 2, data: { name: 'Bob' }, order: 0 },   // Bob moved up
+      { id: 1, data: { name: 'Alice' }, order: 1 }  // Alice moved down
+    ];
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(2);
+    expect(payload.delete).toHaveLength(0);
+  });
+
+  // PR-9: a genuine content edit is still detected after normalisation.
+  it('still detects a real content change after normalisation', function() {
+    var originals = {
+      1: { id: 1, data: { age: 30 }, order: 0 }
+    };
+    var entries = [
+      { id: 1, data: { age: '31' }, order: 0 }
+    ];
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].data.age).toBe('31');
+  });
 });

@@ -314,7 +314,12 @@ function fetchCurrentDataSourceUsers() {
 }
 
 /**
- * Cache a list of entries as original entries for comparison when committing changes
+ * Cache a list of entries as original entries for comparison when committing changes.
+ * The cached `order` is the visual row index (position in this list), not the raw
+ * stored `order` value — this matches how table.getData() re-derives order at save
+ * time, so an unchanged row compares equal instead of being re-sent (PR-9). Without
+ * this, a page's rows carry their global stored order (e.g. 500–999 on page 2) while
+ * getData() reports 0–499, and every row is falsely flagged as changed.
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
  * @returns {undefined}
@@ -322,12 +327,16 @@ function fetchCurrentDataSourceUsers() {
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
-  _.forEach(entries, function(entry) {
+  _.forEach(entries, function(entry, index) {
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    entryMap.original[entry.id] = {
+      id: entry.id,
+      data: entry.data,
+      order: index
+    };
   });
 }
 
