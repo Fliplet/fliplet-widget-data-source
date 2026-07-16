@@ -269,6 +269,36 @@ function renderError(options) {
   });
 }
 
+function waitUntilSized(selector, callback) {
+  var el = document.querySelector(selector);
+
+  function check() {
+    if (!el || !document.contains(el)) {
+      return;
+    }
+
+    var rect = el.getBoundingClientRect();
+
+    if (rect.width > 0 && rect.height > 0) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  }
+
+  check();
+}
+
+function renderSpreadsheet(rowsData) {
+  waitUntilSized('.table-entries', function() {
+    table = spreadsheet({ columns: columns, rows: rowsData });
+    $('.table-entries').css('visibility', 'visible');
+    $('.page-loading-overlay').addClass('hidden');
+    $('#versions').removeClass('hidden');
+    updatePaginationControls();
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -538,28 +568,17 @@ function fetchCurrentDataSourceEntries(entries) {
 
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         table.destroy();
         initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-        $('.page-loading-overlay').addClass('hidden');
-
-        $('#versions').removeClass('hidden');
-        updatePaginationControls();
-      }, 0);
+        renderSpreadsheet(rows);
+      });
     } else {
       if (table) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-      $('.page-loading-overlay').addClass('hidden');
-
-      $('#versions').removeClass('hidden');
-      updatePaginationControls();
+      renderSpreadsheet(rows);
     }
   })
     .catch(function onFetchError(error) {
