@@ -626,8 +626,9 @@ function spreadsheet(options) {
         $('.entries-message').html('');
       }
 
-      // Clear search in initial load
-      if (firstTime) {
+      // Clear search in initial load, unless this instance is a new page of the
+      // same data source — there the term stays and is re-run against the page
+      if (firstTime && !(options.preserveSearch && searchField.value.trim() !== '')) {
         search('clear');
       } else {
         // Re-execute search without changing cell selection
@@ -980,12 +981,49 @@ function spreadsheet(options) {
     return dataHasChanges;
   }
 
+  /**
+   * Commits a cell that is still open in its editor so the pending value is
+   * registered as a change before anything navigates away from it.
+   * @returns {void}
+   */
+  function commitActiveEdit() {
+    if (isDestroyed || !hot || typeof hot.getActiveEditor !== 'function') {
+      return;
+    }
+
+    try {
+      var editor = hot.getActiveEditor();
+
+      if (editor && editor.isOpened && editor.isOpened()) {
+        editor.finishEditing();
+      }
+    } catch (e) {
+      // Fail silently; the editor is either closed or already torn down
+    }
+  }
+
   function setChanges(value) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
   }
 
-  function reset(resetHistory) {
-    search('clear');
+  /**
+   * Resets the table's transient UI state.
+   * @param {Boolean} resetHistory - Whether to also clear the undo/redo stack
+   * @param {Boolean} [preserveSearch] - Keep the Find term (used when the table
+   * is rebuilt for a page change rather than for a different data source)
+   * @returns {void}
+   */
+  function reset(resetHistory, preserveSearch) {
+    // Clear synchronously. search('clear') defers the re-query by 50ms, which on
+    // a page change lands after this instance has been replaced.
+    resetSearchState();
+
+    if (!preserveSearch) {
+      searchField.value = '';
+      $('.filter-form .find-controls').addClass('disabled');
+      setSearchMessage();
+    }
+
     setChanges(false);
 
     $('.save-btn').addClass('hidden');
@@ -1001,8 +1039,8 @@ function spreadsheet(options) {
     setData: setData,
     getColumns: getColumns,
     getColWidths: getColWidths,
-    destroy: function() {
-      reset(true);
+    destroy: function(destroyOptions) {
+      reset(true, destroyOptions && destroyOptions.preserveSearch);
 
       // Ensure we do not call methods on a destroyed Handsontable instance
       if (hot && typeof hot.destroy === 'function') {
@@ -1027,6 +1065,7 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
+    commitActiveEdit: commitActiveEdit,
     onChange: onChange
   };
 }
@@ -1052,6 +1091,12 @@ function setSearchMessage(msg) {
     foundMessage = (queryResultIndex + 1) + ' of ' + foundMessage;
   }
 
+  // Find only covers the rows currently loaded, so say so when the data source
+  // is paginated and the user is not looking at all of it
+  if ($('.pagination-controls').length && !$('.pagination-controls').hasClass('hidden')) {
+    foundMessage += ' on this page';
+  }
+
   $('.find-results').html(value !== '' ? foundMessage : '');
 }
 
@@ -1060,6 +1105,43 @@ function searchSpinner() {
 }
 
 var previousSearchValue = '';
+
+/**
+ * Returns the Handsontable search plugin for the live instance, or null when
+ * there is no usable instance (e.g. between a destroy and the next render).
+ * @returns {Object|null} The search plugin instance
+ */
+function getSearchPlugin() {
+  if (!hot) {
+    return null;
+  }
+
+  var plugin = hot.search;
+
+  if (!plugin && typeof hot.getPlugin === 'function') {
+    try {
+      plugin = hot.getPlugin('search');
+    } catch (e) {
+      plugin = null;
+    }
+  }
+
+  return plugin && typeof plugin.query === 'function' ? plugin : null;
+}
+
+/**
+ * Forgets the results of the last query without touching the search field.
+ * Called whenever the table is rebuilt, so the next search re-queries the new
+ * data instead of being short-circuited by the previousSearchValue cache.
+ * @returns {void}
+ */
+function resetSearchState() {
+  queryResult = [];
+  resultsCount = 0;
+  queryResultIndex = 0;
+  // null rather than '' so any field value — including an empty one — counts as changed
+  previousSearchValue = null;
+}
 
 /**
  * This will make a search
@@ -1091,8 +1173,6 @@ function search(action, options) {
     return;
   }
 
-  previousSearchValue = value;
-
   if (value !== '') {
     $('.filter-form .find-controls').removeClass('disabled');
   } else {
@@ -1100,15 +1180,24 @@ function search(action, options) {
     $('.find-controls .find-prev, .find-controls .find-next').removeClass('disabled');
   }
 
-  if (!hot || !hot.search) {
+  var searchPlugin = getSearchPlugin();
+
+  // Bail out before caching the term. The table is rebuilt on every page change,
+  // and caching a term we never actually queried would make every later search
+  // for the same term short-circuit and report the stale result count.
+  if (!searchPlugin) {
     return;
   }
+
+  var lastQueriedValue = previousSearchValue;
+
+  previousSearchValue = value;
 
   var row;
   var col;
 
   if (action === 'find') {
-    queryResult = hot.search.query(value);
+    queryResult = searchPlugin.query(value);
     resultsCount = queryResult.length;
     queryResultIndex = 0;
 
@@ -1130,6 +1219,17 @@ function search(action, options) {
 
     hot.render();
   } else if (action === 'next' || action === 'prev') {
+    // Pressing Enter straight after typing arrives here before the debounced
+    // find has run, so re-query first rather than stepping through stale results
+    if (lastQueriedValue !== value) {
+      queryResult = searchPlugin.query(value);
+      resultsCount = queryResult.length;
+      queryResultIndex = -1;
+
+      $('.find-controls .find-prev, .find-controls .find-next').toggleClass('disabled', !resultsCount);
+      hot.render();
+    }
+
     hot.selection.selectedHeader.cols = false;
 
     if (action === 'next') {

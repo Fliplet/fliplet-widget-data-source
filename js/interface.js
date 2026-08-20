@@ -59,6 +59,8 @@ var currentPage = 0;
 var totalEntries = 0;
 var totalPages = 0;
 var fetchGeneration = 0;
+var isPageNavigation = false;
+var isConfirmingNavigation = false;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -387,21 +389,41 @@ function updatePaginationControls() {
  * @returns {void}
  */
 function navigateToPage(targetPage) {
+  // A cell may still be open in its editor. Commit it first so the edit counts
+  // towards hasChanges() instead of being discarded without a warning.
+  if (table && typeof table.commitActiveEdit === 'function') {
+    table.commitActiveEdit();
+  }
+
   if (targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
+    // Keep the page-jump input in sync with the page actually being shown
+    $('[data-page-jump]').val(currentPage + 1);
+
     return;
   }
 
   function goToPage() {
     currentPage = targetPage;
+    isPageNavigation = true;
     $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
     $('.page-loading-overlay').removeClass('hidden');
     fetchCurrentDataSourceEntries();
   }
 
-  if (table.hasChanges()) {
+  if (table && table.hasChanges()) {
+    // Opening the confirmation blurs the page-jump input, which fires a second
+    // native change event. Without this guard the user gets stacked dialogs.
+    if (isConfirmingNavigation) {
+      return;
+    }
+
+    isConfirmingNavigation = true;
+
     Fliplet.Modal.confirm({
       message: 'You have unsaved changes. Navigating away will discard them. Continue?'
     }).then(function(result) {
+      isConfirmingNavigation = false;
+
       if (!result) {
         // Reset page-jump input to current page if user cancels
         $('[data-page-jump]').val(currentPage + 1);
@@ -411,12 +433,34 @@ function navigateToPage(targetPage) {
 
       table.setChanges(false);
       goToPage();
+    }).catch(function() {
+      // Never leave the guard latched — it would block every later confirmation
+      isConfirmingNavigation = false;
     });
 
     return;
   }
 
   goToPage();
+}
+
+/**
+ * Validate the page-jump input and navigate to the requested page.
+ * Shared by the change and Enter-key handlers so both go through the same
+ * unsaved-changes guard.
+ * @param {Object} $input - jQuery object for the page-jump input
+ * @returns {void}
+ */
+function handlePageJump($input) {
+  var inputPage = parseInt($input.val(), 10);
+
+  if (isNaN(inputPage) || inputPage < 1 || inputPage > totalPages) {
+    $input.val(currentPage + 1);
+
+    return;
+  }
+
+  navigateToPage(inputPage - 1);
 }
 
 function fetchCurrentDataSourceEntries(entries) {
@@ -459,13 +503,21 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
+      // Clamp the page against the freshly fetched total before querying.
+      // Deleting the last entries of the last page shrinks the data source, and
+      // an out-of-range offset would return no rows and render an empty grid.
+      var pageInfo = Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage);
+
+      currentPage = pageInfo.currentPage;
+      totalPages = pageInfo.totalPages;
+
       // Fetch only the current page of entries using the query endpoint
       return Fliplet.API.request({
         url: 'v1/data-sources/' + currentDataSourceId + '/data/query',
         method: 'POST',
         data: {
-          limit: PAGE_SIZE,
-          offset: currentPage * PAGE_SIZE,
+          limit: pageInfo.limit,
+          offset: pageInfo.offset,
           order: [['order', 'ASC'], ['id', 'ASC']]
         }
       }).then(function(queryResponse) {
@@ -527,7 +579,8 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = _.uniq(_.concat(columns, computedColumns));
     }
 
-    currentDataSourceRowsCount = rows.length;
+    // `rows` only holds the current page, so report the data source total instead
+    currentDataSourceRowsCount = totalEntries || rows.length;
     currentDataSourceColumnsCount = columns.length;
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
@@ -551,10 +604,13 @@ function fetchCurrentDataSourceEntries(entries) {
       }, 0);
     } else {
       if (table) {
-        table.destroy();
+        table.destroy({ preserveSearch: isPageNavigation });
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
+      // Keep the Find term alive when the rebuild is a page change rather than
+      // the user opening a different data source
+      table = spreadsheet({ columns: columns, rows: rows, preserveSearch: isPageNavigation });
+      isPageNavigation = false;
       $('.table-entries').css('visibility', 'visible');
       $('.page-loading-overlay').addClass('hidden');
 
@@ -567,6 +623,8 @@ function fetchCurrentDataSourceEntries(entries) {
       if (error && error.stale) {
         return;
       }
+
+      isPageNavigation = false;
 
       var message = error;
 
@@ -582,6 +640,10 @@ function fetchCurrentDataSourceEntries(entries) {
 
       $('.entries-message').html('<br>' + message);
       $('.page-loading-overlay').addClass('hidden');
+
+      // Re-enable the controls, otherwise one failed page load leaves the user
+      // stranded with no way to navigate back
+      updatePaginationControls();
     });
 }
 
@@ -1300,6 +1362,8 @@ $('#app')
       currentPage = 0;
       totalEntries = 0;
       totalPages = 0;
+      isPageNavigation = false;
+      isConfirmingNavigation = false;
       currentDataSource = null;
 
       $('#save-rules').addClass('hidden');
@@ -1453,20 +1517,12 @@ $('#app')
     navigateToPage(isPrev ? currentPage - 1 : currentPage + 1);
   })
   .on('change', '[data-page-jump]', function() {
-    var inputPage = parseInt($(this).val(), 10);
-
-    if (isNaN(inputPage) || inputPage < 1 || inputPage > totalPages) {
-      $(this).val(currentPage + 1);
-
-      return;
-    }
-
-    navigateToPage(inputPage - 1);
+    handlePageJump($(this));
   })
   .on('keydown', '[data-page-jump]', function(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
-      $(this).trigger('change');
+      handlePageJump($(this));
     }
   })
   .on('click', '[save-settings]', function() {

@@ -123,6 +123,50 @@ describe('Pagination.computePageInfo', function() {
   });
 });
 
+describe('Pagination.computePageInfo — clamping after a delete (FIND-006)', function() {
+  var PAGE_SIZE = 500;
+
+  it('moves off the last page when its only entry is deleted', function() {
+    // 9,501 entries = 20 pages; page 19 (0-based) holds a single entry
+    var before = Pagination.computePageInfo(9501, PAGE_SIZE, 19);
+
+    expect(before.totalPages).toBe(20);
+    expect(before.startEntry).toBe(9501);
+    expect(before.endEntry).toBe(9501);
+
+    // The entry is deleted and the page disappears with it
+    var after = Pagination.computePageInfo(9500, PAGE_SIZE, 19);
+
+    expect(after.totalPages).toBe(19);
+    expect(after.currentPage).toBe(18);
+    expect(after.offset).toBe(9000);
+    expect(after.endEntry).toBe(9500);
+    expect(after.hasNext).toBe(false);
+  });
+
+  it('keeps the offset inside the data source when a whole page is deleted', function() {
+    var after = Pagination.computePageInfo(9500, PAGE_SIZE, 19);
+
+    // An unclamped offset of 19 * 500 = 9500 would query past the last entry
+    // and render an empty grid
+    expect(after.offset).toBeLessThan(9500);
+  });
+
+  it('falls back to the first page when every entry is deleted', function() {
+    var after = Pagination.computePageInfo(0, PAGE_SIZE, 19);
+
+    expect(after.currentPage).toBe(0);
+    expect(after.offset).toBe(0);
+    expect(after.totalPages).toBe(1);
+  });
+
+  it('reports the data source total, not the page size, in the entry range', function() {
+    var info = Pagination.computePageInfo(15234, PAGE_SIZE, 0);
+
+    expect(info.totalEntries).toBe(15234);
+  });
+});
+
 describe('Pagination.computeCommitPayload', function() {
   var guidCounter;
   var mockGuid = function() { return 'guid-' + (++guidCounter); };
