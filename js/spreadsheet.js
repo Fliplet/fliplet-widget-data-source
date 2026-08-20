@@ -14,6 +14,9 @@ function spreadsheet(options) {
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is destroyed
+  // Index of the first row of this page within the data source. Held here rather
+  // than read inside getData(), whose own `options` parameter shadows this one.
+  var pageOffset = options.pageOffset || 0;
 
   /**
    * Given an array of data source entries it does return an array
@@ -886,7 +889,11 @@ function spreadsheet(options) {
             entry.data[header] = visualRow[index];
           }
 
-          entry.order = order;
+          // `order` is the row's index within the loaded page, so it must be
+          // shifted by the page's offset. Without this, saving page 2 writes
+          // order 0..499 over entries that belong at 500..999 and the whole
+          // data source reshuffles.
+          entry.order = pageOffset + order;
 
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {

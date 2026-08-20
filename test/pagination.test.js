@@ -169,6 +169,45 @@ describe('Pagination.computePageInfo — clamping after a delete (FIND-006)', fu
   });
 });
 
+describe('Pagination.computePageInfo — page offset drives persisted row order', function() {
+  var PAGE_SIZE = 500;
+
+  // Rows are saved with order = pageOffset + visualIndex. If the offset is
+  // dropped, page 2 writes 0..499 over entries that belong at 500..999 and the
+  // data source reshuffles on the next [order ASC, id ASC] read.
+  it('gives each page a non-overlapping order range', function() {
+    var page1 = Pagination.computePageInfo(1001, PAGE_SIZE, 0);
+    var page2 = Pagination.computePageInfo(1001, PAGE_SIZE, 1);
+    var page3 = Pagination.computePageInfo(1001, PAGE_SIZE, 2);
+
+    expect(page1.offset).toBe(0);
+    expect(page2.offset).toBe(500);
+    expect(page3.offset).toBe(1000);
+
+    // The last order written by page 1 must sort before page 2's first
+    var lastOrderOnPage1 = page1.offset + (PAGE_SIZE - 1);
+
+    expect(lastOrderOnPage1).toBeLessThan(page2.offset);
+  });
+
+  it('keeps the offset aligned with the entries the page actually shows', function() {
+    var page2 = Pagination.computePageInfo(1001, PAGE_SIZE, 1);
+
+    // Page 2 shows entries 501..1000, so its first row persists order 500
+    expect(page2.offset).toBe(page2.startEntry - 1);
+    expect(page2.endEntry).toBe(1000);
+  });
+
+  it('offsets the final partial page correctly', function() {
+    var lastPage = Pagination.computePageInfo(1001, PAGE_SIZE, 2);
+
+    expect(lastPage.offset).toBe(1000);
+    expect(lastPage.startEntry).toBe(1001);
+    expect(lastPage.endEntry).toBe(1001);
+    expect(lastPage.hasNext).toBe(false);
+  });
+});
+
 describe('Pagination.computeCommitPayload', function() {
   var guidCounter;
   var mockGuid = function() { return 'guid-' + (++guidCounter); };

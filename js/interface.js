@@ -583,9 +583,14 @@ function fetchCurrentDataSourceEntries(entries) {
     currentDataSourceRowsCount = totalEntries || rows.length;
     currentDataSourceColumnsCount = columns.length;
 
+    var renderPageInfo = Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage);
+
     // Blank rows for typing new records belong at the end of the data source, not
     // at the end of every page — recomputed here so it holds on every render path
-    var isLastPage = !Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage).hasNext;
+    var isLastPage = !renderPageInfo.hasNext;
+
+    // Row order is persisted from the row's position, which is page-relative
+    var pageOffset = renderPageInfo.offset;
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
@@ -599,7 +604,7 @@ function fetchCurrentDataSourceEntries(entries) {
         table.destroy();
         initialLoad = false;
 
-        table = spreadsheet({ columns: columns, rows: rows, isLastPage: isLastPage });
+        table = spreadsheet({ columns: columns, rows: rows, isLastPage: isLastPage, pageOffset: pageOffset });
         $('.table-entries').css('visibility', 'visible');
         $('.page-loading-overlay').addClass('hidden');
 
@@ -613,7 +618,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
       // Keep the Find term alive when the rebuild is a page change rather than
       // the user opening a different data source
-      table = spreadsheet({ columns: columns, rows: rows, preserveSearch: isPageNavigation, isLastPage: isLastPage });
+      table = spreadsheet({ columns: columns, rows: rows, preserveSearch: isPageNavigation, isLastPage: isLastPage, pageOffset: pageOffset });
       isPageNavigation = false;
       $('.table-entries').css('visibility', 'visible');
       $('.page-loading-overlay').addClass('hidden');
