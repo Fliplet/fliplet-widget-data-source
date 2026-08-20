@@ -886,7 +886,14 @@ function spreadsheet(options) {
             entry.data[header] = visualRow[index];
           }
 
-          entry.order = order;
+          // Only stamp a position when the user actually reordered rows. This is a
+          // dense 0-based index, which is incompatible with stored orders that are
+          // sparse or null, so writing it on a data-only edit or an insert would
+          // silently move the row. A reorder renumbers the whole list, so there the
+          // dense value is correct for every row.
+          if (rowsMoved) {
+            entry.order = order;
+          }
 
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {

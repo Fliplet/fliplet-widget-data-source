@@ -314,19 +314,17 @@ function fetchCurrentDataSourceUsers() {
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
-  _.forEach(entries, function(entry, index) {
+  _.forEach(entries, function(entry) {
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    // `order` is cached as the row's position in this list, not its stored value,
-    // because that is the coordinate getData() re-derives at save time. Caching the
-    // stored value makes every row of an imported or gap-ridden data source compare
-    // unequal.
+    // `order` is the value the server stores, not a visual index. It is only used
+    // when the user reorders, to work out which rows genuinely need renumbering.
     entryMap.original[entry.id] = {
       id: entry.id,
       data: entry.data,
-      order: index
+      order: entry.order
     };
   });
 }
@@ -634,35 +632,38 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
 /**
  * Determine whether an entry needs committing.
  *
- * Position is only compared when the user actually dragged a row. getData()
- * re-derives `order` from the visual row index, so deleting one row shifts the
- * index of every row beneath it and a plain comparison flags them all as changed
- * - on a 15,000-row data source that is a ~3 MB commit that takes ~15s and times
- * out as a 502 (PS-1781). Skipping the position check unless rows were moved
- * keeps a delete to just the delete, while a genuine reorder still commits the
- * rows whose position changed.
+ * Position is never compared. getData() derives `order` from the visual row index,
+ * so deleting one row shifts the index of every row beneath it and a comparison
+ * that included position flagged them all as changed - on a 15,000-row data source
+ * that is a ~3 MB commit taking ~15s, which times out as a 502 (PS-1781).
+ *
+ * When the user does drag a row, position is compared against the row's *stored*
+ * order, so only the rows that genuinely need renumbering are committed.
  * @param {Object} entry - Current entry from the table
  * @param {Object} original - Cached original entry
- * @param {Boolean} comparePosition - Whether row order is meaningful for this save
+ * @param {Boolean} rowsMoved - Whether the user dragged a row during this save
  * @returns {Boolean} True when the entry should be committed
  */
-function hasEntryChanged(entry, original, comparePosition) {
+function hasEntryChanged(entry, original, rowsMoved) {
   if (!_.isEqual(entry.data, original.data)) {
     return true;
   }
 
-  if (!comparePosition) {
+  if (!rowsMoved) {
     return false;
   }
 
+  // A reorder is the one case where position must be written. Comparing the new
+  // dense index against the stored value keeps the commit to the rows that
+  // actually need renumbering rather than the whole data source.
   return typeof entry.order !== 'undefined' && entry.order !== original.order;
 }
 
 function getCommitPayload(entries) {
   entries = entries || [];
 
-  // Row order only matters to this save if the user dragged a row during it
-  var comparePosition = !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved());
+  // Position is only worth writing when the user dragged a row during this save
+  var rowsMoved = !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved());
 
   var inserted = [];
   var updated = [];
@@ -701,7 +702,7 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (!hasEntryChanged(entry, original, comparePosition)) {
+    if (!hasEntryChanged(entry, original, rowsMoved)) {
       return;
     }
 
