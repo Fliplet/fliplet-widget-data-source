@@ -1009,7 +1009,19 @@ function spreadsheet(options) {
   }
 
   function setChanges(value) {
+    var previous = dataHasChanges;
+
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
+
+    if (dataHasChanges === previous) {
+      return;
+    }
+
+    // The overlay's close button belongs to Studio, and this widget runs in an
+    // iframe that cannot block it. Report the state so Studio can confirm before
+    // closing rather than discarding the edits silently. Only transitions are
+    // sent — onChange() fires on every cell edit.
+    Fliplet.Studio.emit('widget-unsaved-changes', { hasChanges: dataHasChanges });
   }
 
   /**
