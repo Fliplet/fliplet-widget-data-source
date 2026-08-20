@@ -991,14 +991,10 @@ function spreadsheet(options) {
       return;
     }
 
-    try {
-      var editor = hot.getActiveEditor();
+    var editor = hot.getActiveEditor();
 
-      if (editor && editor.isOpened && editor.isOpened()) {
-        editor.finishEditing();
-      }
-    } catch (e) {
-      // Fail silently; the editor is either closed or already torn down
+    if (editor && typeof editor.isOpened === 'function' && editor.isOpened()) {
+      editor.finishEditing();
     }
   }
 
@@ -1025,12 +1021,8 @@ function spreadsheet(options) {
 
       // Repaint so any previous search highlights are dropped. search('clear')
       // used to do this via its deferred find.
-      if (!isDestroyed && hot && typeof hot.render === 'function') {
-        try {
-          hot.render();
-        } catch (e) {
-          // Fail silently; the instance is on its way out
-        }
+      if (!isDestroyed && hot && hot.container !== null) {
+        hot.render();
       }
     }
 
@@ -1122,21 +1114,11 @@ var previousSearchValue = '';
  * @returns {Object|null} The search plugin instance
  */
 function getSearchPlugin() {
-  if (!hot) {
+  if (!hot || !hot.search || typeof hot.search.query !== 'function') {
     return null;
   }
 
-  var plugin = hot.search;
-
-  if (!plugin && typeof hot.getPlugin === 'function') {
-    try {
-      plugin = hot.getPlugin('search');
-    } catch (e) {
-      plugin = null;
-    }
-  }
-
-  return plugin && typeof plugin.query === 'function' ? plugin : null;
+  return hot.search;
 }
 
 /**
