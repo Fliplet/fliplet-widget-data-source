@@ -583,6 +583,10 @@ function fetchCurrentDataSourceEntries(entries) {
     currentDataSourceRowsCount = totalEntries || rows.length;
     currentDataSourceColumnsCount = columns.length;
 
+    // Blank rows for typing new records belong at the end of the data source, not
+    // at the end of every page — recomputed here so it holds on every render path
+    var isLastPage = !Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage).hasNext;
+
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
       if (table) {
@@ -595,7 +599,7 @@ function fetchCurrentDataSourceEntries(entries) {
         table.destroy();
         initialLoad = false;
 
-        table = spreadsheet({ columns: columns, rows: rows });
+        table = spreadsheet({ columns: columns, rows: rows, isLastPage: isLastPage });
         $('.table-entries').css('visibility', 'visible');
         $('.page-loading-overlay').addClass('hidden');
 
@@ -609,7 +613,7 @@ function fetchCurrentDataSourceEntries(entries) {
 
       // Keep the Find term alive when the rebuild is a page change rather than
       // the user opening a different data source
-      table = spreadsheet({ columns: columns, rows: rows, preserveSearch: isPageNavigation });
+      table = spreadsheet({ columns: columns, rows: rows, preserveSearch: isPageNavigation, isLastPage: isLastPage });
       isPageNavigation = false;
       $('.table-entries').css('visibility', 'visible');
       $('.page-loading-overlay').addClass('hidden');

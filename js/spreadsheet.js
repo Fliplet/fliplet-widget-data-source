@@ -418,7 +418,10 @@ function spreadsheet(options) {
     },
     data: spreadsheetData,
     renderer: addMaxHeightToCells,
-    minSpareRows: 40,
+    // Spare rows are where new records get typed, and a new record always lands at
+    // the end of the data source. Showing them on an earlier page renders 40 blank
+    // rows in the middle of the data that belong to no page.
+    minSpareRows: options.isLastPage === false ? 0 : 40,
     minSpareCols: 10,
     // Hooks
     beforeChange: function(changes) {
