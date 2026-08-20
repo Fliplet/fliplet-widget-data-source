@@ -314,12 +314,20 @@ function fetchCurrentDataSourceUsers() {
 function cacheOriginalEntries(entries, clientIdMap) {
   entryMap.original = {};
 
-  _.forEach(entries, function(entry) {
+  _.forEach(entries, function(entry, index) {
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    // `order` is cached as the row's position in this list, not its stored value,
+    // because that is the coordinate getData() re-derives at save time. Caching the
+    // stored value makes every row of an imported or gap-ridden data source compare
+    // unequal.
+    entryMap.original[entry.id] = {
+      id: entry.id,
+      data: entry.data,
+      order: index
+    };
   });
 }
 
@@ -623,8 +631,38 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
+/**
+ * Determine whether an entry needs committing.
+ *
+ * Position is only compared when the user actually dragged a row. getData()
+ * re-derives `order` from the visual row index, so deleting one row shifts the
+ * index of every row beneath it and a plain comparison flags them all as changed
+ * - on a 15,000-row data source that is a ~3 MB commit that takes ~15s and times
+ * out as a 502 (PS-1781). Skipping the position check unless rows were moved
+ * keeps a delete to just the delete, while a genuine reorder still commits the
+ * rows whose position changed.
+ * @param {Object} entry - Current entry from the table
+ * @param {Object} original - Cached original entry
+ * @param {Boolean} comparePosition - Whether row order is meaningful for this save
+ * @returns {Boolean} True when the entry should be committed
+ */
+function hasEntryChanged(entry, original, comparePosition) {
+  if (!_.isEqual(entry.data, original.data)) {
+    return true;
+  }
+
+  if (!comparePosition) {
+    return false;
+  }
+
+  return typeof entry.order !== 'undefined' && entry.order !== original.order;
+}
+
 function getCommitPayload(entries) {
   entries = entries || [];
+
+  // Row order only matters to this save if the user dragged a row during it
+  var comparePosition = !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved());
 
   var inserted = [];
   var updated = [];
@@ -663,7 +701,7 @@ function getCommitPayload(entries) {
       return;
     }
 
-    if (_.isEqual(entry, original)) {
+    if (!hasEntryChanged(entry, original, comparePosition)) {
       return;
     }
 

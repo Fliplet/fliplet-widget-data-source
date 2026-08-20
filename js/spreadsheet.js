@@ -14,6 +14,9 @@ function spreadsheet(options) {
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is destroyed
+  // Set once the user drags a row. Row order is only worth committing when they
+  // actually reordered something - see getData().
+  var rowsMoved = false;
 
   /**
    * Given an array of data source entries it does return an array
@@ -578,6 +581,7 @@ function spreadsheet(options) {
       }
     },
     afterRowMove: function() {
+      rowsMoved = true;
       onChange();
     },
     afterCreateRow: function() {
@@ -987,6 +991,7 @@ function spreadsheet(options) {
   function reset(resetHistory) {
     search('clear');
     setChanges(false);
+    rowsMoved = false;
 
     $('.save-btn').addClass('hidden');
     $('.data-save-status').addClass('hidden');
@@ -1027,6 +1032,9 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
+    hasRowsMoved: function() {
+      return rowsMoved;
+    },
     onChange: onChange
   };
 }
