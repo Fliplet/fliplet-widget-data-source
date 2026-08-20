@@ -1022,6 +1022,16 @@ function spreadsheet(options) {
       searchField.value = '';
       $('.filter-form .find-controls').addClass('disabled');
       setSearchMessage();
+
+      // Repaint so any previous search highlights are dropped. search('clear')
+      // used to do this via its deferred find.
+      if (!isDestroyed && hot && typeof hot.render === 'function') {
+        try {
+          hot.render();
+        } catch (e) {
+          // Fail silently; the instance is on its way out
+        }
+      }
     }
 
     setChanges(false);
