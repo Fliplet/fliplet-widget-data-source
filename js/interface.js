@@ -822,8 +822,11 @@ function saveCurrentData() {
   var columns;
 
   table.onSave();
-  fetchCurrentDataSourceEntries();
 
+  // No refetch here: getData() below reads the table synchronously, so a fetch
+  // started now cannot reach the payload. It only lands later and rebuilds the
+  // table from pre-save state, racing the refresh that follows the commit — and
+  // on a heavy data source it doubles the bytes a save costs.
   var entries = table.getData({
     parseJSON: true,
     removeEmptyRows: true
