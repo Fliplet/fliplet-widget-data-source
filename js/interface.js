@@ -376,11 +376,11 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      // Ask for an explicit, stable sort. The API default is [order ASC, id DESC],
-      // which reads rows that share an order - or have none - newest first, so a
-      // data source with null orders comes back reversed and a newly added row
-      // appears at the top instead of where it was added.
-      return source.find({ order: [['order', 'ASC'], ['id', 'ASC']] }).catch(function() {
+      // Deliberately no explicit sort: the manager must read a data source the
+      // same way the rest of the platform does. Asking for id ASC here made rows
+      // with a null or shared order appear in one sequence in the manager and
+      // the reverse of it in apps, with nothing written down to reconcile them.
+      return source.find({}).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });

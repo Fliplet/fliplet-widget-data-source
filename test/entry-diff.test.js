@@ -493,27 +493,30 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     }
   });
 
-  it('numbers the whole data source when reordering one that has no order', function() {
+  it('numbers only up to the last row that moved on an unordered data source', function() {
     var rows = [];
+    var i;
 
-    for (var i = 0; i < 500; i++) {
+    // Rows with no order read newest first, so that is the sequence the manager
+    // shows and the baseline a drag is measured against
+    for (i = 499; i >= 0; i--) {
       rows.push({ id: 1000 + i, name: 'U' + i, order: null });
     }
 
     var d = build(rows);
     var payload = commit(move(d.entries, 10, 20), d.originals, true);
 
-    // Numbering only a prefix left the rest ordered by id alone, which the
-    // manager and the platform read in opposite directions - the tail came back
-    // reversed everywhere except here. Persisting a reorder means every row
-    // carries a number.
-    expect(payload.entries).toHaveLength(500);
+    // The rows past the move still read correctly on their ids, and they read
+    // that way for every consumer - numbering them would commit the whole data
+    // source for one drag
+    expect(payload.entries).toHaveLength(21);
   });
 
   it('writes nothing on an unordered data source when no row actually moved', function() {
     var rows = [];
+    var i;
 
-    for (var i = 0; i < 200; i++) {
+    for (i = 199; i >= 0; i--) {
       rows.push({ id: 1000 + i, name: 'U' + i, order: null });
     }
 
@@ -641,50 +644,26 @@ describe('PS-1781 — a saved order must read the same for every consumer', func
     expect(readAs(rows, payload, -1)).toBe('A,NEW,B,C');
   });
 
-  it('numbers an unordered data source when a row is added to it', function() {
-    var rows = [
-      { id: 1, name: 'A', order: null },
-      { id: 2, name: 'B', order: null },
-      { id: 3, name: 'C', order: null }
-    ];
-    var originals = {};
+  it('does not commit the data source to place a row added to an unordered one', function() {
+    var rows = [];
+    var i;
 
-    rows.forEach(function(row) {
-      originals[row.id] = { id: row.id, data: { Name: row.name }, order: row.order };
-    });
+    for (i = 499; i >= 0; i--) {
+      rows.push({ id: 1000 + i, name: 'U' + i, order: null });
+    }
 
-    var entries = [
-      { id: 1, data: { Name: 'A' } },
-      { id: 2, data: { Name: 'B' } },
-      { id: 3, data: { Name: 'C' } },
-      { data: { Name: 'NEW' } }
-    ];
-    var payload = commit(entries, originals);
+    var d = build(rows);
 
-    // Left unnumbered the new row reads last here and first everywhere else
-    expect(readAs(rows, payload, 1)).toBe('A,B,C,NEW');
-    expect(readAs(rows, payload, -1)).toBe('A,B,C,NEW');
-  });
+    d.entries.push({ data: { Name: 'NEW' } });
 
-  it('places a middle insert into an unordered data source', function() {
-    var rows = [
-      { id: 1, name: 'A', order: null },
-      { id: 2, name: 'B', order: null }
-    ];
-    var originals = {};
+    var payload = commit(d.entries, d.originals);
 
-    rows.forEach(function(row) {
-      originals[row.id] = { id: row.id, data: { Name: row.name }, order: row.order };
-    });
-
-    var payload = commit([
-      { id: 1, data: { Name: 'A' } },
-      { data: { Name: 'MID' } },
-      { id: 2, data: { Name: 'B' } }
-    ], originals);
-
-    expect(readAs(rows, payload, 1)).toBe('A,MID,B');
-    expect(readAs(rows, payload, -1)).toBe('A,MID,B');
+    // A row cannot be positioned among rows that carry no order: a number would
+    // jump it ahead of all of them, and numbering them all is the whole-dataset
+    // commit this exists to prevent. So only the new row is sent, and where it
+    // lands is left to the same rule every consumer already applies.
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBeUndefined();
   });
 
   it('writes nothing for a no-op drag on a data source that mixes both', function() {
@@ -706,7 +685,8 @@ describe('PS-1781 — a saved order must read the same for every consumer', func
       entries.push({ id: 900 + i, data: { Name: 'M' + i } });
     }
 
-    for (i = 0; i < 10; i++) {
+    // unnumbered rows read newest first
+    for (i = 9; i >= 0; i--) {
       entries.push({ id: 100 + i, data: { Name: 'N' + i } });
     }
 

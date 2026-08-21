@@ -125,14 +125,15 @@ var EntryDiff = (function() {
       return positions;
     }
 
-    // Nothing usable is stored. Rows left unnumbered are ordered only by id, and
-    // the manager reads ids ascending while the rest of the platform reads them
-    // descending - so an unnumbered tail would read one way here and the other
-    // way everywhere else. Once a reorder is being persisted at all, every row
-    // has to carry a number for the result to mean the same thing to everyone.
-    // The rows read back numbered-first, then the unnumbered ones by id - so the
-    // baseline has to be built the same way. Sorting on id alone made a data
-    // source with both kinds look reordered when nothing had moved.
+    // Nothing usable is stored, so the rows currently read back on their ids.
+    // Numbering all of them would commit the whole data source for one drag, so
+    // only the prefix up to the last row that actually moved is numbered. The
+    // rows past it still read correctly on their ids alone - and because the
+    // manager reads a data source exactly as the rest of the platform does,
+    // that tail means the same thing to every consumer.
+    // The rows read back numbered-first, then the unnumbered ones by descending
+    // id - so the baseline has to be built the same way. Sorting on ascending id
+    // made a data source with both kinds look reordered when nothing had moved.
     var baseline = positioned.slice().sort(function(a, b) {
       var aOrder = originalMap[a.id].order;
       var bOrder = originalMap[b.id].order;
@@ -147,63 +148,24 @@ var EntryDiff = (function() {
         return aNumbered ? -1 : 1;
       }
 
-      return a.id - b.id;
+      return b.id - a.id;
     });
 
-    var moved = positioned.some(function(entry, index) {
-      return baseline[index].id !== entry.id;
+    var lastMoved = -1;
+
+    positioned.forEach(function(entry, index) {
+      if (baseline[index].id !== entry.id) {
+        lastMoved = index;
+      }
     });
 
     var renumbered = {};
 
-    if (!moved) {
-      return renumbered;
+    for (var i = 0; i <= lastMoved; i++) {
+      renumbered[positioned[i].id] = i;
     }
 
-    positioned.forEach(function(entry, index) {
-      renumbered[entry.id] = index;
-    });
-
     return renumbered;
-  }
-
-  /**
-   * Number every row by its visual position.
-   *
-   * Used when a data source holds rows with no stored order and the user adds
-   * one. A row without an order cannot be positioned: it sorts after every
-   * numbered row, and among the other unordered rows only by id - which the
-   * manager and the rest of the platform read in opposite directions. Leaving
-   * it unnumbered would show it in one place here and another everywhere else,
-   * so the whole data source is numbered once and is cheap to edit afterwards.
-   * @param {Array} entries - Current entries in visual order
-   * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @returns {Object} Map of entry id to the order it should be given
-   */
-  function computeHealedPositions(entries, originalMap) {
-    var positions = {};
-
-    (entries || []).forEach(function(entry, index) {
-      if (typeof entry.id !== 'undefined' && originalMap[entry.id]) {
-        positions[entry.id] = index;
-      }
-    });
-
-    return positions;
-  }
-
-  /**
-   * Whether any row carries an order that cannot be positioned against.
-   * @param {Array} entries - Current entries in visual order
-   * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @returns {Boolean} True when at least one existing row has no numeric order
-   */
-  function hasUnorderedRows(entries, originalMap) {
-    return (entries || []).some(function(entry) {
-      return typeof entry.id !== 'undefined'
-        && originalMap[entry.id]
-        && typeof originalMap[entry.id].order !== 'number';
-    });
   }
 
   /**
@@ -279,6 +241,15 @@ var EntryDiff = (function() {
         after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
       }
 
+      // Nothing numbered on either side, so there is no gap to sit in. Leave
+      // these rows unnumbered: they read after the numbered rows and among
+      // themselves by id, the same way for every consumer. Numbering them would
+      // jump them ahead of every existing row, and numbering the whole data
+      // source to avoid that would commit all of it for one added row.
+      if (before === null && after === null) {
+        continue;
+      }
+
       var needed = count + displaced.length;
       var base = before === null ? after - needed : before + 1;
       var step = 1;
@@ -348,17 +319,6 @@ var EntryDiff = (function() {
     var positions = options.rowsMoved
       ? computeReorderedPositions(entries, originalMap)
       : null;
-
-    var hasInserts = entries.some(function(entry) {
-      return typeof entry.id === 'undefined' || !originalMap[entry.id];
-    });
-
-    // A row can only be placed against neighbours that carry a number. If the
-    // data source has rows without one, number it once so the new row has
-    // something to sit between, here and everywhere else that reads it.
-    if (hasInserts && hasUnorderedRows(entries, originalMap)) {
-      positions = computeHealedPositions(entries, originalMap);
-    }
 
     // New rows need a position of their own, so insert-before/after lands where
     // the user put it rather than at the end
@@ -446,7 +406,6 @@ var EntryDiff = (function() {
   return {
     normalizeData: normalizeData,
     computeInsertPositions: computeInsertPositions,
-    computeHealedPositions: computeHealedPositions,
     computeReorderedPositions: computeReorderedPositions,
     hasEntryChanged: hasEntryChanged,
     computeCommitPayload: computeCommitPayload
