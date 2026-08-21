@@ -493,7 +493,7 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     }
   });
 
-  it('numbers only the rows that moved when nothing has a stored order', function() {
+  it('numbers the whole data source when reordering one that has no order', function() {
     var rows = [];
 
     for (var i = 0; i < 500; i++) {
@@ -503,8 +503,11 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     var d = build(rows);
     var payload = commit(move(d.entries, 10, 20), d.originals, true);
 
-    // Numbering the whole data source for one drag is what this avoids
-    expect(payload.entries).toHaveLength(21);
+    // Numbering only a prefix left the rest ordered by id alone, which the
+    // manager and the platform read in opposite directions - the tail came back
+    // reversed everywhere except here. Persisting a reorder means every row
+    // carries a number.
+    expect(payload.entries).toHaveLength(500);
   });
 
   it('writes nothing on an unordered data source when no row actually moved', function() {

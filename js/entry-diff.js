@@ -105,9 +105,11 @@ var EntryDiff = (function() {
       return originalMap[entry.id].order;
     });
 
+    // Repeats are as unusable as gaps: two rows sharing an order are separated
+    // by id, which the manager and the platform read in opposite directions.
     var complete = stored.every(function(value) {
       return typeof value === 'number';
-    });
+    }) && new Set(stored).size === stored.length;
 
     if (complete) {
       var pool = stored.slice().sort(function(a, b) {
@@ -123,10 +125,11 @@ var EntryDiff = (function() {
       return positions;
     }
 
-    // Nothing usable is stored, so the rows currently read back in id order.
-    // Numbering all of them would commit the whole data source for one drag, so
-    // only the prefix up to the last row that actually moved is numbered - the
-    // rows past it still read back in the right order on their ids alone.
+    // Nothing usable is stored. Rows left unnumbered are ordered only by id, and
+    // the manager reads ids ascending while the rest of the platform reads them
+    // descending - so an unnumbered tail would read one way here and the other
+    // way everywhere else. Once a reorder is being persisted at all, every row
+    // has to carry a number for the result to mean the same thing to everyone.
     // The rows read back numbered-first, then the unnumbered ones by id - so the
     // baseline has to be built the same way. Sorting on id alone made a data
     // source with both kinds look reordered when nothing had moved.
@@ -147,19 +150,19 @@ var EntryDiff = (function() {
       return a.id - b.id;
     });
 
-    var lastMoved = -1;
-
-    positioned.forEach(function(entry, index) {
-      if (baseline[index].id !== entry.id) {
-        lastMoved = index;
-      }
+    var moved = positioned.some(function(entry, index) {
+      return baseline[index].id !== entry.id;
     });
 
     var renumbered = {};
 
-    for (var i = 0; i <= lastMoved; i++) {
-      renumbered[positioned[i].id] = i;
+    if (!moved) {
+      return renumbered;
     }
+
+    positioned.forEach(function(entry, index) {
+      renumbered[entry.id] = index;
+    });
 
     return renumbered;
   }
@@ -227,6 +230,13 @@ var EntryDiff = (function() {
     function settledOrder(entry) {
       if (!entry || typeof entry.id === 'undefined' || !originalMap[entry.id]) {
         return null;
+      }
+
+      // A row displaced by an earlier insertion in this same pass already has a
+      // new position; reading its stored one would hand the next insertion a
+      // stale neighbour and produce a duplicate order.
+      if (typeof updates[entry.id] === 'number') {
+        return updates[entry.id];
       }
 
       var pending = positions && positions[entry.id];
@@ -400,21 +410,28 @@ var EntryDiff = (function() {
         return;
       }
 
-      var displacedOrder = placed.updates[entry.id];
-      var isDisplaced = typeof displacedOrder === 'number' && displacedOrder !== original.order;
+      // One decision per row. A row displaced by an insertion was placed against
+      // its settled neighbours, so that value supersedes anything the reorder
+      // proposed - falling back to the reorder value here left two rows sharing
+      // an order.
+      var finalOrder;
 
-      if (!isDisplaced && !hasEntryChanged(entry, original, positions, isEqualFn)) {
+      if (Object.prototype.hasOwnProperty.call(placed.updates, entry.id)) {
+        finalOrder = placed.updates[entry.id];
+      } else if (positions && Object.prototype.hasOwnProperty.call(positions, entry.id)) {
+        finalOrder = positions[entry.id];
+      }
+
+      var orderChanged = typeof finalOrder === 'number' && finalOrder !== original.order;
+
+      if (!orderChanged && !hasEntryChanged(entry, original, null, isEqualFn)) {
         return;
       }
 
       // Only carry a position when the row actually needs one; sending it on a
       // data-only edit would overwrite a sparse stored order with a visual index
-      if (isDisplaced) {
-        entry.order = displacedOrder;
-      } else if (positions
-        && Object.prototype.hasOwnProperty.call(positions, entry.id)
-        && positions[entry.id] !== original.order) {
-        entry.order = positions[entry.id];
+      if (orderChanged) {
+        entry.order = finalOrder;
       }
 
       updated.push(entry);
