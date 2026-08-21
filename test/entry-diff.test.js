@@ -113,6 +113,74 @@ function applyAndRead(rows, payload) {
   }).join(',');
 }
 
+/**
+ * Read rows back the way a given consumer would. The manager asks for id ASC;
+ * the platform default is id DESC. A correct save reads the same either way.
+ * @param {Array} rows - Stored rows, [{ id, name, order }]
+ * @param {Object} payload - Result of computeCommitPayload
+ * @param {Number} idDirection - 1 for id ASC, -1 for id DESC
+ * @returns {String} Comma-separated names in read order
+ */
+function readAs(rows, payload, idDirection) {
+  var stored = {};
+
+  rows.forEach(function(row) {
+    stored[row.id] = { id: row.id, name: row.name, order: row.order };
+  });
+
+  payload.delete.forEach(function(id) {
+    delete stored[id];
+  });
+
+  var nextId = 900000;
+
+  payload.entries.forEach(function(entry) {
+    if (typeof entry.id === 'undefined') {
+      nextId += 1;
+      stored[nextId] = {
+        id: nextId,
+        name: entry.data.Name,
+        order: typeof entry.order === 'undefined' ? null : entry.order
+      };
+
+      return;
+    }
+
+    if (!stored[entry.id]) {
+      return;
+    }
+
+    stored[entry.id].name = entry.data.Name;
+
+    if (typeof entry.order !== 'undefined') {
+      stored[entry.id].order = entry.order;
+    }
+  });
+
+  return Object.keys(stored).map(function(key) {
+    return stored[key];
+  }).sort(function(a, b) {
+    var aNull = a.order === null || typeof a.order === 'undefined';
+    var bNull = b.order === null || typeof b.order === 'undefined';
+
+    if (aNull && bNull) {
+      return idDirection * (a.id - b.id);
+    }
+
+    if (aNull) {
+      return 1;
+    }
+
+    if (bNull) {
+      return -1;
+    }
+
+    return a.order !== b.order ? a.order - b.order : idDirection * (a.id - b.id);
+  }).map(function(row) {
+    return row.name;
+  }).join(',');
+}
+
 function dense(count) {
   var rows = [];
 
@@ -534,6 +602,112 @@ describe('PS-1781 - grid type round-trip must not look like an edit', function()
 
   it('does not flag a boolean round-trip', function() {
     var payload = commit(afterGrid({ Flag: true, Off: false }), original({ Flag: true, Off: false }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+});
+
+describe('PS-1781 — a saved order must read the same for every consumer', function() {
+  it('keeps assigned orders unique when the neighbours are packed', function() {
+    // B and C carry ids that disagree with their order, so a duplicate order
+    // would be resolved by id and silently reorder the rows
+    var rows = [
+      { id: 100, name: 'A', order: 0 },
+      { id: 300, name: 'B', order: 1 },
+      { id: 200, name: 'C', order: 2 }
+    ];
+    var originals = {};
+
+    rows.forEach(function(row) {
+      originals[row.id] = { id: row.id, data: { Name: row.name }, order: row.order };
+    });
+
+    var entries = [
+      { id: 100, data: { Name: 'A' } },
+      { data: { Name: 'NEW' } },
+      { id: 300, data: { Name: 'B' } },
+      { id: 200, data: { Name: 'C' } }
+    ];
+    var payload = commit(entries, originals);
+    var assigned = payload.entries.map(function(entry) {
+      return entry.order;
+    });
+
+    expect(assigned.length).toBe(new Set(assigned).size);
+    expect(readAs(rows, payload, 1)).toBe('A,NEW,B,C');
+    expect(readAs(rows, payload, -1)).toBe('A,NEW,B,C');
+  });
+
+  it('numbers an unordered data source when a row is added to it', function() {
+    var rows = [
+      { id: 1, name: 'A', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 3, name: 'C', order: null }
+    ];
+    var originals = {};
+
+    rows.forEach(function(row) {
+      originals[row.id] = { id: row.id, data: { Name: row.name }, order: row.order };
+    });
+
+    var entries = [
+      { id: 1, data: { Name: 'A' } },
+      { id: 2, data: { Name: 'B' } },
+      { id: 3, data: { Name: 'C' } },
+      { data: { Name: 'NEW' } }
+    ];
+    var payload = commit(entries, originals);
+
+    // Left unnumbered the new row reads last here and first everywhere else
+    expect(readAs(rows, payload, 1)).toBe('A,B,C,NEW');
+    expect(readAs(rows, payload, -1)).toBe('A,B,C,NEW');
+  });
+
+  it('places a middle insert into an unordered data source', function() {
+    var rows = [
+      { id: 1, name: 'A', order: null },
+      { id: 2, name: 'B', order: null }
+    ];
+    var originals = {};
+
+    rows.forEach(function(row) {
+      originals[row.id] = { id: row.id, data: { Name: row.name }, order: row.order };
+    });
+
+    var payload = commit([
+      { id: 1, data: { Name: 'A' } },
+      { data: { Name: 'MID' } },
+      { id: 2, data: { Name: 'B' } }
+    ], originals);
+
+    expect(readAs(rows, payload, 1)).toBe('A,MID,B');
+    expect(readAs(rows, payload, -1)).toBe('A,MID,B');
+  });
+
+  it('writes nothing for a no-op drag on a data source that mixes both', function() {
+    // Numbered rows carry higher ids than the unnumbered ones, so a baseline
+    // built on id alone made every row look moved
+    var originals = {};
+    var entries = [];
+    var i;
+
+    for (i = 0; i < 10; i++) {
+      originals[100 + i] = { id: 100 + i, data: { Name: 'N' + i }, order: null };
+    }
+
+    for (i = 0; i < 10; i++) {
+      originals[900 + i] = { id: 900 + i, data: { Name: 'M' + i }, order: i };
+    }
+
+    for (i = 0; i < 10; i++) {
+      entries.push({ id: 900 + i, data: { Name: 'M' + i } });
+    }
+
+    for (i = 0; i < 10; i++) {
+      entries.push({ id: 100 + i, data: { Name: 'N' + i } });
+    }
+
+    var payload = commit(entries, originals, true);
 
     expect(payload.entries).toHaveLength(0);
   });
