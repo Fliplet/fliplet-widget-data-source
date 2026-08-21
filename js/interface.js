@@ -1,3 +1,4 @@
+/* global EntryDiff */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -630,143 +631,18 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @returns {Object} List of new/updated entries and deleted IDs
  */
 /**
- * Work out the row order to persist after a reorder.
- *
- * Rather than renumbering from zero, the stored order values already held by the
- * rows are redistributed across the current visual sequence. Two consequences
- * matter:
- *
- *  - Deleting rows needs no rewrite at all. The surviving values are still in
- *    ascending order, so every row is handed back the value it already had.
- *  - A drag only rewrites the span it actually crossed, even when a delete in the
- *    same save shifted every visual index below it.
- *
- * Sparse orders are preserved, since the value pool is whatever the data source
- * already used. If any row has no stored order (never ordered, or inserted through
- * the API) the pool cannot be trusted, so a dense sequence is assigned instead,
- * which heals the data source on the next save.
- * @param {Array} entries - Current entries in visual order
- * @param {Object} originalMap - Cached originals, keyed by entry id
- * @returns {Object} Map of entry id to the order it should be given
+ * Build the list of new/updated entries and deleted IDs for a commit.
+ * The comparison itself lives in js/entry-diff.js so it can be unit tested.
+ * @param {Array} entries - List of entries from the table, in visual order
+ * @returns {Object} List of new/updated entries and deleted IDs
  */
-function computeReorderedPositions(entries, originalMap) {
-  var positioned = entries.filter(function(entry) {
-    return typeof entry.id !== 'undefined' && originalMap[entry.id];
-  });
-
-  var stored = positioned.map(function(entry) {
-    return originalMap[entry.id].order;
-  });
-
-  var complete = stored.every(function(value) {
-    return typeof value === 'number';
-  });
-
-  // Reuse the data source's own values where we can, otherwise fall back to a
-  // dense sequence
-  var pool = complete
-    ? stored.slice().sort(function(a, b) {
-      return a - b;
-    })
-    : positioned.map(function(entry, index) {
-      return index;
-    });
-
-  var positions = {};
-
-  positioned.forEach(function(entry, index) {
-    positions[entry.id] = pool[index];
-  });
-
-  return positions;
-}
-
-/**
- * Determine whether an entry needs committing.
- *
- * Position is only considered when the user dragged a row during this save, and
- * even then only for the rows whose position actually changed. getData() derives
- * nothing from the visual index, so deleting a row no longer makes every row
- * beneath it look changed - on a 15,000-row data source that was a ~3 MB commit
- * taking ~15s, which times out as a 502 (PS-1781).
- * @param {Object} entry - Current entry from the table
- * @param {Object} original - Cached original entry
- * @param {Object} [positions] - Map of id to new order, when rows were reordered
- * @returns {Boolean} True when the entry should be committed
- */
-function hasEntryChanged(entry, original, positions) {
-  if (!_.isEqual(entry.data, original.data)) {
-    return true;
-  }
-
-  if (!positions) {
-    return false;
-  }
-
-  return positions[entry.id] !== original.order;
-}
-
 function getCommitPayload(entries) {
-  entries = entries || [];
-
-  // Position is only worth writing when the user dragged a row during this save
-  var rowsMoved = !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved());
-  var positions = rowsMoved ? computeReorderedPositions(entries, entryMap.original) : null;
-
-  var inserted = [];
-  var updated = [];
-  var deleted = [];
-
-  // Track entries that weren't new
-  entryMap.entries = {};
-
-  entries.forEach(function(entry) {
-    // Add new entries to inserted array
-    if (typeof entry.id === 'undefined') {
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    // Add a recovered entry as a new entry
-    if (!entryMap.original[entry.id]) {
-      delete entry.id;
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    entryMap.entries[entry.id] = entry;
+  return EntryDiff.computeCommitPayload(entries, entryMap.original, {
+    // Position is only worth writing when the user dragged a row during this save
+    rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
+    isEqual: _.isEqual,
+    guid: Fliplet.guid
   });
-
-  _.forIn(entryMap.original, function(original) {
-    var entry = entryMap.entries[original.id];
-
-    if (!entry) {
-      deleted.push(original.id);
-
-      return;
-    }
-
-    if (!hasEntryChanged(entry, original, positions)) {
-      return;
-    }
-
-    // Only carry a position when the row actually needs one; sending it on a
-    // data-only edit would overwrite a sparse stored order with a visual index
-    if (positions && positions[entry.id] !== original.order) {
-      entry.order = positions[entry.id];
-    }
-
-    updated.push(entry);
-  });
-
-  return {
-    entries: updated.concat(inserted),
-    delete: deleted
-  };
 }
 
 function saveCurrentData() {
