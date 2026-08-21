@@ -11,6 +11,72 @@ var EntryDiff = (function() {
   'use strict';
 
   /**
+   * Serialise a value with object keys sorted at every depth, so two
+   * structurally equal objects always produce the same string. Plain
+   * JSON.stringify is key-order sensitive, which would re-commit a JSON cell
+   * whose keys came back from the grid in a different order.
+   * @param {*} value - Value to serialise
+   * @returns {String} Stable JSON serialisation
+   */
+  function stableStringify(value) {
+    if (value === null || typeof value !== 'object') {
+      return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+      return '[' + value.map(stableStringify).join(',') + ']';
+    }
+
+    return '{' + Object.keys(value).sort().map(function(key) {
+      return JSON.stringify(key) + ':' + stableStringify(value[key]);
+    }).join(',') + '}';
+  }
+
+  /**
+   * Normalise a cell value for change detection.
+   *
+   * Every value is round-tripped through a text grid, so a number stored as 30
+   * comes back as the string "30" and a blank cell comes back as "" or
+   * undefined. Comparing the raw values marks those rows as edited when the
+   * user changed nothing, which on a large data source is the whole source
+   * being re-sent. Scalars are compared in their string form, and
+   * null/undefined/"" are all treated as blank.
+   * @param {*} value - Raw cell value
+   * @returns {String} Canonical string form, empty for blanks
+   */
+  function normalizeValue(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    if (typeof value === 'object') {
+      return stableStringify(value);
+    }
+
+    return String(value);
+  }
+
+  /**
+   * Build a comparable representation of an entry's data. Blank fields are
+   * dropped so an empty cell and an absent column compare equal.
+   * @param {Object} data - Entry data
+   * @returns {Object} Normalised data map
+   */
+  function normalizeData(data) {
+    var normalized = {};
+
+    Object.keys(data || {}).forEach(function(key) {
+      var value = normalizeValue(data[key]);
+
+      if (value !== '') {
+        normalized[key] = value;
+      }
+    });
+
+    return normalized;
+  }
+
+  /**
    * Work out the row order to persist after a reorder.
    *
    * Rather than renumbering from zero, the stored order values the rows already
@@ -75,7 +141,7 @@ var EntryDiff = (function() {
    * @returns {Boolean} True when the entry should be committed
    */
   function hasEntryChanged(entry, original, positions, isEqualFn) {
-    if (!isEqualFn(entry.data, original.data)) {
+    if (!isEqualFn(normalizeData(entry.data), normalizeData(original.data))) {
       return true;
     }
 
@@ -161,6 +227,7 @@ var EntryDiff = (function() {
   }
 
   return {
+    normalizeData: normalizeData,
     computeReorderedPositions: computeReorderedPositions,
     hasEntryChanged: hasEntryChanged,
     computeCommitPayload: computeCommitPayload

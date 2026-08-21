@@ -307,6 +307,82 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
   });
 });
 
+describe('PS-1781 - grid type round-trip must not look like an edit', function() {
+  // Every cell is rendered as text and re-parsed by parseCellValue(), so a
+  // number stored as 30 comes back as the string "30" and a blank comes back
+  // as "" or undefined. Comparing the raw values re-sent the whole data source.
+  function original(data) {
+    return { 1: { id: 1, data: data, order: 0 } };
+  }
+
+  function afterGrid(data) {
+    return [{ id: 1, data: data }];
+  }
+
+  it('does not flag a number that came back as a string', function() {
+    var payload = commit(afterGrid({ Name: 'A', Num: '30' }), original({ Name: 'A', Num: 30 }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('does not flag zero or a negative number', function() {
+    var payload = commit(afterGrid({ N: '0', M: '-1' }), original({ N: 0, M: -1 }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('does not flag a decimal', function() {
+    var payload = commit(afterGrid({ N: '3.5' }), original({ N: 3.5 }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('treats a blank cell and an absent column as the same', function() {
+    var payload = commit(afterGrid({ Name: 'A', Blank: '' }), original({ Name: 'A' }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('treats null and undefined as blank', function() {
+    var payload = commit(afterGrid({ Name: 'A', X: undefined }), original({ Name: 'A', X: null }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('does not flag a JSON cell whose keys came back in a different order', function() {
+    var payload = commit(
+      afterGrid({ Meta: { b: 2, a: 1 } }),
+      original({ Meta: { a: 1, b: 2 } })
+    );
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('still detects a real change to a numeric cell', function() {
+    var payload = commit(afterGrid({ Name: 'A', Num: '31' }), original({ Name: 'A', Num: 30 }));
+
+    expect(payload.entries).toHaveLength(1);
+  });
+
+  it('still detects a cell being cleared', function() {
+    var payload = commit(afterGrid({ Name: '' }), original({ Name: 'A' }));
+
+    expect(payload.entries).toHaveLength(1);
+  });
+
+  it('still detects a value being added to a blank cell', function() {
+    var payload = commit(afterGrid({ Name: 'A', Blank: 'now set' }), original({ Name: 'A', Blank: '' }));
+
+    expect(payload.entries).toHaveLength(1);
+  });
+
+  it('does not flag a boolean round-trip', function() {
+    var payload = commit(afterGrid({ Flag: true, Off: false }), original({ Flag: true, Off: false }));
+
+    expect(payload.entries).toHaveLength(0);
+  });
+});
+
 describe('EntryDiff.computeReorderedPositions', function() {
   it('hands every row back its own value when nothing moved', function() {
     var d = build([
