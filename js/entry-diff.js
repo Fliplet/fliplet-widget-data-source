@@ -109,21 +109,141 @@ var EntryDiff = (function() {
       return typeof value === 'number';
     });
 
-    var pool = complete
-      ? stored.slice().sort(function(a, b) {
+    if (complete) {
+      var pool = stored.slice().sort(function(a, b) {
         return a - b;
-      })
-      : positioned.map(function(entry, index) {
-        return index;
       });
 
-    var positions = {};
+      var positions = {};
 
-    positioned.forEach(function(entry, index) {
-      positions[entry.id] = pool[index];
+      positioned.forEach(function(entry, index) {
+        positions[entry.id] = pool[index];
+      });
+
+      return positions;
+    }
+
+    // Nothing usable is stored, so the rows currently read back in id order.
+    // Numbering all of them would commit the whole data source for one drag, so
+    // only the prefix up to the last row that actually moved is numbered - the
+    // rows past it still read back in the right order on their ids alone.
+    var baseline = positioned.slice().sort(function(a, b) {
+      return a.id - b.id;
     });
 
-    return positions;
+    var lastMoved = -1;
+
+    positioned.forEach(function(entry, index) {
+      if (baseline[index].id !== entry.id) {
+        lastMoved = index;
+      }
+    });
+
+    var renumbered = {};
+
+    for (var i = 0; i <= lastMoved; i++) {
+      renumbered[positioned[i].id] = i;
+    }
+
+    return renumbered;
+  }
+
+  /**
+   * Give newly inserted rows a position that matches where the user put them.
+   *
+   * A new row carries no order, and the API stores null, which sorts after every
+   * numbered row. That is right for an append but wrong for insert-before or
+   * insert-after, which the toolbar offers - the row would reload at the end.
+   *
+   * Each new row is slotted into the gap between the stored orders of its
+   * neighbours. Where the neighbours leave no room, the run is pushed past the
+   * following row instead, and that row is renumbered too; the rows before the
+   * insertion point are never touched.
+   * @param {Array} entries - Current entries in visual order
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @param {Object} positions - Positions already decided for existing rows
+   * @returns {Object} { inserts: Map index to order, updates: Map id to order }
+   */
+  function computeInsertPositions(entries, originalMap, positions) {
+    var inserts = {};
+    var updates = {};
+
+    // Order each existing row will hold once this save is applied
+    function settledOrder(entry) {
+      if (!entry || typeof entry.id === 'undefined' || !originalMap[entry.id]) {
+        return null;
+      }
+
+      var pending = positions && positions[entry.id];
+
+      return typeof pending === 'number' ? pending : originalMap[entry.id].order;
+    }
+
+    function isNew(entry) {
+      return typeof entry.id === 'undefined' || !originalMap[entry.id];
+    }
+
+    var index = 0;
+
+    while (index < entries.length) {
+      if (!isNew(entries[index])) {
+        index += 1;
+
+        continue;
+      }
+
+      // A run of consecutive new rows
+      var start = index;
+
+      while (index < entries.length && isNew(entries[index])) {
+        index += 1;
+      }
+
+      var count = index - start;
+      var before = start > 0 ? settledOrder(entries[start - 1]) : null;
+      var cursor = index;
+      var after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
+
+      // Widen past following rows until the run fits, renumbering those we pass
+      var displaced = [];
+
+      while (after !== null && before !== null && after - before - 1 < count) {
+        displaced.push(entries[cursor]);
+        cursor += 1;
+        after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
+      }
+
+      // Nothing numbered on either side: the data source has no stored order at
+      // all, so leave these rows without one. They sort after the numbered rows
+      // and among themselves by id, which is the order they were added. Giving
+      // them a number here would jump them ahead of every existing row.
+      if (before === null && after === null) {
+        continue;
+      }
+
+      var needed = count + displaced.length;
+      var base = before === null ? after - needed : before + 1;
+      var step = 1;
+
+      if (before !== null && after !== null) {
+        step = Math.max(1, Math.floor((after - before) / (needed + 1)));
+        base = before + step;
+      }
+
+      var next = base;
+
+      for (var i = start; i < start + count; i++) {
+        inserts[i] = next;
+        next += step;
+      }
+
+      for (var d = 0; d < displaced.length; d++) {
+        updates[displaced[d].id] = next;
+        next += step;
+      }
+    }
+
+    return { inserts: inserts, updates: updates };
   }
 
   /**
@@ -145,7 +265,7 @@ var EntryDiff = (function() {
       return true;
     }
 
-    if (!positions) {
+    if (!positions || !Object.prototype.hasOwnProperty.call(positions, entry.id)) {
       return false;
     }
 
@@ -171,15 +291,24 @@ var EntryDiff = (function() {
       ? computeReorderedPositions(entries, originalMap)
       : null;
 
+    // New rows need a position of their own, so insert-before/after lands where
+    // the user put it rather than at the end
+    var placed = computeInsertPositions(entries, originalMap, positions);
+
     var inserted = [];
     var updated = [];
     var deleted = [];
     var seen = {};
 
-    entries.forEach(function(entry) {
+    entries.forEach(function(entry, index) {
       // New entry, no id yet
       if (typeof entry.id === 'undefined') {
         entry.clientId = guidFn();
+
+        if (typeof placed.inserts[index] === 'number') {
+          entry.order = placed.inserts[index];
+        }
+
         inserted.push(entry);
 
         return;
@@ -189,6 +318,11 @@ var EntryDiff = (function() {
       if (!originalMap[entry.id]) {
         delete entry.id;
         entry.clientId = guidFn();
+
+        if (typeof placed.inserts[index] === 'number') {
+          entry.order = placed.inserts[index];
+        }
+
         inserted.push(entry);
 
         return;
@@ -207,13 +341,20 @@ var EntryDiff = (function() {
         return;
       }
 
-      if (!hasEntryChanged(entry, original, positions, isEqualFn)) {
+      var displacedOrder = placed.updates[entry.id];
+      var isDisplaced = typeof displacedOrder === 'number' && displacedOrder !== original.order;
+
+      if (!isDisplaced && !hasEntryChanged(entry, original, positions, isEqualFn)) {
         return;
       }
 
       // Only carry a position when the row actually needs one; sending it on a
       // data-only edit would overwrite a sparse stored order with a visual index
-      if (positions && positions[entry.id] !== original.order) {
+      if (isDisplaced) {
+        entry.order = displacedOrder;
+      } else if (positions
+        && Object.prototype.hasOwnProperty.call(positions, entry.id)
+        && positions[entry.id] !== original.order) {
         entry.order = positions[entry.id];
       }
 
@@ -228,6 +369,7 @@ var EntryDiff = (function() {
 
   return {
     normalizeData: normalizeData,
+    computeInsertPositions: computeInsertPositions,
     computeReorderedPositions: computeReorderedPositions,
     hasEntryChanged: hasEntryChanged,
     computeCommitPayload: computeCommitPayload

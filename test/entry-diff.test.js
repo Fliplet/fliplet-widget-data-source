@@ -1,4 +1,8 @@
-/* eslint-env jest */
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var beforeEach = test.beforeEach;
+var expect = require('./expect');
 
 var EntryDiff = require('../js/entry-diff');
 
@@ -39,6 +43,74 @@ function commit(entries, originals, rowsMoved) {
     isEqual: isEqual,
     guid: guid
   });
+}
+
+/**
+ * Apply a payload the way the API would, then read the rows back in the order
+ * the widget asks for: order ASC with nulls last, then id ASC. Lets a test
+ * assert the sequence the user actually sees rather than the payload's shape.
+ * @param {Array} rows - Stored rows, [{ id, name, order }]
+ * @param {Object} payload - Result of computeCommitPayload
+ * @returns {String} Comma-separated names in read order
+ */
+function applyAndRead(rows, payload) {
+  var stored = {};
+
+  rows.forEach(function(row) {
+    stored[row.id] = { id: row.id, name: row.name, order: row.order };
+  });
+
+  payload.delete.forEach(function(id) {
+    delete stored[id];
+  });
+
+  var nextId = 900000;
+
+  payload.entries.forEach(function(entry) {
+    if (typeof entry.id === 'undefined') {
+      nextId += 1;
+      stored[nextId] = {
+        id: nextId,
+        name: entry.data.Name,
+        order: typeof entry.order === 'undefined' ? null : entry.order
+      };
+
+      return;
+    }
+
+    if (!stored[entry.id]) {
+      return;
+    }
+
+    stored[entry.id].name = entry.data.Name;
+
+    if (typeof entry.order !== 'undefined') {
+      stored[entry.id].order = entry.order;
+    }
+  });
+
+  return Object.keys(stored).map(function(key) {
+    return stored[key];
+  }).sort(function(a, b) {
+    var aNull = a.order === null || typeof a.order === 'undefined';
+    var bNull = b.order === null || typeof b.order === 'undefined';
+
+    if (aNull && bNull) {
+      return a.id - b.id;
+    }
+
+    if (aNull) {
+      return 1;
+    }
+
+    if (bNull) {
+      return -1;
+    }
+
+    return a.order !== b.order ? a.order - b.order : a.id - b.id;
+  }).map(function(row) {
+    return row.name;
+  }).join(',');
 }
 
 function dense(count) {
@@ -161,37 +233,105 @@ describe('PS-1781 — data-only edits must not move rows (review P1 #1)', functi
   });
 });
 
-describe('PS-1781 — inserts must land last (review P1 #2)', function() {
+describe('PS-1781 — inserts must land where the user put them (review P1 #2)', function() {
   var sparse = [
     { id: 1, name: 'A', order: 0 },
     { id: 2, name: 'B', order: 10 },
     { id: 3, name: 'C', order: 20 }
   ];
+  var nulls = [
+    { id: 1, name: 'A', order: null },
+    { id: 2, name: 'B', order: null },
+    { id: 3, name: 'C', order: null }
+  ];
 
-  it('sends a new row without an order so it sorts last', function() {
+  function withInsertAt(rows, index, name) {
+    var d = build(rows);
+
+    d.entries.splice(index, 0, { data: { Name: name } });
+
+    return d;
+  }
+
+  it('appends to the end of a sparse data source', function() {
+    var d = withInsertAt(sparse, 3, 'NEW');
+    var payload = commit(d.entries, d.originals);
+
+    expect(applyAndRead(sparse, payload)).toBe('A,B,C,NEW');
+  });
+
+  it('keeps a middle insert in the middle', function() {
+    var d = withInsertAt(sparse, 1, 'NEW');
+    var payload = commit(d.entries, d.originals);
+
+    // A dense visual index would have written order 1 over order 10 and moved
+    // the row; omitting order entirely would have sent it to the end
+    expect(applyAndRead(sparse, payload)).toBe('A,NEW,B,C');
+  });
+
+  it('keeps an insert at the very top at the top', function() {
+    var d = withInsertAt(sparse, 0, 'NEW');
+    var payload = commit(d.entries, d.originals);
+
+    expect(applyAndRead(sparse, payload)).toBe('NEW,A,B,C');
+  });
+
+  it('places a middle insert even when the neighbours leave no gap', function() {
+    var packed = [
+      { id: 1, name: 'A', order: 0 },
+      { id: 2, name: 'B', order: 1 },
+      { id: 3, name: 'C', order: 2 }
+    ];
+    var d = withInsertAt(packed, 1, 'NEW');
+    var payload = commit(d.entries, d.originals);
+
+    expect(applyAndRead(packed, payload)).toBe('A,NEW,B,C');
+  });
+
+  it('keeps two appends in the order they were added', function() {
     var d = build(sparse);
+
+    d.entries.push({ data: { Name: 'N1' } });
+    d.entries.push({ data: { Name: 'N2' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(applyAndRead(sparse, payload)).toBe('A,B,C,N1,N2');
+  });
+
+  it('appends to the end of a data source that has no stored order', function() {
+    var d = build(nulls);
 
     d.entries.push({ data: { Name: 'NEW' } });
 
     var payload = commit(d.entries, d.originals);
 
-    expect(payload.entries).toHaveLength(1);
-    // A dense index of 3 landed the row between 0 and 10, i.e. second
-    expect(payload.entries[0].order).toBeUndefined();
-    expect(payload.entries[0].clientId).toBe('guid-1');
+    // The rows read back on their ids, so a new row must not be numbered here -
+    // any number would sort it ahead of every existing row
+    expect(applyAndRead(nulls, payload)).toBe('A,B,C,NEW');
   });
 
-  it('gives every new row a client id and no order', function() {
+  it('keeps two appends in order on a data source with no stored order', function() {
+    var d = build(nulls);
+
+    d.entries.push({ data: { Name: 'N1' } });
+    d.entries.push({ data: { Name: 'N2' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(applyAndRead(nulls, payload)).toBe('A,B,C,N1,N2');
+  });
+
+  it('gives every new row a client id', function() {
     var d = build(sparse);
 
-    d.entries.push({ data: { Name: 'NEW 1' } });
-    d.entries.push({ data: { Name: 'NEW 2' } });
+    d.entries.push({ data: { Name: 'N1' } });
+    d.entries.push({ data: { Name: 'N2' } });
 
     var payload = commit(d.entries, d.originals);
 
     expect(payload.entries).toHaveLength(2);
     payload.entries.forEach(function(entry) {
-      expect(entry.order).toBeUndefined();
       expect(entry.clientId).toBeDefined();
     });
   });
@@ -213,8 +353,8 @@ describe('PS-1781 — inserts must land last (review P1 #2)', function() {
     var entries = d.entries.slice(0, 2).concat([{ data: { Name: 'NEW' } }]);
     var payload = commit(entries, d.originals);
 
-    expect(payload.entries).toHaveLength(1);
     expect(payload.delete).toEqual([3]);
+    expect(applyAndRead(sparse, payload)).toBe('A,B,NEW');
   });
 });
 
@@ -285,15 +425,31 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     }
   });
 
-  it('falls back to a dense sequence when a row has no stored order', function() {
-    var d = build([
-      { id: 1, name: 'A', order: 0 },
-      { id: 2, name: 'B', order: undefined },
-      { id: 3, name: 'C', order: 20 }
-    ]);
-    var positions = EntryDiff.computeReorderedPositions(d.entries, d.originals);
+  it('numbers only the rows that moved when nothing has a stored order', function() {
+    var rows = [];
 
-    expect(positions).toEqual({ 1: 0, 2: 1, 3: 2 });
+    for (var i = 0; i < 500; i++) {
+      rows.push({ id: 1000 + i, name: 'U' + i, order: null });
+    }
+
+    var d = build(rows);
+    var payload = commit(move(d.entries, 10, 20), d.originals, true);
+
+    // Numbering the whole data source for one drag is what this avoids
+    expect(payload.entries).toHaveLength(21);
+  });
+
+  it('writes nothing on an unordered data source when no row actually moved', function() {
+    var rows = [];
+
+    for (var i = 0; i < 200; i++) {
+      rows.push({ id: 1000 + i, name: 'U' + i, order: null });
+    }
+
+    var d = build(rows);
+    var payload = commit(d.entries, d.originals, true);
+
+    expect(payload.entries).toHaveLength(0);
   });
 
   it('does not attach an order to rows a drag did not move', function() {

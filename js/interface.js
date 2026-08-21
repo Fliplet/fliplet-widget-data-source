@@ -376,7 +376,11 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      return source.find({}).catch(function() {
+      // Ask for an explicit, stable sort. The API default is [order ASC, id DESC],
+      // which reads rows that share an order - or have none - newest first, so a
+      // data source with null orders comes back reversed and a newly added row
+      // appears at the top instead of where it was added.
+      return source.find({ order: [['order', 'ASC'], ['id', 'ASC']] }).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
