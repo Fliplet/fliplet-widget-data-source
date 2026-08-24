@@ -7,14 +7,21 @@
 # there is no install step and nothing to keep in step with the lockfile.
 name: Tests
 
+# A push to a branch with an open PR would otherwise run this twice - once for
+# the push, once for the pull_request - so pushes only cover the long-lived
+# branches, and everything else is covered by its PR.
 on:
   push:
-    branches: ['**']
+    branches: [production, master]
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # The job reads the code and nothing else
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
