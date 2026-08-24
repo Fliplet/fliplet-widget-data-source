@@ -25,9 +25,13 @@ describe('GridSort.isSortApplied', function() {
   });
 
   it('reads no sort again once the header cycle has cleared it', function() {
-    // The three clicks Handsontable walks through. sortColumn is deliberately
-    // left set on the last one: that is what the plugin's own isSorted() reads,
-    // and why it goes on reporting a sort over an unsorted grid.
+    // The three clicks Handsontable walks through. Taken from setSortingColumn
+    // in the shipped handsontable.full.min.js (0.34.5 and 0.38.0 are identical
+    // here): sortOrder goes true -> false -> undefined, and sortColumn is
+    // deliberately left set on the last one, because it is only cleared by the
+    // undefined branch that the header-click path never reaches. That is what
+    // the plugin's own isSorted() reads, and why it goes on reporting a sort
+    // over an unsorted grid. Re-check this if Handsontable is upgraded.
     var hot = { sortOrder: undefined, sortColumn: undefined };
     var applied = [];
 

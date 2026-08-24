@@ -1,3 +1,4 @@
+/* global GridSort */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
@@ -1023,7 +1024,9 @@ function spreadsheet(options) {
    * @returns {undefined}
    */
   function showGridNotice(message) {
-    $('.entries-message').html('<br>' + message);
+    var html = '<br>' + message;
+
+    $('.entries-message').html(html);
 
     if (noticeTimeout) {
       clearTimeout(noticeTimeout);
@@ -1031,7 +1034,12 @@ function spreadsheet(options) {
 
     noticeTimeout = setTimeout(function() {
       noticeTimeout = null;
-      $('.entries-message').html('');
+
+      // The element is shared - the data-source load error writes to it too,
+      // and afterLoadData clears it - so only take back what is still ours
+      if ($('.entries-message').html() === html) {
+        $('.entries-message').html('');
+      }
     }, 5000);
   }
 
@@ -1067,6 +1075,13 @@ function spreadsheet(options) {
 
       // Mark as destroyed to stop any deferred work
       isDestroyed = true;
+
+      // ...including a pending notice, which would otherwise outlive this grid
+      // and clear a message belonging to the next one
+      if (noticeTimeout) {
+        clearTimeout(noticeTimeout);
+        noticeTimeout = null;
+      }
 
       // Nullify reference so external callers can guard with `if (!hot)`
       hot = null;
