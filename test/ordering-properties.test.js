@@ -28,6 +28,18 @@ function rnd() {
 
 function pick(n) { return Math.floor(rnd() * n); }
 
+// How many rows this iteration's data source holds. Mostly small, sometimes
+// large enough for a payload bound to mean something, and sometimes one or two
+// rows - the sizes where a placement can rest entirely on the id tie-break
+// without anything else noticing.
+function sourceSize(iter) {
+  if (iter % 8 === 0) return 60 + pick(160);
+
+  if (iter % 5 === 0) return 1 + pick(2);
+
+  return 3 + pick(8);
+}
+
 function makeSource(kind, n) {
   const rows = [];
 
@@ -117,9 +129,7 @@ let runs = 0;
 
 for (let iter = 0; iter < 4000; iter++) {
   const kind = kinds[pick(kinds.length)];
-  // One- and two-row sources are where a placement can rest entirely on the id
-  // tie-break without anything else noticing, so they are generated too.
-  const n = (iter % 8 === 0) ? 60 + pick(160) : (iter % 5 === 0) ? 1 + pick(2) : 3 + pick(8);
+  const n = sourceSize(iter);
   const rows = makeSource(kind, n);
 
   // What the manager shows. It asks for no sort at all, so this is the
