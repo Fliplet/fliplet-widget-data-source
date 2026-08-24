@@ -386,10 +386,12 @@ var EntryDiff = (function() {
      * Number a run sitting at the very top, where there is nothing above it and
      * nothing numbered below.
      *
-     * One new row can be left alone here - unnumbered rows read newest first,
-     * so the newest row already reads first, which is where it was dropped. A
-     * run of several cannot: they would all reload in reverse of the order they
-     * were typed in.
+     * A numbered row always sorts before an unnumbered one, so this holds the
+     * run above the rest whichever way ids happen to break ties. Leaving a
+     * single row unnumbered would read the same today - it holds the newest id,
+     * and unnumbered rows read newest first - but that rests on the tie-break
+     * rather than on anything stored, and it costs nothing to persist: the new
+     * rows are in the commit either way, this only fills in their order.
      * @param {Number} runCount - How many new rows the run holds
      * @param {Number} runEnd - Index just past the run
      * @returns {Boolean} True when the run was numbered
@@ -479,13 +481,13 @@ var EntryDiff = (function() {
         continue;
       }
 
-      // Still nothing numbered on either side. At the very top that is fixable
-      // and cheap - see numberRunAtTop. Anywhere else it means the rows above
-      // could not be numbered, and numbering only the run would jump it ahead
-      // of every existing row, which is further from where the user put it than
+      // Still nothing numbered on either side. At the very top that is free to
+      // fix - see numberRunAtTop. Anywhere else it means the rows above could
+      // not be numbered, and numbering only the run would jump it ahead of
+      // every existing row, which is further from where the user put it than
       // leaving it alone.
       if (before === null && after === null) {
-        if (start === 0 && count > 1) {
+        if (start === 0) {
           numberRunAtTop(count, index);
         }
 

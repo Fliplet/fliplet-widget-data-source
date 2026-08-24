@@ -1017,6 +1017,23 @@ describe('PS-1781 — several rows added in one save', function() {
     expect(readAs(rows, payload, -1)).toBe('N1,C,N2,B,N3,A');
   });
 
+  it('does not leave a single added row held up by the id tie-break alone', function() {
+    // One row added above a data source that carries no order reads correctly
+    // today - it holds the newest id, and unnumbered rows read newest first.
+    // But nothing about that is stored, so the arrangement rests on the tie-break
+    // rather than on the data source. Numbering it costs no extra row in the
+    // commit: the new row is being written anyway.
+    var rows = [{ id: 1, name: 'A', order: null }];
+    var d = build(rows);
+    var entries = [{ data: { Name: 'NEW' } }, d.entries[0]];
+    var payload = commit(entries, d.originals);
+
+    expect(readAs(rows, payload, -1)).toBe('NEW,A');
+    expect(readAs(rows, payload, 1)).toBe('NEW,A');
+    expect(payload.entries).toHaveLength(1);
+    expect(typeof payload.entries[0].order).toBe('number');
+  });
+
   it('keeps inserts in place on a numbered data source too', function() {
     var rows = [
       { id: 1, name: 'A', order: 0 },

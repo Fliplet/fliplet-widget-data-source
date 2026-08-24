@@ -117,7 +117,9 @@ let runs = 0;
 
 for (let iter = 0; iter < 4000; iter++) {
   const kind = kinds[pick(kinds.length)];
-  const n = (iter % 8 === 0) ? 60 + pick(160) : 3 + pick(8);
+  // One- and two-row sources are where a placement can rest entirely on the id
+  // tie-break without anything else noticing, so they are generated too.
+  const n = (iter % 8 === 0) ? 60 + pick(160) : (iter % 5 === 0) ? 1 + pick(2) : 3 + pick(8);
   const rows = makeSource(kind, n);
 
   // What the manager shows. It asks for no sort at all, so this is the
@@ -223,11 +225,41 @@ for (let iter = 0; iter < 4000; iter++) {
 
   if (placeable && read.join(',') !== intended.join(',')) problems.push('reload != what the user arranged');
 
-  if (usable && beforeConsistent && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
+  // Gated on the state before the save, not on whether the source was numbered:
+  // a source carrying no order is tie-break dependent before anyone touches it,
+  // but one that was unambiguous must not be made ambiguous by saving.
+  if (beforeConsistent && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
 
   const orders = Object.values(stored).map((r) => r.order).filter((o) => o !== null && o !== undefined);
 
   if (!beforeHadDupes && new Set(orders).size !== orders.length) problems.push('save INTRODUCED duplicate orders');
+
+  // A save has to settle. Reopening the data source and saving it again
+  // without touching anything must write nothing: if it does, the manager and
+  // the stored order disagree about what was just saved, and every save from
+  // then on rewrites rows that nobody edited. Nothing else here would notice -
+  // the first save can look completely correct and still not be stable.
+  const settledOriginals = {};
+  const settledVisual = Object.values(stored).slice().sort((a, b) => {
+    const an = a.order === null || a.order === undefined;
+    const bn = b.order === null || b.order === undefined;
+
+    if (an && bn) return b.id - a.id;
+    if (an) return 1;
+    if (bn) return -1;
+    if (a.order !== b.order) return a.order - b.order;
+
+    return b.id - a.id;
+  });
+
+  settledVisual.forEach((r) => { settledOriginals[r.id] = { id: r.id, data: { Name: r.name }, order: r.order }; });
+
+  const again = commit(settledVisual.map((r) => ({ id: r.id, data: { Name: r.name } })), settledOriginals, false);
+  const againMoved = commit(settledVisual.map((r) => ({ id: r.id, data: { Name: r.name } })), settledOriginals, true);
+
+  if (again.entries.length || again.delete.length) problems.push('saving again writes ' + again.entries.length + ' rows');
+
+  if (againMoved.entries.length) problems.push('a no-op drag after the save writes ' + againMoved.entries.length + ' rows');
 
   // The bound that matters, and the shape of it.
   //
