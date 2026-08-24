@@ -40,6 +40,12 @@ function makeSource(kind, n) {
     else if (kind === 'mixed') order = (i % 3 === 0) ? null : i;
     else if (kind === 'dupes') order = Math.floor(i / 2);
     else if (kind === 'negative') order = i - Math.floor(n / 2);
+    // The shapes were mutually exclusive, so a source could hold nulls or
+    // negatives but never both - which is exactly the state that let a drag
+    // write an order a later row already held. These combine them.
+    else if (kind === 'mixed-negative') order = (i % 3 === 0) ? null : i - Math.floor(n / 2);
+    else if (kind === 'negative-dupes') order = Math.floor(i / 2) - Math.floor(n / 4);
+    else order = rnd() < 0.25 ? null : pick(2 * n) - n;
     // ids deliberately not in order-order, so id tie-breaks are exposed
     rows.push({ id: 1000 + ((i * 7) % (n * 3)), name: 'R' + i, order });
   }
@@ -105,7 +111,7 @@ function commit(entries, originals, rowsMoved) {
   });
 }
 
-const kinds = ['dense', 'sparse', 'null', 'mixed', 'dupes', 'negative'];
+const kinds = ['dense', 'sparse', 'null', 'mixed', 'dupes', 'negative', 'mixed-negative', 'negative-dupes', 'random'];
 const failures = [];
 let runs = 0;
 
@@ -114,7 +120,10 @@ for (let iter = 0; iter < 4000; iter++) {
   const n = (iter % 8 === 0) ? 60 + pick(160) : 3 + pick(8);
   const rows = makeSource(kind, n);
 
-  // what the manager shows: order ASC nulls last, id ASC
+  // What the manager shows. It asks for no sort at all, so this is the
+  // platform default - order ASC, nulls last, ties broken on DESCENDING id.
+  // Generating the baseline on ascending id modelled a query the manager no
+  // longer makes, and made rows look moved when they had not been.
   const originals = {};
 
   rows.forEach((r) => { originals[r.id] = { id: r.id, data: { Name: r.name }, order: r.order }; });
@@ -122,12 +131,12 @@ for (let iter = 0; iter < 4000; iter++) {
   let visual = rows.slice().sort((a, b) => {
     const an = a.order === null; const bn = b.order === null;
 
-    if (an && bn) return a.id - b.id;
+    if (an && bn) return b.id - a.id;
     if (an) return 1;
     if (bn) return -1;
     if (a.order !== b.order) return a.order - b.order;
 
-    return a.id - b.id;
+    return b.id - a.id;
   }).map((r) => ({ id: r.id, data: { Name: r.name } }));
 
   // random edits
@@ -156,8 +165,11 @@ for (let iter = 0; iter < 4000; iter++) {
   const intended = visual.map((e) => e.data.Name);
   const payload = commit(visual.map((e) => ({ id: e.id, data: { Name: e.data.Name } })), originals, rowsMoved);
   const stored = apply(rows, payload);
-  const asc = readStored(stored, 1);
-  const desc = readStored(stored, -1);
+  // The manager and every app read the same way now, so `read` is what all of
+  // them see. `flipped` is the same data with the tie-break reversed, kept only
+  // to prove the arrangement does not depend on which way ties fall.
+  const read = readStored(stored, -1);
+  const flipped = readStored(stored, 1);
 
   runs++;
 
@@ -167,8 +179,8 @@ for (let iter = 0; iter < 4000; iter++) {
 
   rows.forEach((r) => { beforeStored[r.id] = { id: r.id, name: r.name, order: r.order }; });
 
-  const beforeAsc = readStored(beforeStored, 1).join(',');
-  const beforeDesc = readStored(beforeStored, -1).join(',');
+  const beforeAsc = readStored(beforeStored, -1).join(',');
+  const beforeDesc = readStored(beforeStored, 1).join(',');
   const beforeOrders = rows.map((r) => r.order).filter((o) => o !== null && o !== undefined);
   const beforeHadDupes = new Set(beforeOrders).size !== beforeOrders.length;
   const beforeConsistent = beforeAsc === beforeDesc;
@@ -191,9 +203,9 @@ for (let iter = 0; iter < 4000; iter++) {
 
   const problems = [];
 
-  if (usable && asc.join(',') !== intended.join(',')) problems.push('manager view != intended');
+  if (usable && read.join(',') !== intended.join(',')) problems.push('reload != what the user arranged');
 
-  if (usable && beforeConsistent && asc.join(',') !== desc.join(',')) problems.push('save INTRODUCED a manager/consumer disagreement');
+  if (usable && beforeConsistent && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
 
   const orders = Object.values(stored).map((r) => r.order).filter((o) => o !== null && o !== undefined);
 
@@ -226,7 +238,7 @@ for (let iter = 0; iter < 4000; iter++) {
   }
 
   if (problems.length) {
-    failures.push({ kind, n, rowsMoved, problems, intended: intended.join(','), asc: asc.join(','), desc: desc.join(','),
+    failures.push({ kind, n, rowsMoved, problems, intended: intended.join(','), asc: read.join(','), desc: flipped.join(','),
       before: rows.map((r) => r.name + ':' + r.order).join(' ') });
   }
 }
@@ -237,8 +249,8 @@ it('holds the ordering invariants across ' + runs + ' random edits', function() 
       'kind=' + f.kind + ' moved=' + f.rowsMoved + ' :: ' + f.problems.join('; '),
       '  stored before : ' + f.before,
       '  intended      : ' + f.intended,
-      '  manager reads : ' + f.asc,
-      '  consumers read: ' + f.desc
+      '  reloads as    : ' + f.asc,
+      '  ties reversed : ' + f.desc
     ].join('\n');
   }).join('\n\n');
 

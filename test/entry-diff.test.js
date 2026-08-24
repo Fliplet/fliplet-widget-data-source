@@ -644,26 +644,84 @@ describe('PS-1781 — a saved order must read the same for every consumer', func
     expect(readAs(rows, payload, -1)).toBe('A,NEW,B,C');
   });
 
-  it('does not commit the data source to place a row added to an unordered one', function() {
+  /**
+   * Build an unordered data source of n rows, in the sequence it reads back:
+   * nothing carries an order, so the newest row comes first.
+   * @param {Number} n - How many rows
+   * @returns {Array} Stored rows, newest first
+   */
+  function unorderedRows(n) {
     var rows = [];
     var i;
 
-    for (i = 499; i >= 0; i--) {
+    for (i = n - 1; i >= 0; i--) {
       rows.push({ id: 1000 + i, name: 'U' + i, order: null });
     }
 
+    return rows;
+  }
+
+  it('pins a row added to the end of an unordered data source', function() {
+    var rows = unorderedRows(20);
+    var d = build(rows);
+
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+    var expected = rows.map(function(row) {
+      return row.name;
+    }).concat('NEW').join(',');
+
+    // An unnumbered row always sorts after a numbered one, so the only thing
+    // that holds the new row at the end is numbering what is above it. The new
+    // row would otherwise carry the highest id and read first.
+    expect(readAs(rows, payload, -1)).toBe(expected);
+    expect(payload.entries).toHaveLength(21);
+  });
+
+  it('does not commit a large unordered data source to place an added row', function() {
+    var rows = unorderedRows(2000);
     var d = build(rows);
 
     d.entries.push({ data: { Name: 'NEW' } });
 
     var payload = commit(d.entries, d.originals);
 
-    // A row cannot be positioned among rows that carry no order: a number would
-    // jump it ahead of all of them, and numbering them all is the whole-dataset
-    // commit this exists to prevent. So only the new row is sent, and where it
-    // lands is left to the same rule every consumer already applies.
+    // Past the anchor limit the trade goes the other way: numbering 2,000 rows
+    // to hold one of them at the end is the whole-dataset commit that times out
+    // (PS-1781), so the row is left unnumbered and reads where every other
+    // unnumbered row in this data source reads - by id, newest first.
     expect(payload.entries).toHaveLength(1);
     expect(payload.entries[0].order).toBeUndefined();
+    expect(readAs(rows, payload, -1).indexOf('NEW')).toBe(0);
+  });
+
+  it('does not renumber a moved row onto an order a later row still holds', function() {
+    // Inserting above order 0 creates negative orders, so a data source can
+    // hold -1, 0, 1 and a null at once. Numbering the moved prefix from zero
+    // wrote 1 over the row already sitting at 1.
+    var rows = [
+      { id: 1, name: 'A', order: -1 },
+      { id: 2, name: 'B', order: 0 },
+      { id: 3, name: 'C', order: 1 },
+      { id: 4, name: 'D', order: null }
+    ];
+    var d = build(rows);
+    var entries = [d.entries[1], d.entries[0], d.entries[2], d.entries[3]];
+    var payload = commit(entries, d.originals, true);
+    var stored = rows.map(function(row) {
+      var written = payload.entries.filter(function(entry) {
+        return entry.id === row.id;
+      })[0];
+
+      return written && typeof written.order === 'number' ? written.order : row.order;
+    }).filter(function(order) {
+      return typeof order === 'number';
+    });
+
+    expect(readAs(rows, payload, -1)).toBe('B,A,C,D');
+    expect(stored.length).toBe(new Set(stored).size);
+    expect(payload.entries).toHaveLength(2);
   });
 
   it('writes nothing for a no-op drag on a data source that mixes both', function() {

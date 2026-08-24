@@ -11,6 +11,20 @@ var EntryDiff = (function() {
   'use strict';
 
   /**
+   * How many existing rows a single insertion may renumber.
+   *
+   * A row can only be pinned below rows that carry an order, so putting one at
+   * the end of a data source that carries none means numbering everything above
+   * it. That is the whole-dataset commit this change exists to prevent - 15,000
+   * entries measured at 3.22 MB and ~15s, which the endpoint answers with a 502.
+   * Below this many rows the commit is small enough to be safe (500 rows
+   * measured at ~110 KB, well under a second), so the row is pinned; above it
+   * the rows above are left alone and the new row reads where an unnumbered row
+   * reads - see the note in computeInsertPositions.
+   */
+  var MAX_ANCHOR_ROWS = 500;
+
+  /**
    * Serialise a value with object keys sorted at every depth, so two
    * structurally equal objects always produce the same string. Plain
    * JSON.stringify is key-order sensitive, which would re-commit a JSON cell
@@ -161,8 +175,30 @@ var EntryDiff = (function() {
 
     var renumbered = {};
 
+    if (lastMoved < 0) {
+      return renumbered;
+    }
+
+    // The rows past the prefix keep whatever order they already hold, so the
+    // prefix has to be numbered below the lowest of them. Starting at zero
+    // collided with rows nobody touched: a data source holding -1, 0, 1 and a
+    // null would answer a drag by writing 1 over a row already sitting at 1,
+    // and the two then separated on id rather than on the arrangement.
+    var tailMin = null;
+
+    for (var t = lastMoved + 1; t < positioned.length; t++) {
+      var tailOrder = originalMap[positioned[t].id].order;
+
+      if (typeof tailOrder === 'number' && (tailMin === null || tailOrder < tailMin)) {
+        tailMin = tailOrder;
+      }
+    }
+
+    var count = lastMoved + 1;
+    var first = tailMin === null ? 0 : tailMin - count;
+
     for (var i = 0; i <= lastMoved; i++) {
-      renumbered[positioned[i].id] = i;
+      renumbered[positioned[i].id] = first + i;
     }
 
     return renumbered;
@@ -176,9 +212,12 @@ var EntryDiff = (function() {
    * insert-after, which the toolbar offers - the row would reload at the end.
    *
    * Each new row is slotted into the gap between the stored orders of its
-   * neighbours. Where the neighbours leave no room, the run is pushed past the
-   * following row instead, and that row is renumbered too; the rows before the
-   * insertion point are never touched.
+   * neighbours. Where the neighbours leave no room, something has to move: the
+   * rows below are pushed further down, or the rows above are pulled down into
+   * the space beneath them, whichever is fewer rows. Where the row above has no
+   * order at all there is nothing to sit after, so the rows above are numbered
+   * - up to MAX_ANCHOR_ROWS of them, past which the new row is left where an
+   * unnumbered row reads.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
    * @param {Object} positions - Positions already decided for existing rows
@@ -210,6 +249,110 @@ var EntryDiff = (function() {
       return typeof entry.id === 'undefined' || !originalMap[entry.id];
     }
 
+    /**
+     * Number the rows above an insertion point so the new rows can sit after
+     * them.
+     *
+     * An unnumbered row always sorts after every numbered one, so a new row
+     * dropped below unnumbered rows cannot be given an order of its own - any
+     * number would lift it above them. The only thing that pins it is numbering
+     * what is above it, and only the rows that are not already usable are
+     * touched, in the sequence they are shown.
+     * @param {Number} start - Index of the first new row in the run
+     * @param {Number} end - Index just past the run
+     * @param {Number} count - How many new rows the run holds
+     * @returns {Boolean} True when the rows above were numbered
+     */
+    function anchorRowsAbove(runStart, runEnd, runCount) {
+      // A new row above the run was placed by its own pass, against neighbours
+      // this one cannot see. Rather than risk handing out an order it already
+      // took, leave this run where it is.
+      for (var n = 0; n < runStart; n++) {
+        if (isNew(entries[n])) {
+          return false;
+        }
+      }
+
+      // Anchors have to stay below anything numbered after the run, or they
+      // collide with rows nobody touched
+      var tailMin = null;
+
+      for (var t = runEnd; t < entries.length; t++) {
+        if (isNew(entries[t])) {
+          continue;
+        }
+
+        var tailOrder = settledOrder(entries[t]);
+
+        if (typeof tailOrder === 'number' && (tailMin === null || tailOrder < tailMin)) {
+          tailMin = tailOrder;
+        }
+      }
+
+      var pending = [];
+      var assigned = null;
+
+      for (var i = 0; i < runStart; i++) {
+        var current = settledOrder(entries[i]);
+
+        // Already numbered above everything before it, so it stays as it is
+        if (typeof current === 'number' && (assigned === null || current > assigned)) {
+          assigned = current;
+
+          continue;
+        }
+
+        assigned = assigned === null ? 0 : assigned + 1;
+        pending.push({ id: entries[i].id, order: assigned });
+      }
+
+      if (!pending.length || pending.length > MAX_ANCHOR_ROWS) {
+        return false;
+      }
+
+      // No room left for the run itself between the anchors and the rows below
+      if (tailMin !== null && assigned + runCount >= tailMin) {
+        return false;
+      }
+
+      pending.forEach(function(row) {
+        updates[row.id] = row.order;
+      });
+
+      return true;
+    }
+
+    /**
+     * Make room for a run by moving the rows above it down, rather than moving
+     * every row below it further down.
+     * @param {Number} runStart - Index of the first new row in the run
+     * @param {Number} runCount - How many new rows the run holds
+     * @param {Number} ceiling - Order of the row following the run
+     * @returns {Boolean} True when the rows above were moved and the run placed
+     */
+    function pullDownRowsAbove(runStart, runCount, ceiling) {
+      var i;
+
+      // A new row above was placed against neighbours this pass cannot see
+      for (i = 0; i < runStart; i++) {
+        if (isNew(entries[i])) {
+          return false;
+        }
+      }
+
+      var base = ceiling - (runStart + runCount);
+
+      for (i = 0; i < runStart; i++) {
+        updates[entries[i].id] = base + i;
+      }
+
+      for (i = 0; i < runCount; i++) {
+        inserts[runStart + i] = base + runStart + i;
+      }
+
+      return true;
+    }
+
     var index = 0;
 
     while (index < entries.length) {
@@ -227,25 +370,62 @@ var EntryDiff = (function() {
       }
 
       var count = index - start;
+
+      // The row above carries no order, so there is nothing to sit after.
+      // Numbering the rows above is what pins the new row; where there are too
+      // many of them to write, it stays unnumbered.
+      if (start > 0 && settledOrder(entries[start - 1]) === null) {
+        anchorRowsAbove(start, index, count);
+      }
+
       var before = start > 0 ? settledOrder(entries[start - 1]) : null;
       var cursor = index;
       var after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
 
-      // Widen past following rows until the run fits, renumbering those we pass
+      // Widen past following rows until the run fits, renumbering those we pass.
+      // Capped at the number of rows above the insertion point, because those
+      // can be pulled down instead - see below.
       var displaced = [];
+      // The order of the row directly below the run, before the walk moves the
+      // cursor past it - that is the ceiling the rows above have to fit under
+      var firstAfter = after;
+      var pulled = false;
+      var triedPulling = false;
 
       while (after !== null && before !== null
         && after - before - 1 < count + displaced.length) {
+        // A sequence with no gaps left has to give somewhere. Walking down for
+        // slack passes every row to the end of a packed data source - inserting
+        // near the top of a 15,000-row one wrote 14,997 of them, the same
+        // timeout this change exists to remove. Moving the rows above down
+        // instead costs one write per row above the insertion point, so once
+        // the walk has passed that many rows, the other side is cheaper.
+        if (!triedPulling && displaced.length >= start) {
+          triedPulling = true;
+
+          if (pullDownRowsAbove(start, count, firstAfter)) {
+            pulled = true;
+
+            break;
+          }
+        }
+
         displaced.push(entries[cursor]);
         cursor += 1;
         after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
       }
 
-      // Nothing numbered on either side, so there is no gap to sit in. Leave
-      // these rows unnumbered: they read after the numbered rows and among
-      // themselves by id, the same way for every consumer. Numbering them would
-      // jump them ahead of every existing row, and numbering the whole data
-      // source to avoid that would commit all of it for one added row.
+      if (pulled) {
+        continue;
+      }
+
+      // Still nothing numbered on either side: either the run is at the very
+      // top, where an unnumbered row already reads first, or there were too
+      // many rows above to number. Leave the run unnumbered - it then reads
+      // after the numbered rows and among the unnumbered ones by descending id,
+      // the same way for every consumer. Numbering only the run would jump it
+      // ahead of every existing row instead, which is further from where the
+      // user put it than leaving it alone.
       if (before === null && after === null) {
         continue;
       }
