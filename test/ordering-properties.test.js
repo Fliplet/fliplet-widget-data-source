@@ -227,11 +227,16 @@ for (let iter = 0; iter < 4000; iter++) {
   // nowhere to put a row without renumbering. Inserting into one, or dragging
   // to its far end, does commit most of it. Inherent to the stored shape.
   var hasInserts = visual.some(function(e) { return typeof e.id === 'undefined'; });
-  // Inserting into a fully packed run of integers has to shift every row after
-  // it - there is no value to put between two consecutive ones. So the bound is
-  // asserted for deletes, edits and reorders, which is where the timeout came
-  // from, and not for insertion.
-  var boundApplies = rows.length >= 40 && !hasInserts && (usable || !rowsMoved);
+  // Inserts used to be excluded here outright, which is how a mid-source insert
+  // into a packed sequence went on committing half the data source unnoticed.
+  // On a data source that can express order the bound now covers them: nothing
+  // fits between two consecutive integers, so rows have to shift, but only ever
+  // the shorter side and never past the write limit.
+  //
+  // It still cannot cover a data source that carries no usable order, where
+  // holding a row in place means numbering the rows above it - that is the
+  // trade the write limit governs, asserted directly in entry-diff.test.js.
+  var boundApplies = rows.length >= 40 && (usable || (!rowsMoved && !hasInserts));
 
   if (boundApplies && payload.entries.length >= rows.length) {
     problems.push('commit covered the whole data source (' + payload.entries.length + ' of ' + rows.length + ')');

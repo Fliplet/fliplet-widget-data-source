@@ -3,9 +3,7 @@
   "package": "com.fliplet.data-sources",
   "version": "1.0.0",
   "icon": "img/icon.png",
-  "tags": [
-    "category:general"
-  ],
+  "tags": ["category:general"],
   "provider_only": true,
   "interface": {
     "dependencies": [
@@ -37,16 +35,19 @@
       "vendor/fonts/tinymce.woff",
       "vendor/overlay.js",
       "vendor/bootstrap-tokenfield.min.js",
+
       "js/history.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/entry-diff.js",
       "js/interface.js",
+
       "vendor/jquery-ui.min.css",
       "vendor/tinymce-fonts.css",
       "vendor/overlay.css",
       "vendor/bootstrap-tokenfield.min.css",
       "vendor/tokenfield-typeahead.min.css",
+
       "css/interface.css",
       "css/buttons.css",
       "js/interface.templates.js"

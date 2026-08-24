@@ -37,9 +37,10 @@ function build(rows) {
   return { entries: entries, originals: originals };
 }
 
-function commit(entries, originals, rowsMoved) {
+function commit(entries, originals, rowsMoved, viewMatchesStoredOrder) {
   return EntryDiff.computeCommitPayload(entries, originals, {
     rowsMoved: !!rowsMoved,
+    viewMatchesStoredOrder: viewMatchesStoredOrder !== false,
     isEqual: isEqual,
     guid: guid
   });
@@ -96,7 +97,7 @@ function applyAndRead(rows, payload) {
     var bNull = b.order === null || typeof b.order === 'undefined';
 
     if (aNull && bNull) {
-      return a.id - b.id;
+      return b.id - a.id;
     }
 
     if (aNull) {
@@ -107,18 +108,19 @@ function applyAndRead(rows, payload) {
       return -1;
     }
 
-    return a.order !== b.order ? a.order - b.order : a.id - b.id;
+    return a.order !== b.order ? a.order - b.order : b.id - a.id;
   }).map(function(row) {
     return row.name;
   }).join(',');
 }
 
 /**
- * Read rows back the way a given consumer would. The manager asks for id ASC;
- * the platform default is id DESC. A correct save reads the same either way.
+ * Read rows back with the id tie-break in a given direction. The platform
+ * default is id DESC, which is what the manager and every app get; reading the
+ * same either way proves the arrangement does not rest on the tie-break.
  * @param {Array} rows - Stored rows, [{ id, name, order }]
  * @param {Object} payload - Result of computeCommitPayload
- * @param {Number} idDirection - 1 for id ASC, -1 for id DESC
+ * @param {Number} idDirection - -1 for the platform default, 1 to reverse ties
  * @returns {String} Comma-separated names in read order
  */
 function readAs(rows, payload, idDirection) {
@@ -804,5 +806,134 @@ describe('EntryDiff.computeCommitPayload — edge cases', function() {
 
     expect(payload.entries).toHaveLength(1);
     expect(payload.delete).toEqual([1002]);
+  });
+});
+
+describe('PS-1781 — placing a row must not commit the data source', function() {
+  /**
+   * A data source numbered 0..n-1 with no gaps - the shape the manager itself
+   * produced before this change, since every save stamped a dense visual index.
+   * @param {Number} n - How many rows
+   * @returns {Array} Stored rows in read order
+   */
+  function packedRows(n) {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < n; i++) {
+      rows.push({ id: 1000 + i, name: 'R' + i, order: i });
+    }
+
+    return rows;
+  }
+
+  it('places a mid-source insert exactly while it stays cheap', function() {
+    var rows = packedRows(200);
+    var d = build(rows);
+
+    d.entries.splice(100, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+    var read = readAs(rows, payload, -1).split(',');
+
+    // Nothing fits between two consecutive integers, so one side has to shift.
+    // The shorter side is the 100 rows above, not the 100 below - and either
+    // way the row lands where the user dropped it.
+    expect(read[100]).toBe('NEW');
+    expect(payload.entries).toHaveLength(101);
+  });
+
+  it('appends rather than commit half a large packed data source', function() {
+    var rows = packedRows(15000);
+    var d = build(rows);
+
+    d.entries.splice(7500, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    // 7,501 entries is ~1.7 MB and ~7s - inside the window the ticket reports
+    // as a 502. Neither side is cheap enough, so the row keeps its place in the
+    // grid for this session and reloads at the end.
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBeUndefined();
+  });
+
+  it('costs no more than the write limit wherever the row goes', function() {
+    var rows = packedRows(4000);
+    var positions = [0, 1, 400, 501, 2000, 3600, 3999, 4000];
+
+    positions.forEach(function(at) {
+      var d = build(rows);
+
+      d.entries.splice(at, 0, { data: { Name: 'NEW' } });
+
+      var payload = commit(d.entries, d.originals);
+
+      expect(payload.entries.length).toBeLessThanOrEqual(501);
+    });
+  });
+});
+
+describe('PS-1781 — a sorted grid is not an arrangement', function() {
+  it('writes no positions when the grid is showing a column sort', function() {
+    var rows = [
+      { id: 1, name: 'C', order: 0 },
+      { id: 2, name: 'A', order: 1 },
+      { id: 3, name: 'B', order: 2 }
+    ];
+    var d = build(rows);
+    // sorted by name, then a row dragged within the sorted view
+    var entries = [d.entries[1], d.entries[2], d.entries[0]];
+    var payload = commit(entries, d.originals, true, false);
+
+    // Persisting this would write the sort into the data source - on a
+    // 15,000-row one, all of it
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('does not read a new row position off a sorted grid', function() {
+    var rows = [
+      { id: 1, name: 'C', order: 0 },
+      { id: 2, name: 'A', order: 1 },
+      { id: 3, name: 'B', order: 2 }
+    ];
+    var d = build(rows);
+    var entries = [d.entries[1], { data: { Name: 'NEW' } }, d.entries[2], d.entries[0]];
+    var payload = commit(entries, d.originals, false, false);
+
+    // The row above a new one in a sorted grid is not the row it will reload
+    // after, so no position can be read off it
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBeUndefined();
+  });
+
+  it('still writes positions once the sort is cleared', function() {
+    var rows = [
+      { id: 1, name: 'C', order: 0 },
+      { id: 2, name: 'A', order: 1 },
+      { id: 3, name: 'B', order: 2 }
+    ];
+    var d = build(rows);
+    var entries = [d.entries[1], d.entries[0], d.entries[2]];
+    var payload = commit(entries, d.originals, true, true);
+
+    expect(payload.entries).toHaveLength(2);
+    expect(readAs(rows, payload, -1)).toBe('A,C,B');
+  });
+});
+
+describe('EntryDiff.hasEntryChanged', function() {
+  it('compares the data only', function() {
+    var entry = { id: 1, data: { Name: 'A' } };
+
+    expect(EntryDiff.hasEntryChanged(entry, { id: 1, data: { Name: 'A' }, order: 4 }, isEqual)).toBe(false);
+    expect(EntryDiff.hasEntryChanged(entry, { id: 1, data: { Name: 'B' }, order: 4 }, isEqual)).toBe(true);
+  });
+
+  it('ignores a value that only changed shape in the grid', function() {
+    var entry = { id: 1, data: { Num: '30', Blank: '' } };
+    var original = { id: 1, data: { Num: 30 }, order: 0 };
+
+    expect(EntryDiff.hasEntryChanged(entry, original, isEqual)).toBe(false);
   });
 });

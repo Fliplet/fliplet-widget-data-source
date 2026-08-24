@@ -644,6 +644,9 @@ function getCommitPayload(entries) {
   return EntryDiff.computeCommitPayload(entries, entryMap.original, {
     // Position is only worth writing when the user dragged a row during this save
     rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
+    // ...and only when the grid is showing the stored sequence. Under a column
+    // sort the visible order is not an arrangement anyone asked to persist.
+    viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
     isEqual: _.isEqual,
     guid: Fliplet.guid
   });

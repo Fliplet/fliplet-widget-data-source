@@ -11,18 +11,27 @@ var EntryDiff = (function() {
   'use strict';
 
   /**
-   * How many existing rows a single insertion may renumber.
+   * How many existing rows one added row may renumber.
    *
-   * A row can only be pinned below rows that carry an order, so putting one at
-   * the end of a data source that carries none means numbering everything above
-   * it. That is the whole-dataset commit this change exists to prevent - 15,000
-   * entries measured at 3.22 MB and ~15s, which the endpoint answers with a 502.
-   * Below this many rows the commit is small enough to be safe (500 rows
-   * measured at ~110 KB, well under a second), so the row is pinned; above it
-   * the rows above are left alone and the new row reads where an unnumbered row
-   * reads - see the note in computeInsertPositions.
+   * Two shapes make placing a row expensive, and an integer `order` column
+   * leaves no way around either:
+   *
+   *  - Rows that carry no order. An unnumbered row always sorts after a
+   *    numbered one, so holding a new row below k unnumbered rows means
+   *    numbering all k of them.
+   *  - Rows numbered 0..n-1 with no gaps. Nothing fits between two consecutive
+   *    integers, so the rows above or the rows below have to shift - whichever
+   *    side is shorter, which at the middle is half the data source.
+   *
+   * Both are the whole-dataset commit this change exists to remove: 15,000
+   * entries measured at 3.22 MB and ~15s, answered with a 502 (PS-1781), and
+   * 7,500 of them still ~1.7 MB and ~7s. So placement is bought only while it
+   * stays this cheap - 500 rows measured at ~110 KB, well under a second. Past
+   * that the row keeps its position in the grid for this session and reloads at
+   * the end of the data source, which is slower to notice than a failed save
+   * but never loses the row.
    */
-  var MAX_ANCHOR_ROWS = 500;
+  var MAX_ORDER_WRITES = 500;
 
   /**
    * Serialise a value with object keys sorted at every depth, so two
@@ -216,7 +225,7 @@ var EntryDiff = (function() {
    * rows below are pushed further down, or the rows above are pulled down into
    * the space beneath them, whichever is fewer rows. Where the row above has no
    * order at all there is nothing to sit after, so the rows above are numbered
-   * - up to MAX_ANCHOR_ROWS of them, past which the new row is left where an
+   * - up to MAX_ORDER_WRITES of them, past which the new row is left where an
    * unnumbered row reads.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
@@ -306,7 +315,7 @@ var EntryDiff = (function() {
         pending.push({ id: entries[i].id, order: assigned });
       }
 
-      if (!pending.length || pending.length > MAX_ANCHOR_ROWS) {
+      if (!pending.length || pending.length > MAX_ORDER_WRITES) {
         return false;
       }
 
@@ -382,9 +391,7 @@ var EntryDiff = (function() {
       var cursor = index;
       var after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
 
-      // Widen past following rows until the run fits, renumbering those we pass.
-      // Capped at the number of rows above the insertion point, because those
-      // can be pulled down instead - see below.
+      // Widen past following rows until the run fits, renumbering those we pass
       var displaced = [];
       // The order of the row directly below the run, before the walk moves the
       // cursor past it - that is the ceiling the rows above have to fit under
@@ -393,13 +400,15 @@ var EntryDiff = (function() {
       var triedPulling = false;
 
       while (after !== null && before !== null
-        && after - before - 1 < count + displaced.length) {
+        && after - before - 1 < count + displaced.length
+        && displaced.length <= MAX_ORDER_WRITES) {
         // A sequence with no gaps left has to give somewhere. Walking down for
         // slack passes every row to the end of a packed data source - inserting
-        // near the top of a 15,000-row one wrote 14,997 of them, the same
-        // timeout this change exists to remove. Moving the rows above down
-        // instead costs one write per row above the insertion point, so once
-        // the walk has passed that many rows, the other side is cheaper.
+        // near the top of a 15,000-row one wrote 14,997 of them, and into the
+        // middle 7,501, both inside the timeout this change exists to remove.
+        // Moving the rows above down instead costs one write per row above the
+        // insertion point, so once the walk has passed that many rows, the
+        // other side is the cheaper one.
         if (!triedPulling && displaced.length >= start) {
           triedPulling = true;
 
@@ -416,6 +425,14 @@ var EntryDiff = (function() {
       }
 
       if (pulled) {
+        continue;
+      }
+
+      // Neither side is cheap enough: the walk hit the limit and there were
+      // more rows above it than the limit too. Leave the run unnumbered rather
+      // than commit half the data source to position one row.
+      if (after !== null && before !== null
+        && after - before - 1 < count + displaced.length) {
         continue;
       }
 
@@ -458,27 +475,18 @@ var EntryDiff = (function() {
   /**
    * Determine whether an entry needs committing.
    *
-   * Position is only considered when the user dragged a row during this save, and
-   * even then only for the rows whose position actually changed. Nothing is
-   * derived from the visual index otherwise, so deleting a row no longer makes
-   * every row beneath it look changed - on a 15,000-row data source that was a
-   * ~3 MB commit taking ~15s, which times out as a 502 (PS-1781).
+   * Only the data is compared. Position is decided separately, by the caller,
+   * because it depends on what the whole save is doing rather than on one row -
+   * and nothing is derived from the visual index, so deleting a row no longer
+   * makes every row beneath it look changed. On a 15,000-row data source that
+   * was a ~3 MB commit taking ~15s, which times out as a 502 (PS-1781).
    * @param {Object} entry - Current entry from the table
    * @param {Object} original - Cached original entry
-   * @param {Object|null} positions - Map of id to new order, when rows were moved
    * @param {Function} isEqualFn - Deep equality comparison (e.g. _.isEqual)
-   * @returns {Boolean} True when the entry should be committed
+   * @returns {Boolean} True when the entry's data should be committed
    */
-  function hasEntryChanged(entry, original, positions, isEqualFn) {
-    if (!isEqualFn(normalizeData(entry.data), normalizeData(original.data))) {
-      return true;
-    }
-
-    if (!positions || !Object.prototype.hasOwnProperty.call(positions, entry.id)) {
-      return false;
-    }
-
-    return positions[entry.id] !== original.order;
+  function hasEntryChanged(entry, original, isEqualFn) {
+    return !isEqualFn(normalizeData(entry.data), normalizeData(original.data));
   }
 
   /**
@@ -487,7 +495,7 @@ var EntryDiff = (function() {
    * recovered ones, and stamps order on rows that a reorder has moved.
    * @param {Array} entries - Current entries from the table, in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @param {Object} options - { rowsMoved, isEqual, guid }
+   * @param {Object} options - { rowsMoved, viewMatchesStoredOrder, isEqual, guid }
    * @returns {Object} { entries: [...updated, ...inserted], delete: [...ids] }
    */
   function computeCommitPayload(entries, originalMap, options) {
@@ -496,13 +504,23 @@ var EntryDiff = (function() {
 
     var isEqualFn = options.isEqual;
     var guidFn = options.guid;
-    var positions = options.rowsMoved
+
+    // The grid can be showing a column sort rather than the stored sequence.
+    // Nothing about a position can be read off it then: the row above a new one
+    // is not the row it will reload after, and treating the sorted sequence as
+    // an arrangement to persist writes the sort into the data source - on a
+    // 15,000-row source, all of it. Positions are left alone until the view is
+    // the stored order again.
+    var viewMatchesStoredOrder = options.viewMatchesStoredOrder !== false;
+    var positions = options.rowsMoved && viewMatchesStoredOrder
       ? computeReorderedPositions(entries, originalMap)
       : null;
 
     // New rows need a position of their own, so insert-before/after lands where
     // the user put it rather than at the end
-    var placed = computeInsertPositions(entries, originalMap, positions);
+    var placed = viewMatchesStoredOrder
+      ? computeInsertPositions(entries, originalMap, positions)
+      : { inserts: {}, updates: {} };
 
     var inserted = [];
     var updated = [];
@@ -564,7 +582,7 @@ var EntryDiff = (function() {
 
       var orderChanged = typeof finalOrder === 'number' && finalOrder !== original.order;
 
-      if (!orderChanged && !hasEntryChanged(entry, original, null, isEqualFn)) {
+      if (!orderChanged && !hasEntryChanged(entry, original, isEqualFn)) {
         return;
       }
 

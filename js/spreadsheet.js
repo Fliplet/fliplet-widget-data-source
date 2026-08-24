@@ -579,6 +579,16 @@ function spreadsheet(options) {
 
         return false;
       }
+
+      // A drag inside a sorted view is not an arrangement anything can store:
+      // the visible sequence is the sort, not the data source's own order, so
+      // persisting it would write the sort over every row. Refuse the move
+      // rather than accept it and then quietly drop it on save.
+      if (isColumnSorted()) {
+        console.info('Rows cannot be moved while a column sort is applied');
+
+        return false;
+      }
     },
     afterRowMove: function() {
       rowsMoved = true;
@@ -992,6 +1002,30 @@ function spreadsheet(options) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
   }
 
+  /**
+   * Whether a column sort is currently applied to the grid.
+   * @returns {Boolean} True when the visible sequence is a sort, not the stored order
+   */
+  function isColumnSorted() {
+    if (isDestroyed || !hot || typeof hot.getPlugin !== 'function') {
+      return false;
+    }
+
+    var plugin = hot.getPlugin('columnSorting');
+
+    if (!plugin) {
+      return false;
+    }
+
+    if (typeof plugin.isSorted === 'function') {
+      return !!plugin.isSorted();
+    }
+
+    // Handsontable 4 keeps the applied sort on the plugin itself, and leaves
+    // sortOrder undefined when the sort has been cleared
+    return typeof plugin.sortOrder !== 'undefined' && plugin.sortOrder !== null;
+  }
+
   function reset(resetHistory) {
     search('clear');
     setChanges(false);
@@ -1039,6 +1073,9 @@ function spreadsheet(options) {
     hasRowsMoved: function() {
       return rowsMoved;
     },
+    // True while the grid is showing a column sort instead of the stored
+    // sequence. Nothing about a row's position can be read off the grid then.
+    isColumnSorted: isColumnSorted,
     onChange: onChange
   };
 }
