@@ -148,8 +148,17 @@ for (let iter = 0; iter < 4000; iter++) {
 
     if (op === 0 && visual.length > 1) {              // delete
       visual.splice(pick(visual.length), 1);
-    } else if (op === 1) {                             // insert
-      visual.splice(pick(visual.length + 1), 0, { data: { Name: 'NEW' + o + '_' + iter } });
+    } else if (op === 1) {                             // insert one row, or a run
+      // Runs matter on their own. Rows added next to each other are placed as a
+      // group, and a group at the very top of a source that carries no order
+      // reloaded in reverse - one row is fine there, several are not. Inserting
+      // strictly one at a time made that a 3-in-4000 accident.
+      const at = pick(visual.length + 1);
+      const howMany = rnd() < 0.35 ? 2 + pick(2) : 1;
+
+      for (let k = 0; k < howMany; k++) {
+        visual.splice(at + k, 0, { data: { Name: 'NEW' + o + '_' + k + '_' + iter } });
+      }
     } else if (op === 2 && visual.length > 1) {        // drag
       const from = pick(visual.length);
       const to = pick(visual.length);
@@ -201,9 +210,18 @@ for (let iter = 0; iter < 4000; iter++) {
   // and never leaves two rows sharing an order.
   const usable = !beforeHadDupes && rows.every((r) => typeof r.order === 'number');
 
+  // What the arrangement check used to be gated on. Only comparing the reload
+  // against the intended sequence for fully numbered sources meant nothing
+  // checked placement on the sources that carry no order - which is where two
+  // inserts in one save stopped composing, each run ignoring what the last one
+  // had placed. Placement is owed on any source small enough to renumber, and
+  // every generated one is, so the gate is now only about ambiguity: orders
+  // shared between rows leave the intended sequence undefined.
+  const placeable = !beforeHadDupes && rows.length <= 500;
+
   const problems = [];
 
-  if (usable && read.join(',') !== intended.join(',')) problems.push('reload != what the user arranged');
+  if (placeable && read.join(',') !== intended.join(',')) problems.push('reload != what the user arranged');
 
   if (usable && beforeConsistent && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
 

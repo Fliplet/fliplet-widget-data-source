@@ -236,10 +236,27 @@ var EntryDiff = (function() {
     var inserts = {};
     var updates = {};
 
-    // Order each existing row will hold once this save is applied
-    function settledOrder(entry) {
-      if (!entry || typeof entry.id === 'undefined' || !originalMap[entry.id]) {
+    function isNew(entry) {
+      return typeof entry.id === 'undefined' || !originalMap[entry.id];
+    }
+
+    /**
+     * Order the row at this index will hold once the save is applied, for both
+     * kinds of row. A new row placed by an earlier run counts just as much as a
+     * stored one: reading it as unnumbered is what made a second insertion
+     * ignore the first and land in the wrong place.
+     * @param {Number} index - Position in the visual sequence
+     * @returns {Number|null} The settled order, or null when it has none
+     */
+    function settledOrderAt(index) {
+      var entry = entries[index];
+
+      if (!entry) {
         return null;
+      }
+
+      if (isNew(entry)) {
+        return typeof inserts[index] === 'number' ? inserts[index] : null;
       }
 
       // A row displaced by an earlier insertion in this same pass already has a
@@ -254,8 +271,41 @@ var EntryDiff = (function() {
       return typeof pending === 'number' ? pending : originalMap[entry.id].order;
     }
 
-    function isNew(entry) {
-      return typeof entry.id === 'undefined' || !originalMap[entry.id];
+    /**
+     * Record an order for whichever kind of row sits at this index. New rows
+     * are keyed by position because they have no id yet.
+     * @param {Number} index - Position in the visual sequence
+     * @param {Number} order - Order to give it
+     * @returns {undefined}
+     */
+    function assignOrder(index, order) {
+      if (isNew(entries[index])) {
+        inserts[index] = order;
+
+        return;
+      }
+
+      updates[entries[index].id] = order;
+    }
+
+    /**
+     * Lowest order held by anything from this index onwards. Anything written
+     * above has to stay below it, or it collides with rows nobody touched.
+     * @param {Number} from - Index to start looking from
+     * @returns {Number|null} The lowest settled order, or null when there is none
+     */
+    function lowestOrderFrom(from) {
+      var lowest = null;
+
+      for (var i = from; i < entries.length; i++) {
+        var order = settledOrderAt(i);
+
+        if (typeof order === 'number' && (lowest === null || order < lowest)) {
+          lowest = order;
+        }
+      }
+
+      return lowest;
     }
 
     /**
@@ -267,42 +317,19 @@ var EntryDiff = (function() {
      * number would lift it above them. The only thing that pins it is numbering
      * what is above it, and only the rows that are not already usable are
      * touched, in the sequence they are shown.
-     * @param {Number} start - Index of the first new row in the run
-     * @param {Number} end - Index just past the run
-     * @param {Number} count - How many new rows the run holds
+     * @param {Number} runStart - Index of the first new row in the run
+     * @param {Number} runEnd - Index just past the run
+     * @param {Number} runCount - How many new rows the run holds
      * @returns {Boolean} True when the rows above were numbered
      */
     function anchorRowsAbove(runStart, runEnd, runCount) {
-      // A new row above the run was placed by its own pass, against neighbours
-      // this one cannot see. Rather than risk handing out an order it already
-      // took, leave this run where it is.
-      for (var n = 0; n < runStart; n++) {
-        if (isNew(entries[n])) {
-          return false;
-        }
-      }
-
-      // Anchors have to stay below anything numbered after the run, or they
-      // collide with rows nobody touched
-      var tailMin = null;
-
-      for (var t = runEnd; t < entries.length; t++) {
-        if (isNew(entries[t])) {
-          continue;
-        }
-
-        var tailOrder = settledOrder(entries[t]);
-
-        if (typeof tailOrder === 'number' && (tailMin === null || tailOrder < tailMin)) {
-          tailMin = tailOrder;
-        }
-      }
-
+      var tailMin = lowestOrderFrom(runEnd);
       var pending = [];
       var assigned = null;
+      var i;
 
-      for (var i = 0; i < runStart; i++) {
-        var current = settledOrder(entries[i]);
+      for (i = 0; i < runStart; i++) {
+        var current = settledOrderAt(i);
 
         // Already numbered above everything before it, so it stays as it is
         if (typeof current === 'number' && (assigned === null || current > assigned)) {
@@ -312,7 +339,7 @@ var EntryDiff = (function() {
         }
 
         assigned = assigned === null ? 0 : assigned + 1;
-        pending.push({ id: entries[i].id, order: assigned });
+        pending.push({ index: i, order: assigned });
       }
 
       if (!pending.length || pending.length > MAX_ORDER_WRITES) {
@@ -325,7 +352,7 @@ var EntryDiff = (function() {
       }
 
       pending.forEach(function(row) {
-        updates[row.id] = row.order;
+        assignOrder(row.index, row.order);
       });
 
       return true;
@@ -342,21 +369,37 @@ var EntryDiff = (function() {
     function pullDownRowsAbove(runStart, runCount, ceiling) {
       var i;
 
-      // A new row above was placed against neighbours this pass cannot see
-      for (i = 0; i < runStart; i++) {
-        if (isNew(entries[i])) {
-          return false;
-        }
+      if (runStart > MAX_ORDER_WRITES) {
+        return false;
       }
 
       var base = ceiling - (runStart + runCount);
 
-      for (i = 0; i < runStart; i++) {
-        updates[entries[i].id] = base + i;
+      for (i = 0; i < runStart + runCount; i++) {
+        assignOrder(i, base + i);
       }
 
-      for (i = 0; i < runCount; i++) {
-        inserts[runStart + i] = base + runStart + i;
+      return true;
+    }
+
+    /**
+     * Number a run sitting at the very top, where there is nothing above it and
+     * nothing numbered below.
+     *
+     * One new row can be left alone here - unnumbered rows read newest first,
+     * so the newest row already reads first, which is where it was dropped. A
+     * run of several cannot: they would all reload in reverse of the order they
+     * were typed in.
+     * @param {Number} runCount - How many new rows the run holds
+     * @param {Number} runEnd - Index just past the run
+     * @returns {Boolean} True when the run was numbered
+     */
+    function numberRunAtTop(runCount, runEnd) {
+      var tailMin = lowestOrderFrom(runEnd);
+      var base = tailMin === null ? 0 : tailMin - runCount;
+
+      for (var i = 0; i < runCount; i++) {
+        inserts[i] = base + i;
       }
 
       return true;
@@ -383,13 +426,13 @@ var EntryDiff = (function() {
       // The row above carries no order, so there is nothing to sit after.
       // Numbering the rows above is what pins the new row; where there are too
       // many of them to write, it stays unnumbered.
-      if (start > 0 && settledOrder(entries[start - 1]) === null) {
+      if (start > 0 && settledOrderAt(start - 1) === null) {
         anchorRowsAbove(start, index, count);
       }
 
-      var before = start > 0 ? settledOrder(entries[start - 1]) : null;
+      var before = start > 0 ? settledOrderAt(start - 1) : null;
       var cursor = index;
-      var after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
+      var after = settledOrderAt(cursor);
 
       // Widen past following rows until the run fits, renumbering those we pass
       var displaced = [];
@@ -419,9 +462,9 @@ var EntryDiff = (function() {
           }
         }
 
-        displaced.push(entries[cursor]);
+        displaced.push(cursor);
         cursor += 1;
-        after = cursor < entries.length ? settledOrder(entries[cursor]) : null;
+        after = settledOrderAt(cursor);
       }
 
       if (pulled) {
@@ -436,14 +479,16 @@ var EntryDiff = (function() {
         continue;
       }
 
-      // Still nothing numbered on either side: either the run is at the very
-      // top, where an unnumbered row already reads first, or there were too
-      // many rows above to number. Leave the run unnumbered - it then reads
-      // after the numbered rows and among the unnumbered ones by descending id,
-      // the same way for every consumer. Numbering only the run would jump it
-      // ahead of every existing row instead, which is further from where the
-      // user put it than leaving it alone.
+      // Still nothing numbered on either side. At the very top that is fixable
+      // and cheap - see numberRunAtTop. Anywhere else it means the rows above
+      // could not be numbered, and numbering only the run would jump it ahead
+      // of every existing row, which is further from where the user put it than
+      // leaving it alone.
       if (before === null && after === null) {
+        if (start === 0 && count > 1) {
+          numberRunAtTop(count, index);
+        }
+
         continue;
       }
 
@@ -464,7 +509,7 @@ var EntryDiff = (function() {
       }
 
       for (var d = 0; d < displaced.length; d++) {
-        updates[displaced[d].id] = next;
+        assignOrder(displaced[d], next);
         next += step;
       }
     }

@@ -938,3 +938,102 @@ describe('EntryDiff.hasEntryChanged', function() {
     expect(EntryDiff.hasEntryChanged(entry, original, isEqual)).toBe(false);
   });
 });
+describe('PS-1781 — several rows added in one save', function() {
+  // A data source carrying no order at all, in the sequence it reads back:
+  // nothing is numbered, so the newest row comes first.
+  function unordered() {
+    return [
+      { id: 3, name: 'C', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 1, name: 'A', order: null }
+    ];
+  }
+
+  it('keeps two inserts in place when they are separated by existing rows', function() {
+    var rows = unordered();
+    var d = build(rows);
+    var entries = [
+      d.entries[0],
+      { data: { Name: 'N1' } },
+      d.entries[1],
+      { data: { Name: 'N2' } },
+      d.entries[2]
+    ];
+    var payload = commit(entries, d.originals);
+
+    // The second insertion has to see where the first one landed. While each
+    // run was placed as if it were the only one, the second stayed unnumbered
+    // and its newer id carried it back above the row it was dropped under.
+    expect(readAs(rows, payload, -1)).toBe('C,N1,B,N2,A');
+  });
+
+  it('keeps a run of rows added at the very top in the order they were typed', function() {
+    var rows = unordered();
+    var d = build(rows);
+    var entries = [
+      { data: { Name: 'N1' } },
+      { data: { Name: 'N2' } },
+      d.entries[0],
+      d.entries[1],
+      d.entries[2]
+    ];
+    var payload = commit(entries, d.originals);
+
+    // One row added at the top of an unordered data source can be left
+    // unnumbered - it holds the newest id, and unnumbered rows read newest
+    // first, so it already reads first. Two cannot: they would swap.
+    expect(readAs(rows, payload, -1)).toBe('N1,N2,C,B,A');
+  });
+
+  it('keeps a run added in the middle in the order it was typed', function() {
+    var rows = unordered();
+    var d = build(rows);
+    var entries = [
+      d.entries[0],
+      { data: { Name: 'N1' } },
+      { data: { Name: 'N2' } },
+      { data: { Name: 'N3' } },
+      d.entries[1],
+      d.entries[2]
+    ];
+    var payload = commit(entries, d.originals);
+
+    expect(readAs(rows, payload, -1)).toBe('C,N1,N2,N3,B,A');
+  });
+
+  it('keeps three separate inserts in place in one save', function() {
+    var rows = unordered();
+    var d = build(rows);
+    var entries = [
+      { data: { Name: 'N1' } },
+      d.entries[0],
+      { data: { Name: 'N2' } },
+      d.entries[1],
+      { data: { Name: 'N3' } },
+      d.entries[2]
+    ];
+    var payload = commit(entries, d.originals);
+
+    expect(readAs(rows, payload, -1)).toBe('N1,C,N2,B,N3,A');
+  });
+
+  it('keeps inserts in place on a numbered data source too', function() {
+    var rows = [
+      { id: 1, name: 'A', order: 0 },
+      { id: 2, name: 'B', order: 10 },
+      { id: 3, name: 'C', order: 20 }
+    ];
+    var d = build(rows);
+    var entries = [
+      d.entries[0],
+      { data: { Name: 'N1' } },
+      d.entries[1],
+      { data: { Name: 'N2' } },
+      d.entries[2]
+    ];
+    var payload = commit(entries, d.originals);
+
+    expect(readAs(rows, payload, -1)).toBe('A,N1,B,N2,C');
+    expect(readAs(rows, payload, 1)).toBe('A,N1,B,N2,C');
+  });
+});
