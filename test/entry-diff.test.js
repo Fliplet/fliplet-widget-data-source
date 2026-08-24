@@ -47,9 +47,10 @@ function commit(entries, originals, rowsMoved, viewMatchesStoredOrder) {
 }
 
 /**
- * Apply a payload the way the API would, then read the rows back in the order
- * the widget asks for: order ASC with nulls last, then id ASC. Lets a test
- * assert the sequence the user actually sees rather than the payload's shape.
+ * Apply a payload the way the API would, then read the rows back the way the
+ * platform sorts: order ASC with nulls last, ties on id DESC. The manager asks
+ * for no sort of its own, so this is what the user sees and what every app
+ * sees. Lets a test assert the sequence rather than the payload's shape.
  * @param {Array} rows - Stored rows, [{ id, name, order }]
  * @param {Object} payload - Result of computeCommitPayload
  * @returns {String} Comma-separated names in read order

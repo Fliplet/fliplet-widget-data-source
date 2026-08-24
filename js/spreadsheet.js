@@ -14,6 +14,7 @@ function spreadsheet(options) {
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is destroyed
+  var noticeTimeout = null; // Handle for the transient message under the grid
   // Set once the user drags a row. Row order is only worth committing when they
   // actually reordered something - see getData().
   var rowsMoved = false;
@@ -583,9 +584,10 @@ function spreadsheet(options) {
       // A drag inside a sorted view is not an arrangement anything can store:
       // the visible sequence is the sort, not the data source's own order, so
       // persisting it would write the sort over every row. Refuse the move
-      // rather than accept it and then quietly drop it on save.
+      // rather than accept it and then quietly drop it on save - and say so,
+      // because a drag that simply does nothing looks like the bug.
       if (isColumnSorted()) {
-        console.info('Rows cannot be moved while a column sort is applied');
+        showGridNotice('Rows cannot be moved while a column is sorted. Clear the sort to reorder rows.');
 
         return false;
       }
@@ -1007,23 +1009,30 @@ function spreadsheet(options) {
    * @returns {Boolean} True when the visible sequence is a sort, not the stored order
    */
   function isColumnSorted() {
-    if (isDestroyed || !hot || typeof hot.getPlugin !== 'function') {
+    if (isDestroyed) {
       return false;
     }
 
-    var plugin = hot.getPlugin('columnSorting');
+    return GridSort.isSortApplied(hot);
+  }
 
-    if (!plugin) {
-      return false;
+  /**
+   * Put a short message under the grid. Used where an action is refused and the
+   * user would otherwise see nothing happen.
+   * @param {String} message - Text to show
+   * @returns {undefined}
+   */
+  function showGridNotice(message) {
+    $('.entries-message').html('<br>' + message);
+
+    if (noticeTimeout) {
+      clearTimeout(noticeTimeout);
     }
 
-    if (typeof plugin.isSorted === 'function') {
-      return !!plugin.isSorted();
-    }
-
-    // Handsontable 4 keeps the applied sort on the plugin itself, and leaves
-    // sortOrder undefined when the sort has been cleared
-    return typeof plugin.sortOrder !== 'undefined' && plugin.sortOrder !== null;
+    noticeTimeout = setTimeout(function() {
+      noticeTimeout = null;
+      $('.entries-message').html('');
+    }, 5000);
   }
 
   function reset(resetHistory) {
