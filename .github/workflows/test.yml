@@ -1,0 +1,27 @@
+# The specs added for PS-1781 have nothing running them: this repo has no
+# GitHub Actions and its Codacy check reports ACTION_REQUIRED without exposing
+# annotations, so every review round so far has had to take "the suite passes"
+# on the author's word.
+#
+# The suite needs no dependencies - it runs on Node's built-in test runner - so
+# there is no install step and nothing to keep in step with the lockfile.
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run the test suite
+        run: npm test
