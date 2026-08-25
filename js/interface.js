@@ -1,3 +1,4 @@
+/* global EntryDiff, CommitNotice */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -319,7 +320,13 @@ function cacheOriginalEntries(entries, clientIdMap) {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    // `order` is the value the server stores, not a visual index. It is only used
+    // when the user reorders, to work out which rows genuinely need renumbering.
+    entryMap.original[entry.id] = {
+      id: entry.id,
+      data: entry.data,
+      order: entry.order
+    };
   });
 }
 
@@ -369,6 +376,10 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
+      // Deliberately no explicit sort: the manager must read a data source the
+      // same way the rest of the platform does. Asking for id ASC here made rows
+      // with a null or shared order appear in one sequence in the manager and
+      // the reverse of it in apps, with nothing written down to reconcile them.
       return source.find({}).catch(function() {
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
@@ -623,57 +634,22 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
+/**
+ * Build the list of new/updated entries and deleted IDs for a commit.
+ * The comparison itself lives in js/entry-diff.js so it can be unit tested.
+ * @param {Array} entries - List of entries from the table, in visual order
+ * @returns {Object} List of new/updated entries and deleted IDs
+ */
 function getCommitPayload(entries) {
-  entries = entries || [];
-
-  var inserted = [];
-  var updated = [];
-  var deleted = [];
-
-  // Track entries that weren't new
-  entryMap.entries = {};
-
-  entries.forEach(function(entry) {
-    // Add new entries to inserted array
-    if (typeof entry.id === 'undefined') {
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    // Add a recovered entry as a new entry
-    if (!entryMap.original[entry.id]) {
-      delete entry.id;
-      entry.clientId = Fliplet.guid();
-      inserted.push(entry);
-
-      return;
-    }
-
-    entryMap.entries[entry.id] = entry;
+  return EntryDiff.computeCommitPayload(entries, entryMap.original, {
+    // Position is only worth writing when the user dragged a row during this save
+    rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
+    // ...and only when the grid is showing the stored sequence. Under a column
+    // sort the visible order is not an arrangement anyone asked to persist.
+    viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
+    isEqual: _.isEqual,
+    guid: Fliplet.guid
   });
-
-  _.forIn(entryMap.original, function(original) {
-    var entry = entryMap.entries[original.id];
-
-    if (!entry) {
-      deleted.push(original.id);
-
-      return;
-    }
-
-    if (_.isEqual(entry, original)) {
-      return;
-    }
-
-    updated.push(entry);
-  });
-
-  return {
-    entries: updated.concat(inserted),
-    delete: deleted
-  };
 }
 
 function saveCurrentData() {
@@ -754,7 +730,19 @@ function saveCurrentData() {
     cacheOriginalEntries(entries, clientIdMap);
     table.setData({ columns: columns, rows: entries });
 
-    return fetchCurrentDataSourceEntries();
+    // After the reload, not before: loading the entries clears this element,
+    // so a notice written any earlier is wiped by the refresh that proves it.
+    return fetchCurrentDataSourceEntries().then(function(result) {
+      var notice = CommitNotice.forDeclined(payload.declined);
+
+      if (notice && table && typeof table.showNotice === 'function') {
+        table.showNotice(notice);
+      }
+
+      // Hand back what the reload resolved with - onSaveRequest passes it
+      // straight to Fliplet.Widget.complete
+      return result;
+    });
   });
 }
 
