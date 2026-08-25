@@ -1207,6 +1207,103 @@ describe('PS-1781 — a drag must not commit the data source either', function()
   });
 });
 
+describe('PS-1781 — an order the column cannot hold is not a position', function() {
+  // `order` is a 32-bit signed integer in the database. A value past either end
+  // is not a row in the wrong place, it is a rejected write and a failed save -
+  // the outcome this whole change exists to prevent - so every path that
+  // invents a number declines instead.
+  var INT_MAX = 2147483647;
+  var INT_MIN = -2147483648;
+
+  /**
+   * Orders in a payload that the column could not store.
+   * @param {Object} payload - Result of computeCommitPayload
+   * @returns {Array} The offending values
+   */
+  function unstorable(payload) {
+    return payload.entries.map(function(entry) {
+      return entry.order;
+    }).filter(function(order) {
+      return typeof order === 'number' && (order > INT_MAX || order < INT_MIN);
+    });
+  }
+
+  it('declines a row appended after the highest order the column holds', function() {
+    var rows = [
+      { id: 1, name: 'A', order: 10 },
+      { id: 2, name: 'B', order: INT_MAX }
+    ];
+    var d = build(rows);
+
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(unstorable(payload)).toHaveLength(0);
+    expect(payload.entries[0].order).toBeUndefined();
+    expect(payload.declined.rows).toBe(1);
+  });
+
+  it('declines a row inserted before the lowest order the column holds', function() {
+    var rows = [
+      { id: 1, name: 'A', order: INT_MIN },
+      { id: 2, name: 'B', order: 0 }
+    ];
+    var d = build(rows);
+
+    d.entries.splice(0, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(unstorable(payload)).toHaveLength(0);
+    expect(payload.entries[0].order).toBeUndefined();
+    expect(payload.declined.rows).toBe(1);
+  });
+
+  it('declines a drag whose prefix would be numbered below the column', function() {
+    // Rows sharing an order make the source incomplete, so a drag numbers the
+    // prefix below the lowest order left in the tail. With that order already
+    // at the bottom of the column there is nowhere below it to number into.
+    // The rows are given in read order - shared orders are read by descending
+    // id - because in any other order the drag looks like a different move.
+    var rows = [
+      { id: 3, name: 'C', order: INT_MIN },
+      { id: 2, name: 'B', order: INT_MIN },
+      { id: 1, name: 'A', order: INT_MIN }
+    ];
+    var d = build(rows);
+    var moved = d.entries[0];
+
+    d.entries[0] = d.entries[1];
+    d.entries[1] = moved;
+
+    var payload = commit(d.entries, d.originals, true);
+
+    expect(unstorable(payload)).toHaveLength(0);
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.declined.reorder).toBe(true);
+  });
+
+  it('declines a row that could only be held by numbering past the column', function() {
+    // Nothing is numbered above the new row except a row already at the top of
+    // the column, so the unnumbered rows between cannot be given the values
+    // that would hold it in place.
+    var rows = [
+      { id: 1, name: 'M', order: INT_MAX - 1 },
+      { id: 20, name: 'U1', order: null },
+      { id: 10, name: 'U2', order: null }
+    ];
+    var d = build(rows);
+
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(unstorable(payload)).toHaveLength(0);
+    expect(payload.declined.rows).toBe(1);
+  });
+});
+
 describe('PS-1781 — a save must say what it declined', function() {
   it('reports nothing when everything was saved', function() {
     var rows = [

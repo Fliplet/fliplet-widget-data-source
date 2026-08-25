@@ -44,6 +44,27 @@ var EntryDiff = (function() {
   var MAX_ORDER_WRITES = 500;
 
   /**
+   * What a stored order can hold. `order` is a 32-bit signed integer in the
+   * database, so a value outside this range is not a worse position - it is a
+   * rejected write and a failed save, which is the outcome this whole change
+   * exists to prevent. Every path that invents a number checks that the span it
+   * would write fits, and declines the position when it does not, exactly as it
+   * declines one that costs too much.
+   */
+  var MIN_ORDER = -2147483648;
+  var MAX_ORDER = 2147483647;
+
+  /**
+   * Whether a span of orders can be stored.
+   * @param {Number} lowest - Lowest value the span would write
+   * @param {Number} highest - Highest value the span would write
+   * @returns {Boolean} True when both ends fit the column
+   */
+  function storable(lowest, highest) {
+    return lowest >= MIN_ORDER && highest <= MAX_ORDER;
+  }
+
+  /**
    * Serialise a value with object keys sorted at every depth, so two
    * structurally equal objects always produce the same string. Plain
    * JSON.stringify is key-order sensitive, which would re-commit a JSON cell
@@ -218,6 +239,12 @@ var EntryDiff = (function() {
 
     var count = lastMoved + 1;
     var first = tailMin === null ? 0 : tailMin - count;
+
+    // A data source using the very ends of the range leaves nowhere below its
+    // lowest row to number a prefix into.
+    if (!storable(first, first + lastMoved)) {
+      return { positions: {}, refused: true };
+    }
 
     var changed = 0;
 
@@ -395,6 +422,10 @@ var EntryDiff = (function() {
         return false;
       }
 
+      if (!storable(pending[0].order, pending[pending.length - 1].order)) {
+        return false;
+      }
+
       // No room left for the run itself between the anchors and the rows below
       if (tailMin !== null && assigned + runCount >= tailMin) {
         return false;
@@ -424,6 +455,10 @@ var EntryDiff = (function() {
 
       var base = ceiling - (runStart + runCount);
 
+      if (!storable(base, base + runStart + runCount - 1)) {
+        return false;
+      }
+
       for (i = 0; i < runStart + runCount; i++) {
         assignOrder(i, base + i);
       }
@@ -448,6 +483,15 @@ var EntryDiff = (function() {
     function numberRunAtTop(runCount, runEnd) {
       var tailMin = lowestOrderFrom(runEnd);
       var base = tailMin === null ? 0 : tailMin - runCount;
+
+      // Defensive, and honestly so: no spec drives this one. A numbered row
+      // always reads before an unnumbered one, so the row below a top run
+      // having no order means nothing below it has one either, and tailMin is
+      // null. It is here because the arithmetic is the same as everywhere else
+      // and a later change to how positions settle could reach it.
+      if (!storable(base, base + runCount - 1)) {
+        return false;
+      }
 
       for (var i = 0; i < runCount; i++) {
         inserts[i] = base + i;
@@ -556,9 +600,7 @@ var EntryDiff = (function() {
       // every existing row, which is further from where the user put it than
       // leaving it alone.
       if (before === null && after === null) {
-        if (start === 0) {
-          numberRunAtTop(count, index);
-        } else {
+        if (start !== 0 || !numberRunAtTop(count, index)) {
           unplaced += count;
         }
 
@@ -572,6 +614,14 @@ var EntryDiff = (function() {
       if (before !== null && after !== null) {
         step = Math.max(1, Math.floor((after - before) / (needed + 1)));
         base = before + step;
+      }
+
+      // Nothing between the neighbours is worth writing if it cannot be stored:
+      // the save would be rejected outright rather than land in the wrong place.
+      if (!storable(base, base + (step * (needed - 1)))) {
+        unplaced += count;
+
+        continue;
       }
 
       var next = base;

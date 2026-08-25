@@ -63,6 +63,13 @@ function makeSource(kind, n) {
     // write an order a later row already held. These combine them.
     else if (kind === 'mixed-negative') order = (i % 3 === 0) ? null : i - Math.floor(n / 2);
     else if (kind === 'negative-dupes') order = Math.floor(i / 2) - Math.floor(n / 4);
+    // Parked against the ends of the column. `order` is a 32-bit integer, so a
+    // value past it is a rejected write and a failed save rather than a row in
+    // the wrong place - and nothing else here generates orders anywhere near
+    // the ends, so no invariant could reach the arithmetic that runs off them.
+    else if (kind === 'int-max') order = INT_MAX - (n - 1 - i);
+    else if (kind === 'int-min') order = INT_MIN + i;
+    else if (kind === 'int-edges') order = (i % 2 === 0) ? INT_MAX - i : INT_MIN + i;
     else order = rnd() < 0.25 ? null : pick(2 * n) - n;
     // ids deliberately not in order-order, so id tie-breaks are exposed
     rows.push({ id: 1000 + ((i * 7) % (n * 3)), name: 'R' + i, order });
@@ -129,7 +136,10 @@ function commit(entries, originals, rowsMoved) {
   });
 }
 
-const kinds = ['dense', 'sparse', 'null', 'mixed', 'dupes', 'negative', 'mixed-negative', 'negative-dupes', 'random'];
+const INT_MAX = 2147483647;
+const INT_MIN = -2147483648;
+const kinds = ['dense', 'sparse', 'null', 'mixed', 'dupes', 'negative', 'mixed-negative', 'negative-dupes', 'random',
+  'int-max', 'int-min', 'int-edges'];
 const failures = [];
 let runs = 0;
 
@@ -235,7 +245,18 @@ for (let iter = 0; iter < 4000; iter++) {
   // had placed. Placement is owed on any source small enough to renumber, and
   // every generated one is, so the gate is now only about ambiguity: orders
   // shared between rows leave the intended sequence undefined.
-  const placeable = !beforeHadDupes && rows.length <= 500;
+  // A data source parked against the ends of the column has nowhere to put a
+  // new value: `order` is a 32-bit integer, so there is no number between
+  // 2147483647 and "after it". Placement is declined there by design, and the
+  // rows that were declined carry no order, so they also tie with each other -
+  // neither is owed on a source with no room left in the column.
+  const numericOrders = rows.map((r) => r.order).filter((o) => typeof o === 'number');
+  const headroom = rows.length + 16;
+  const roomInColumn = !numericOrders.length
+    || (Math.min.apply(null, numericOrders) > INT_MIN + headroom
+      && Math.max.apply(null, numericOrders) < INT_MAX - headroom);
+
+  const placeable = !beforeHadDupes && rows.length <= 500 && roomInColumn;
 
   const problems = [];
 
@@ -244,11 +265,19 @@ for (let iter = 0; iter < 4000; iter++) {
   // Gated on the state before the save, not on whether the source was numbered:
   // a source carrying no order is tie-break dependent before anyone touches it,
   // but one that was unambiguous must not be made ambiguous by saving.
-  if (beforeConsistent && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
+  if (beforeConsistent && roomInColumn && read.join(',') !== flipped.join(',')) problems.push('save made the arrangement depend on the id tie-break');
 
   const orders = Object.values(stored).map((r) => r.order).filter((o) => o !== null && o !== undefined);
 
   if (!beforeHadDupes && new Set(orders).size !== orders.length) problems.push('save INTRODUCED duplicate orders');
+
+  // A position that cannot be stored is not a compromise, it is a failed save:
+  // the column is a 32-bit integer and the write is rejected outright.
+  const unstorable = payload.entries
+    .map((e) => e.order)
+    .filter((o) => typeof o === 'number' && (o > INT_MAX || o < INT_MIN));
+
+  if (unstorable.length) problems.push('save wrote an order outside the column: ' + unstorable[0]);
 
   // A save has to settle. Reopening the data source and saving it again
   // without touching anything must write nothing: if it does, the manager and
