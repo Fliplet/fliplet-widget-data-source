@@ -1,4 +1,4 @@
-/* global EntryDiff */
+/* global EntryDiff, CommitNotice */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -652,36 +652,6 @@ function getCommitPayload(entries) {
   });
 }
 
-/**
- * Describe what a save could not persist, in the user's terms.
- *
- * Both cases are the write limit doing its job: past it, a position costs more
- * to store than the save can afford, so it is declined rather than paid for.
- * That is the right trade against a 502, but it is invisible - the grid accepts
- * the drag, the save succeeds, and only the reload disagrees.
- * @param {Object} declined - { reorder: Boolean, rows: Number } from the commit payload
- * @returns {String} Message for the user, empty when nothing was declined
- */
-function commitNotice(declined) {
-  if (!declined) {
-    return '';
-  }
-
-  if (declined.reorder) {
-    return 'The new row order was too large to save on this data source, so rows have reloaded in their previous order.';
-  }
-
-  if (declined.rows === 1) {
-    return 'A new row could not be saved in that position on a data source this large, so it has reloaded elsewhere.';
-  }
-
-  if (declined.rows > 1) {
-    return declined.rows + ' new rows could not be saved in those positions on a data source this large, so they have reloaded elsewhere.';
-  }
-
-  return '';
-}
-
 function saveCurrentData() {
   var columns;
 
@@ -763,7 +733,7 @@ function saveCurrentData() {
     // After the reload, not before: loading the entries clears this element,
     // so a notice written any earlier is wiped by the refresh that proves it.
     return fetchCurrentDataSourceEntries().then(function(result) {
-      var notice = commitNotice(payload.declined);
+      var notice = CommitNotice.forDeclined(payload.declined);
 
       if (notice && table && typeof table.showNotice === 'function') {
         table.showNotice(notice);

@@ -28,9 +28,11 @@ var EntryDiff = (function() {
    * entries measured at 3.22 MB and ~15s, answered with a 502 (PS-1781), and
    * 7,500 of them still ~1.7 MB and ~7s. So placement is bought only while it
    * stays this cheap - 500 rows measured at ~110 KB, well under a second. Past
-   * that the row keeps its position in the grid for this session and reloads at
-   * the end of the data source, which is slower to notice than a failed save
-   * but never loses the row.
+   * that the row keeps its position in the grid for this session and reloads
+   * where the API puts a row with no order of its own - after every numbered
+   * row, or, on a data source that carries no order at all, at the very top,
+   * since unnumbered rows are read newest first. Slower to notice than a failed
+   * save, but it never loses the row, and the grid now says so.
    *
    * A drag is bounded by the same number, counted the same way - by what it
    * actually writes. Renumbering a prefix that is already numbered 0..k hands
@@ -606,6 +608,19 @@ var EntryDiff = (function() {
   }
 
   /**
+   * How many rows in this save are new - no id, or an id the cache no longer
+   * knows, which the commit treats as new too.
+   * @param {Array} entries - Current entries in visual order
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @returns {Number} Count of new rows
+   */
+  function countNewRows(entries, originalMap) {
+    return (entries || []).filter(function(entry) {
+      return typeof entry.id === 'undefined' || !originalMap[entry.id];
+    }).length;
+  }
+
+  /**
    * Build the commit payload by comparing current entries against the originals.
    * NOTE: mutates entries in place - adds clientId to new entries, deletes id from
    * recovered ones, and stamps order on rows that a reorder has moved.
@@ -641,9 +656,16 @@ var EntryDiff = (function() {
     // column sort - the row above a new one is not the row it will reload
     // after. Placing against it put a new row onto an order that a row this
     // save never touched was still holding.
-    var placed = viewMatchesStoredOrder && !reorder.refused
+    var placeable = viewMatchesStoredOrder && !reorder.refused;
+
+    // Skipping the placement pass is still a decision about every new row in
+    // the save: each one keeps the position the API gives an unordered row
+    // rather than the one the user dropped it on. Reporting nothing here left
+    // the two paths that skip it - a sorted grid and a refused drag - as the
+    // only silent ones left, which is the failure this set out to remove.
+    var placed = placeable
       ? computeInsertPositions(entries, originalMap, positions)
-      : { inserts: {}, updates: {}, unplaced: 0 };
+      : { inserts: {}, updates: {}, unplaced: countNewRows(entries, originalMap) };
 
     var inserted = [];
     var updated = [];
@@ -728,6 +750,10 @@ var EntryDiff = (function() {
       // a drag and then a reload undo it. The caller says so instead.
       declined: {
         reorder: reorder.refused,
+        // A sorted grid is not an arrangement, so nothing about a new row's
+        // position can be read off it. Named separately because it is the one
+        // the user can undo themselves, by clearing the sort.
+        sorted: !viewMatchesStoredOrder,
         rows: placed.unplaced || 0
       }
     };

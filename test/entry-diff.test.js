@@ -1269,6 +1269,117 @@ describe('PS-1781 — a save must say what it declined', function() {
   });
 });
 
+describe('PS-1781 — the paths that skip placement must still report it', function() {
+  it('reports a row added while a column is sorted', function() {
+    // Nothing about a position can be read off a sorted grid, so the row keeps
+    // whatever the API gives an unordered one. On a data source that carries no
+    // order that is the very top, which is the opposite end from where the user
+    // dropped it - and it was reported by nothing at all.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 50; i++) {
+      rows.push({ id: 50 - i, name: 'R' + (50 - i), order: null });
+    }
+
+    var d = build(rows);
+
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals, false, false);
+
+    expect(payload.declined.sorted).toBe(true);
+    expect(payload.declined.rows).toBe(1);
+    expect(readAs(rows, payload, -1).indexOf('NEW')).toBe(0);
+  });
+
+  it('reports the new rows a refused drag took with it', function() {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 600; i++) {
+      rows.push({ id: 600 - i, name: 'R' + (600 - i), order: null });
+    }
+
+    var d = build(rows);
+
+    d.entries.splice(580, 0, d.entries.splice(590, 1)[0]);
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals, true);
+
+    expect(payload.declined.reorder).toBe(true);
+    expect(payload.declined.rows).toBe(1);
+  });
+
+  it('reports nothing when a sorted save adds no rows', function() {
+    var rows = [
+      { id: 1, name: 'A', order: 0 },
+      { id: 2, name: 'B', order: 10 }
+    ];
+    var d = build(rows);
+
+    d.entries[0] = { id: 1, data: { Name: 'A edited' } };
+
+    var payload = commit(d.entries, d.originals, false, false);
+
+    expect(payload.declined.rows).toBe(0);
+  });
+});
+
+describe('PS-1781 — a refused drag must not position new rows', function() {
+  it('does not write a new row onto an order an untouched row still holds', function() {
+    // The guard this pins had no test, and the collision it prevents needs an
+    // exact shape: enough numbered rows that renumbering them exceeds the write
+    // limit, an unnumbered tail to make the reorder refusable, and a new row
+    // inside the span the drag disturbed. The visual neighbours are then in an
+    // order the data source does not hold, so placing against them reads the
+    // row below as the row above.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 502; i++) {
+      rows.push({ id: i + 1, name: 'M' + i, order: i * 3 });
+    }
+
+    for (i = 0; i < 2; i++) {
+      rows.push({ id: 500000 - i, name: 'U' + i, order: null });
+    }
+
+    var d = build(rows);
+    var moved;
+
+    d.entries.splice(501, 0, { data: { Name: 'NEW' } });
+    moved = d.entries[500];
+    d.entries[500] = d.entries[499];
+    d.entries[499] = moved;
+
+    var payload = commit(d.entries, d.originals, true);
+    var touched = {};
+
+    expect(payload.declined.reorder).toBe(true);
+
+    payload.entries.forEach(function(entry) {
+      if (typeof entry.id !== 'undefined') {
+        touched[entry.id] = true;
+      }
+    });
+
+    payload.entries.forEach(function(entry) {
+      if (typeof entry.order !== 'number') {
+        return;
+      }
+
+      rows.forEach(function(row) {
+        if (row.order === entry.order && !touched[row.id]) {
+          throw new Error('order ' + entry.order + ' written while untouched row '
+            + row.name + ' still holds it');
+        }
+      });
+    });
+  });
+});
+
 describe('PS-1781 — two rows added in one save, past the write limit', function() {
   it('does not write an order a row nobody touched is still holding', function() {
     // The walk that makes room for a new row stops at the first row with no

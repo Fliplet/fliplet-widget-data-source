@@ -41,6 +41,7 @@
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/entry-diff.js",
+      "js/commit-notice.js",
       "js/interface.js",
 
       "vendor/jquery-ui.min.css",
