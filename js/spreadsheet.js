@@ -1100,6 +1100,9 @@ function spreadsheet(options) {
     // True while the grid is showing a column sort instead of the stored
     // sequence. Nothing about a row's position can be read off the grid then.
     isColumnSorted: isColumnSorted,
+    // Put a message under the grid. Used by the save to report a change it
+    // could not persist, the same way a refused row move reports itself.
+    showNotice: showGridNotice,
     onChange: onChange
   };
 }

@@ -11,7 +11,8 @@ var EntryDiff = (function() {
   'use strict';
 
   /**
-   * How many existing rows one added row may renumber.
+   * How many existing rows one change of position may renumber - whether that
+   * position belongs to a row being added or to a row being dragged.
    *
    * Two shapes make placing a row expensive, and an integer `order` column
    * leaves no way around either:
@@ -30,6 +31,13 @@ var EntryDiff = (function() {
    * that the row keeps its position in the grid for this session and reloads at
    * the end of the data source, which is slower to notice than a failed save
    * but never loses the row.
+   *
+   * A drag is bounded by the same number, counted the same way - by what it
+   * actually writes. Renumbering a prefix that is already numbered 0..k hands
+   * most rows back the value they were holding and commits only the few that
+   * moved, so those drags stay exact however deep they are; it is a data source
+   * that carries no order at all where every row in the prefix is a write, and
+   * that is the one refused.
    */
   var MAX_ORDER_WRITES = 500;
 
@@ -115,11 +123,14 @@ var EntryDiff = (function() {
    * already used. If any row has no stored order (never ordered, or inserted
    * through the API) the pool cannot be trusted, so a dense sequence is assigned
    * instead, which heals the data source on the next save.
+   * A move that would cost more than MAX_ORDER_WRITES is refused rather than
+   * paid for, and says so: nothing is written, and the caller stops reading
+   * positions off a grid whose sequence the data source does not hold.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @returns {Object} Map of entry id to the order it should be given
+   * @returns {Object} { positions: Map of entry id to order, refused: Boolean }
    */
-  function computeReorderedPositions(entries, originalMap) {
+  function reorderPlan(entries, originalMap) {
     var positioned = (entries || []).filter(function(entry) {
       return typeof entry.id !== 'undefined' && originalMap[entry.id];
     });
@@ -145,7 +156,7 @@ var EntryDiff = (function() {
         positions[entry.id] = pool[index];
       });
 
-      return positions;
+      return { positions: positions, refused: false };
     }
 
     // Nothing usable is stored, so the rows currently read back on their ids.
@@ -185,7 +196,7 @@ var EntryDiff = (function() {
     var renumbered = {};
 
     if (lastMoved < 0) {
-      return renumbered;
+      return { positions: renumbered, refused: false };
     }
 
     // The rows past the prefix keep whatever order they already hold, so the
@@ -206,11 +217,43 @@ var EntryDiff = (function() {
     var count = lastMoved + 1;
     var first = tailMin === null ? 0 : tailMin - count;
 
+    var changed = 0;
+
     for (var i = 0; i <= lastMoved; i++) {
       renumbered[positioned[i].id] = first + i;
+
+      if (first + i !== originalMap[positioned[i].id].order) {
+        changed += 1;
+      }
     }
 
-    return renumbered;
+    // Holding a row among unnumbered ones means numbering every row above it -
+    // there is nothing for it to sit after otherwise - so a drag can cost far
+    // more than the span it crossed. What it actually costs is how many of
+    // those rows end up holding a different number: on a data source already
+    // numbered 0..n, a deep drag renumbers thousands of rows onto the values
+    // they were already holding and commits two. On one that carries no order,
+    // every row in the prefix is being numbered for the first time, so an
+    // adjacent swap at index 14,900 commits 14,902 rows - the multi-megabyte
+    // save and the 502 this change exists to remove. Counting the writes rather
+    // than the span keeps the cheap case cheap and refuses only the ruinous
+    // one: past the limit the move is not persisted and the row reloads where
+    // it was stored, the same trade insertion makes past the same limit.
+    if (changed > MAX_ORDER_WRITES) {
+      return { positions: {}, refused: true };
+    }
+
+    return { positions: renumbered, refused: false };
+  }
+
+  /**
+   * The positions a reorder wants to write, without the refusal flag.
+   * @param {Array} entries - Current entries in visual order
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @returns {Object} Map of entry id to the order it should be given
+   */
+  function computeReorderedPositions(entries, originalMap) {
+    return reorderPlan(entries, originalMap).positions;
   }
 
   /**
@@ -235,6 +278,10 @@ var EntryDiff = (function() {
   function computeInsertPositions(entries, originalMap, positions) {
     var inserts = {};
     var updates = {};
+    // New rows whose position could not be honoured. They still save - they
+    // just reload somewhere other than where the user dropped them, which is
+    // the one thing about this that a user cannot see coming.
+    var unplaced = 0;
 
     function isNew(entry) {
       return typeof entry.id === 'undefined' || !originalMap[entry.id];
@@ -425,6 +472,13 @@ var EntryDiff = (function() {
 
       var count = index - start;
 
+      // Already placed, by a widening pass that carried this run along to make
+      // room for one above it. Deciding it again from the same neighbours would
+      // overwrite a position that was chosen with more context than this.
+      if (typeof inserts[start] === 'number') {
+        continue;
+      }
+
       // The row above carries no order, so there is nothing to sit after.
       // Numbering the rows above is what pins the new row; where there are too
       // many of them to write, it stays unnumbered.
@@ -467,6 +521,17 @@ var EntryDiff = (function() {
         displaced.push(cursor);
         cursor += 1;
         after = settledOrderAt(cursor);
+
+        // A row inserted later in this same save has no order yet, which read
+        // exactly like the end of the data source and stopped the walk there -
+        // so the run was written into space the rows past it were still
+        // holding, and two rows ended up sharing an order. It needs a position
+        // as much as anything else being moved, so it is carried along.
+        while (after === null && cursor < entries.length && isNew(entries[cursor])) {
+          displaced.push(cursor);
+          cursor += 1;
+          after = settledOrderAt(cursor);
+        }
       }
 
       if (pulled) {
@@ -478,6 +543,8 @@ var EntryDiff = (function() {
       // than commit half the data source to position one row.
       if (after !== null && before !== null
         && after - before - 1 < count + displaced.length) {
+        unplaced += count;
+
         continue;
       }
 
@@ -489,6 +556,8 @@ var EntryDiff = (function() {
       if (before === null && after === null) {
         if (start === 0) {
           numberRunAtTop(count, index);
+        } else {
+          unplaced += count;
         }
 
         continue;
@@ -516,7 +585,7 @@ var EntryDiff = (function() {
       }
     }
 
-    return { inserts: inserts, updates: updates };
+    return { inserts: inserts, updates: updates, unplaced: unplaced };
   }
 
   /**
@@ -559,15 +628,22 @@ var EntryDiff = (function() {
     // 15,000-row source, all of it. Positions are left alone until the view is
     // the stored order again.
     var viewMatchesStoredOrder = options.viewMatchesStoredOrder !== false;
-    var positions = options.rowsMoved && viewMatchesStoredOrder
-      ? computeReorderedPositions(entries, originalMap)
-      : null;
+    var reorder = options.rowsMoved && viewMatchesStoredOrder
+      ? reorderPlan(entries, originalMap)
+      : { positions: null, refused: false };
+    var positions = reorder.positions;
 
     // New rows need a position of their own, so insert-before/after lands where
-    // the user put it rather than at the end
-    var placed = viewMatchesStoredOrder
+    // the user put it rather than at the end.
+    //
+    // Not when the reorder was refused, though. The grid is then showing a
+    // sequence the data source does not hold, which is the same situation as a
+    // column sort - the row above a new one is not the row it will reload
+    // after. Placing against it put a new row onto an order that a row this
+    // save never touched was still holding.
+    var placed = viewMatchesStoredOrder && !reorder.refused
       ? computeInsertPositions(entries, originalMap, positions)
-      : { inserts: {}, updates: {} };
+      : { inserts: {}, updates: {}, unplaced: 0 };
 
     var inserted = [];
     var updated = [];
@@ -644,7 +720,16 @@ var EntryDiff = (function() {
 
     return {
       entries: updated.concat(inserted),
-      delete: deleted
+      delete: deleted,
+
+      // What this save could not persist. Every bounded path here answers a
+      // change it cannot afford by declining it, which is the right trade
+      // against a failed save - but silently, so the user sees the grid accept
+      // a drag and then a reload undo it. The caller says so instead.
+      declined: {
+        reorder: reorder.refused,
+        rows: placed.unplaced || 0
+      }
     };
   }
 

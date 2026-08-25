@@ -1054,3 +1054,262 @@ describe('PS-1781 — several rows added in one save', function() {
     expect(readAs(rows, payload, 1)).toBe('A,N1,B,N2,C');
   });
 });
+
+describe('PS-1781 — a drag must not commit the data source either', function() {
+  /**
+   * A data source whose rows carry no order at all - what the API stores for
+   * every entry it did not receive an order for, so the shape of any data
+   * source filled by a form, an import or the JS API.
+   * @param {Number} n - How many rows
+   * @returns {Array} Stored rows in read order, newest id first
+   */
+  function unorderedRows(n) {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < n; i++) {
+      rows.push({ id: n - i, name: 'R' + (n - i), order: null });
+    }
+
+    return rows;
+  }
+
+  /**
+   * Swap two neighbouring rows, the cheapest drag the grid can produce.
+   * @param {Array} entries - Entries in visual order
+   * @param {Number} at - Index of the upper row
+   * @returns {Array} The same array, reordered
+   */
+  function swap(entries, at) {
+    var moved = entries[at];
+
+    entries[at] = entries[at + 1];
+    entries[at + 1] = moved;
+
+    return entries;
+  }
+
+  /**
+   * Orders held by more than one row once the payload has been applied.
+   * @param {Array} rows - Stored rows before the save
+   * @param {Object} payload - Result of computeCommitPayload
+   * @returns {Array} Duplicated order values
+   */
+  function sharedOrders(rows, payload) {
+    var stored = {};
+    var byOrder = {};
+    var nextId = 900000;
+
+    rows.forEach(function(row) {
+      stored[row.id] = { order: row.order };
+    });
+
+    payload.entries.forEach(function(entry) {
+      if (typeof entry.id === 'undefined') {
+        nextId += 1;
+        stored[nextId] = { order: typeof entry.order === 'undefined' ? null : entry.order };
+
+        return;
+      }
+
+      if (typeof entry.order !== 'undefined') {
+        stored[entry.id].order = entry.order;
+      }
+    });
+
+    Object.keys(stored).forEach(function(key) {
+      var order = stored[key].order;
+
+      if (typeof order !== 'number') {
+        return;
+      }
+
+      byOrder[order] = (byOrder[order] || 0) + 1;
+    });
+
+    return Object.keys(byOrder).filter(function(order) {
+      return byOrder[order] > 1;
+    });
+  }
+
+  it('does not persist a drag deeper than the write limit', function() {
+    // Holding a row among unnumbered ones means numbering every row above it,
+    // so this cost is the depth of the drag: one adjacent swap at index 600
+    // wrote 602 rows, and the same swap at 14,900 wrote 14,902 - the payload
+    // and the 502 this whole change exists to remove.
+    var rows = unorderedRows(700);
+    var d = build(rows);
+    var payload = commit(swap(d.entries, 600), d.originals, true);
+
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.delete).toHaveLength(0);
+  });
+
+  it('still persists a drag inside the limit', function() {
+    var rows = unorderedRows(700);
+    var d = build(rows);
+    var payload = commit(swap(d.entries, 5), d.originals, true);
+
+    expect(payload.entries.length).toBeGreaterThan(0);
+    expect(payload.entries.length).toBeLessThanOrEqual(7);
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+  });
+
+  it('still persists a deep drag when the rows above are already numbered', function() {
+    // The shape a real data source drifts into: numbered by an earlier save,
+    // then rows added by a form or the API since, which carry no order. That
+    // makes the whole source "incomplete", so a drag renumbers the prefix - but
+    // onto the values those rows are already holding, so almost nothing is
+    // committed. Bounding on the size of the prefix rather than on what it
+    // actually writes stopped these drags persisting at all.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 3000; i++) {
+      rows.push({ id: 1000 + i, name: 'P' + i, order: i });
+    }
+
+    for (i = 0; i < 13; i++) {
+      rows.push({ id: 900000 - i, name: 'N' + i, order: null });
+    }
+
+    var d = build(rows);
+    var payload = commit(swap(d.entries, 2500), d.originals, true);
+
+    expect(payload.entries).toHaveLength(2);
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+  });
+
+  it('does not place new rows against a sequence it refused to persist', function() {
+    // A refused drag leaves the grid showing an arrangement the data source
+    // does not hold, so the row above a new one is not the row it will reload
+    // after - the same reason a sorted view contributes no positions. Reading
+    // it anyway gave the new row an order an untouched row was still holding.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 700; i++) {
+      rows.push({ id: 1000 + i, name: 'M' + i, order: i * 3 });
+    }
+
+    for (i = 700; i < 1400; i++) {
+      rows.push({ id: 20000 - i, name: 'U' + i, order: null });
+    }
+
+    var d = build(rows);
+    var entries = swap(d.entries, 600);
+
+    entries.splice(601, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(entries, d.originals, true);
+
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+  });
+});
+
+describe('PS-1781 — a save must say what it declined', function() {
+  it('reports nothing when everything was saved', function() {
+    var rows = [
+      { id: 1, name: 'A', order: 0 },
+      { id: 2, name: 'B', order: 10 },
+      { id: 3, name: 'C', order: 20 }
+    ];
+    var d = build(rows);
+
+    d.entries.splice(1, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.declined.reorder).toBe(false);
+    expect(payload.declined.rows).toBe(0);
+  });
+
+  it('reports a drag it refused to persist', function() {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 700; i++) {
+      rows.push({ id: 700 - i, name: 'R' + (700 - i), order: null });
+    }
+
+    var d = build(rows);
+    var moved = d.entries[600];
+
+    d.entries[600] = d.entries[601];
+    d.entries[601] = moved;
+
+    var payload = commit(d.entries, d.originals, true);
+
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.declined.reorder).toBe(true);
+  });
+
+  it('reports a new row it could not place', function() {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 700; i++) {
+      rows.push({ id: 700 - i, name: 'R' + (700 - i), order: null });
+    }
+
+    var d = build(rows);
+
+    // Far enough down that numbering the unnumbered rows above it - the only
+    // thing that could hold it there - costs more than the limit allows. Higher
+    // up the same insert is affordable and is placed exactly, which is why this
+    // has to be past the boundary to be the case it claims to be.
+    d.entries.splice(600, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.declined.reorder).toBe(false);
+    expect(payload.declined.rows).toBe(1);
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBeUndefined();
+  });
+});
+
+describe('PS-1781 — two rows added in one save, past the write limit', function() {
+  it('does not write an order a row nobody touched is still holding', function() {
+    // The walk that makes room for a new row stops at the first row with no
+    // settled order. A row inserted later in the same save reads exactly like
+    // the end of the data source, so the walk stopped there and wrote into
+    // space the rows past it still held: adding a row at index 505 and another
+    // at 512 of a packed 1,200-row source wrote order 511 onto the row above
+    // while the row already holding 511 was never touched.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 1200; i++) {
+      rows.push({ id: 1000 + i, name: 'P' + i, order: i });
+    }
+
+    var d = build(rows);
+    var entries = d.entries.slice();
+
+    entries.splice(505, 0, { data: { Name: 'NEW-A' } });
+    entries.splice(512, 0, { data: { Name: 'NEW-B' } });
+
+    var payload = commit(entries, d.originals);
+    var touched = {};
+
+    payload.entries.forEach(function(entry) {
+      if (typeof entry.id !== 'undefined') {
+        touched[entry.id] = true;
+      }
+    });
+
+    payload.entries.forEach(function(entry) {
+      if (typeof entry.order !== 'number') {
+        return;
+      }
+
+      rows.forEach(function(row) {
+        if (row.order === entry.order && !touched[row.id]) {
+          throw new Error('order ' + entry.order + ' written while untouched row '
+            + row.name + ' still holds it');
+        }
+      });
+    });
+  });
+});

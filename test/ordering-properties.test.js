@@ -33,6 +33,12 @@ function pick(n) { return Math.floor(rnd() * n); }
 // rows - the sizes where a placement can rest entirely on the id tie-break
 // without anything else noticing.
 function sourceSize(iter) {
+  // Past the write limit, which nothing else here reaches. Every bounded path
+  // changes behaviour at that boundary - placement is refused rather than
+  // bought - and no source of 219 rows can exercise it, which is how two rows
+  // added either side of it went on writing an order a third row still held.
+  if (iter % 53 === 0) return 520 + pick(900);
+
   if (iter % 8 === 0) return 60 + pick(160);
 
   if (iter % 5 === 0) return 1 + pick(2);
@@ -296,7 +302,13 @@ for (let iter = 0; iter < 4000; iter++) {
   // It still cannot cover a data source that carries no usable order, where
   // holding a row in place means numbering the rows above it - that is the
   // trade the write limit governs, asserted directly in entry-diff.test.js.
-  var boundApplies = rows.length >= 40 && (usable || (!rowsMoved && !hasInserts));
+  //
+  // Past the write limit it covers every shape. A drag into a data source that
+  // carries no order used to be the one honest exception - holding the row
+  // meant numbering everything above it - but that is exactly the commit this
+  // is here to prevent, so the drag is now refused instead of paid for.
+  var boundApplies = rows.length >= 40
+    && (usable || (!rowsMoved && !hasInserts) || rows.length > 1000);
 
   if (boundApplies && payload.entries.length >= rows.length) {
     problems.push('commit covered the whole data source (' + payload.entries.length + ' of ' + rows.length + ')');
