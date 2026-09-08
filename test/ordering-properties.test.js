@@ -385,14 +385,25 @@ for (let iter = 0; iter < 4000; iter++) {
   // counting the pasted ones would fail every paste for doing its job.
   //
   // Bounded proportionally where nothing was dragged, absolutely where
-  // something was. Counting only stored rows makes an exact "all of them" the
-  // sole trigger, so 39 of 40 would pass in silence - and the 502 this guards
-  // was 14,994 of 15,000, from a delete. A reorder is the one thing that
-  // legitimately scales: dragging the top row to the far end rewrites the span
-  // it crossed, which is most of the data source however it is stored.
+  // something was.
+  //
+  // Without a drag the only stored row that can legitimately be in the commit
+  // is one the edit op touched: inserts and pastes carry no id, deletes go to
+  // payload.delete, and positions is null when nothing moved. That is at most
+  // three rows against a floor of forty, so a quarter leaves an order of
+  // magnitude of headroom and still catches the bug this guards - the 502 was
+  // 14,994 of 15,000 from a delete, and the median case of it, a delete at the
+  // midpoint, resends about half. An "all of them" trigger sees neither.
+  //
+  // A reorder is the one thing that legitimately scales: dragging the top row
+  // to the far end rewrites the span it crossed, which is most of the data
+  // source however it is stored. FOLLOW-UP: the span is the bound that would
+  // separate a deep drag from a regression, and the generator already knows
+  // `from` and `to` - retaining the largest span per iteration and asserting
+  // `resent <= maxSpan + slack` would close the 90-99% blind spot left here.
   var resent = payload.entries.filter(function(e) { return typeof e.id !== 'undefined'; }).length;
   var boundApplies = rows.length >= 40 && (usable || !rowsMoved || rows.length > 1000);
-  var overCommitted = rowsMoved ? resent >= rows.length : resent > rows.length * 0.9;
+  var overCommitted = rowsMoved ? resent >= rows.length : resent > rows.length * 0.25;
 
   if (boundApplies && overCommitted) {
     problems.push('commit covered the whole data source (' + resent + ' of ' + rows.length + ')');
