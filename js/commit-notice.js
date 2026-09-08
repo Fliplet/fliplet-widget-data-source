@@ -1,11 +1,10 @@
 /**
  * Turning what a save declined into something the user can read.
  *
- * Every bounded path in the commit diff answers a position it cannot afford by
- * declining it - the row saves, it just reloads somewhere other than where it
- * was dropped. That is the right trade against a failed save, but it is
- * invisible: the grid accepts the change, the save succeeds, and only the
- * reload disagrees.
+ * A declined position fails quietly by design - the row saves, it just reloads
+ * somewhere other than where it was dropped. That is the right trade against a
+ * failed save, but it is invisible: the grid accepts the change, the save
+ * succeeds, and only the reload disagrees.
  *
  * In its own module so the wording is executed by the specs. The same decision
  * lived in interface.js, where nothing could reach it, and the one case it got
@@ -19,7 +18,7 @@ var CommitNotice = (function() {
 
   /**
    * Describe what a save could not persist.
-   * @param {Object} declined - { reorder: Boolean, sorted: Boolean, rows: Number }
+   * @param {Object} declined - { sorted: Boolean, rows: Number }
    * @returns {String} Message for the user, empty when nothing was declined
    */
   function forDeclined(declined) {
@@ -29,35 +28,26 @@ var CommitNotice = (function() {
 
     var rows = declined.rows || 0;
 
+    if (!rows) {
+      return '';
+    }
+
     // The sort comes first because it is the only one the user can undo
-    // themselves, and because it explains both halves at once: under a sort the
-    // grid is not showing the stored sequence, so neither a drag nor a new
-    // row's position can be read off it.
-    if (declined.sorted && rows) {
+    // themselves. Under a sort the grid is not showing the stored sequence, so
+    // a new row's position cannot be read off it - the API can make room for
+    // the row, but nothing can tell it where the user meant it to go.
+    if (declined.sorted) {
       return rows === 1
         ? 'A new row cannot be positioned while a column is sorted, so it has reloaded in the data source\'s own order. Clear the sort to place rows.'
         : rows + ' new rows cannot be positioned while a column is sorted, so they have reloaded in the data source\'s own order. Clear the sort to place rows.';
     }
 
-    if (declined.reorder && rows) {
-      return rows === 1
-        ? 'The new row order was too large to save on this data source, so rows have reloaded in their previous order — including the row you added, which has moved with them.'
-        : 'The new row order was too large to save on this data source, so rows have reloaded in their previous order — including the ' + rows + ' rows you added, which have moved with them.';
-    }
-
-    if (declined.reorder) {
-      return 'The new row order was too large to save on this data source, so rows have reloaded in their previous order.';
-    }
-
-    if (rows === 1) {
-      return 'A new row could not be saved in that position on a data source this large, so it has reloaded elsewhere.';
-    }
-
-    if (rows > 1) {
-      return rows + ' new rows could not be saved in those positions on a data source this large, so they have reloaded elsewhere.';
-    }
-
-    return '';
+    // All that is left: the row order column has reached the end of its range.
+    // Row order is stored as a 32-bit integer, so there is no value left to
+    // give the row, and writing one anyway would fail the save outright.
+    return rows === 1
+      ? 'A new row could not be given a position because this data source has run out of row order values, so it has reloaded at the end.'
+      : rows + ' new rows could not be given a position because this data source has run out of row order values, so they have reloaded at the end.';
   }
 
   return {

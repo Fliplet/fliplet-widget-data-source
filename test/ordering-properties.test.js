@@ -106,6 +106,25 @@ function apply(rows, payload) {
   const stored = {};
 
   rows.forEach((r) => { stored[r.id] = { id: r.id, name: r.name, order: r.order }; });
+
+  // The renumber the client asked for, in the order the API does it: every live
+  // entry first, then the deletes, then the entries themselves. The client
+  // predicts these values rather than reading them back, so modelling it here
+  // is what makes the prediction falsifiable.
+  if (payload.normalizeOrder) {
+    Object.values(stored).slice().sort((a, b) => {
+      const an = a.order === null || a.order === undefined;
+      const bn = b.order === null || b.order === undefined;
+
+      if (an && bn) return b.id - a.id;
+      if (an) return 1;
+      if (bn) return -1;
+      if (a.order !== b.order) return a.order - b.order;
+
+      return b.id - a.id;
+    }).forEach((r, index) => { r.order = (index + 1) * payload.normalizeOrder.gap; });
+  }
+
   payload.delete.forEach((id) => delete stored[id]);
 
   let nextId = 800000;
@@ -141,6 +160,10 @@ const INT_MIN = -2147483648;
 const kinds = ['dense', 'sparse', 'null', 'mixed', 'dupes', 'negative', 'mixed-negative', 'negative-dupes', 'random',
   'int-max', 'int-min', 'int-edges'];
 const failures = [];
+// A generator that stopped reaching the interesting cases would leave every
+// invariant below trivially true, and nothing would say so. These count the
+// paths this change exists for.
+const covered = { normalized: 0, pasted: 0, large: 0, ambiguous: 0, untouched: 0 };
 let runs = 0;
 
 for (let iter = 0; iter < 4000; iter++) {
@@ -169,12 +192,26 @@ for (let iter = 0; iter < 4000; iter++) {
 
   // random edits
   let rowsMoved = false;
+  let pasted = false;
   const ops = 1 + pick(3);
 
   for (let o = 0; o < ops; o++) {
-    const op = pick(4);
+    const op = rnd() < 0.03 ? 4 : pick(4);
 
-    if (op === 0 && visual.length > 1) {              // delete
+    if (op === 4) {                                    // paste
+      // A paste is one run of new rows, and it can be far larger than anything
+      // the toolbar produces - the case the whole change is meant to win, and
+      // the one nothing here reached: paste never sets rowsMoved, so it never
+      // looked like a reorder, and the runs above are at most three rows.
+      const at = pick(visual.length + 1);
+      const howMany = 40 + pick(1200);
+
+      pasted = true;
+
+      for (let k = 0; k < howMany; k++) {
+        visual.splice(at + k, 0, { data: { Name: 'PASTE' + o + '_' + k + '_' + iter } });
+      }
+    } else if (op === 0 && visual.length > 1) {        // delete
       visual.splice(pick(visual.length), 1);
     } else if (op === 1) {                             // insert one row, or a run
       // Runs matter on their own. Rows added next to each other are placed as a
@@ -224,39 +261,39 @@ for (let iter = 0; iter < 4000; iter++) {
 
   // What a save guarantees, and what it does not.
   //
-  // A data source whose rows all carry a distinct order can be positioned
-  // exactly: the arrangement is honoured and reads the same for every consumer.
+  // Every arrangement is now honoured, whatever state the stored orders are in:
+  // where they cannot express one - rows carrying no order, rows sharing an
+  // order, rows packed 0..n-1 with nothing between them - the save asks the API
+  // to renumber the data source over the sequence the manager is already
+  // showing, and places against the numbering that produces. So the shapes that
+  // used to be excluded here (`dupes`, `negative-dupes`, `null`, `mixed`) and
+  // the sizes past the old 500-row write limit are all owed exact placement.
   //
-  // One holding rows with no order, or with an order shared between rows,
-  // cannot be. Numbered rows always sort before unnumbered ones, and unnumbered
-  // rows are separated by id, which the manager and apps read in opposite
-  // directions. Positioning such a data source means numbering all of it, which
-  // is the whole-dataset commit this exists to prevent - so it is left as it is,
-  // keeping whatever ambiguity it already had.
-  //
-  // Two things must hold either way: a save never commits the whole data source,
-  // and never leaves two rows sharing an order.
+  // The one exception is a data source parked against the ends of the column:
+  // `order` is a 32-bit integer, so there is no number below -2147483648 to
+  // insert above the first row, and a renumber is only asked for when the rows
+  // being placed cannot be seated between the neighbours they were dropped
+  // between - which never includes a run at the very top or the very bottom.
+  // Placement is declined there by design, and a declined row carries no order,
+  // so it reads where every other unnumbered row reads.
   const usable = !beforeHadDupes && rows.every((r) => typeof r.order === 'number');
-
-  // What the arrangement check used to be gated on. Only comparing the reload
-  // against the intended sequence for fully numbered sources meant nothing
-  // checked placement on the sources that carry no order - which is where two
-  // inserts in one save stopped composing, each run ignoring what the last one
-  // had placed. Placement is owed on any source small enough to renumber, and
-  // every generated one is, so the gate is now only about ambiguity: orders
-  // shared between rows leave the intended sequence undefined.
-  // A data source parked against the ends of the column has nowhere to put a
-  // new value: `order` is a 32-bit integer, so there is no number between
-  // 2147483647 and "after it". Placement is declined there by design, and the
-  // rows that were declined carry no order, so they also tie with each other -
-  // neither is owed on a source with no room left in the column.
   const numericOrders = rows.map((r) => r.order).filter((o) => typeof o === 'number');
   const headroom = rows.length + 16;
   const roomInColumn = !numericOrders.length
     || (Math.min.apply(null, numericOrders) > INT_MIN + headroom
       && Math.max.apply(null, numericOrders) < INT_MAX - headroom);
 
-  const placeable = !beforeHadDupes && rows.length <= 500 && roomInColumn;
+  const placeable = roomInColumn;
+
+  if (payload.normalizeOrder) covered.normalized++;
+
+  if (pasted && placeable) covered.pasted++;
+
+  if (placeable && rows.length > 500) covered.large++;
+
+  if (placeable && payload.normalizeOrder && beforeHadDupes) covered.ambiguous++;
+
+  if (placeable && !payload.normalizeOrder) covered.untouched++;
 
   const problems = [];
 
@@ -278,6 +315,21 @@ for (let iter = 0; iter < 4000; iter++) {
     .filter((o) => typeof o === 'number' && (o > INT_MAX || o < INT_MIN));
 
   if (unstorable.length) problems.push('save wrote an order outside the column: ' + unstorable[0]);
+
+  // The renumber has the same bound, and the API enforces it: a commit whose
+  // gap * (live rows + 1) runs off the column is rejected with a 400, which is
+  // the failed save this whole change exists to prevent.
+  if (payload.normalizeOrder) {
+    const gap = payload.normalizeOrder.gap;
+
+    if (!Number.isSafeInteger(gap) || gap < 1) problems.push('asked for an invalid gap: ' + gap);
+
+    if (gap * (rows.length + 1) > INT_MAX) problems.push('asked for a gap the API rejects: ' + gap);
+
+    // An empty `entries` tells the commit endpoint to replace the whole data
+    // source, so a renumber sent on its own deletes every row in it.
+    if (!payload.entries.length) problems.push('asked for a renumber with nothing to apply');
+  }
 
   // A save has to settle. Reopening the data source and saving it again
   // without touching anything must write nothing: if it does, the manager and
@@ -321,26 +373,40 @@ for (let iter = 0; iter < 4000; iter++) {
   // express order - rows with none, or orders shared between rows - there is
   // nowhere to put a row without renumbering. Inserting into one, or dragging
   // to its far end, does commit most of it. Inherent to the stored shape.
-  var hasInserts = visual.some(function(e) { return typeof e.id === 'undefined'; });
   // Inserts used to be excluded here outright, which is how a mid-source insert
   // into a packed sequence went on committing half the data source unnoticed.
-  // On a data source that can express order the bound now covers them: nothing
-  // fits between two consecutive integers, so rows have to shift, but only ever
-  // the shorter side and never past the write limit.
+  // They are covered on every shape now: making room is the renumber's job, and
+  // the renumber is one statement rather than one entry per displaced row - so
+  // the exception for a data source carrying no usable order is gone too, and
+  // the guard applies to every save that did not drag a row.
   //
-  // It still cannot cover a data source that carries no usable order, where
-  // holding a row in place means numbering the rows above it - that is the
-  // trade the write limit governs, asserted directly in entry-diff.test.js.
+  // Only the rows the data source already held are counted. Pasted rows are
+  // data the user typed; re-sending rows nobody touched is the pathology - and
+  // counting the pasted ones would fail every paste for doing its job.
   //
-  // Past the write limit it covers every shape. A drag into a data source that
-  // carries no order used to be the one honest exception - holding the row
-  // meant numbering everything above it - but that is exactly the commit this
-  // is here to prevent, so the drag is now refused instead of paid for.
-  var boundApplies = rows.length >= 40
-    && (usable || (!rowsMoved && !hasInserts) || rows.length > 1000);
+  // Bounded proportionally where nothing was dragged, absolutely where
+  // something was.
+  //
+  // Without a drag the only stored row that can legitimately be in the commit
+  // is one the edit op touched: inserts and pastes carry no id, deletes go to
+  // payload.delete, and positions is null when nothing moved. That is at most
+  // three rows against a floor of forty, so a quarter leaves an order of
+  // magnitude of headroom and still catches the bug this guards - the 502 was
+  // 14,994 of 15,000 from a delete, and the median case of it, a delete at the
+  // midpoint, resends about half. An "all of them" trigger sees neither.
+  //
+  // A reorder is the one thing that legitimately scales: dragging the top row
+  // to the far end rewrites the span it crossed, which is most of the data
+  // source however it is stored. FOLLOW-UP: the span is the bound that would
+  // separate a deep drag from a regression, and the generator already knows
+  // `from` and `to` - retaining the largest span per iteration and asserting
+  // `resent <= maxSpan + slack` would close the 90-99% blind spot left here.
+  var resent = payload.entries.filter(function(e) { return typeof e.id !== 'undefined'; }).length;
+  var boundApplies = rows.length >= 40 && (usable || !rowsMoved || rows.length > 1000);
+  var overCommitted = rowsMoved ? resent >= rows.length : resent > rows.length * 0.25;
 
-  if (boundApplies && payload.entries.length >= rows.length) {
-    problems.push('commit covered the whole data source (' + payload.entries.length + ' of ' + rows.length + ')');
+  if (boundApplies && overCommitted) {
+    problems.push('commit covered the whole data source (' + resent + ' of ' + rows.length + ')');
   }
 
   if (problems.length) {
@@ -361,4 +427,13 @@ it('holds the ordering invariants across ' + runs + ' random edits', function() 
   }).join('\n\n');
 
   assert.strictEqual(failures.length, 0, failures.length + ' of ' + runs + ' scenarios failed\n\n' + detail);
+});
+
+it('exercises the paths the invariants are there to check', function() {
+  // Every one of these was either impossible or asserted as a refusal before
+  // this change, so a generator that stopped reaching them would turn the suite
+  // above green by not testing anything.
+  Object.keys(covered).forEach(function(path) {
+    assert.ok(covered[path] > 20, 'only ' + covered[path] + ' scenarios reached ' + path);
+  });
 });
