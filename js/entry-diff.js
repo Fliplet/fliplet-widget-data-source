@@ -36,8 +36,11 @@ var EntryDiff = (function() {
    * exists to prevent. Every path that invents a number checks that the span it
    * would write fits, and declines the position when it does not.
    *
-   * It matters more since the renumber, not less: a renumber is monotonic and
-   * never reclaims the space below, so orders drift upward over repeated saves.
+   * The renumber does not weaken this and does not drift: it rewrites the whole
+   * data source absolutely, to `(index + 1) * gap`, so repeated saves land on
+   * the same numbers rather than climbing. What still needs the guard is
+   * everything the renumber does not cover - a row appended above the highest
+   * order a data source already holds, or inserted below its lowest.
    */
   var MIN_ORDER = -2147483648;
   var MAX_ORDER = 2147483647;
@@ -304,9 +307,19 @@ var EntryDiff = (function() {
    * that the whole data source still fits the column with a gap to spare above
    * it for the next append.
    *
+   * MAX_GAP is a default, not a ceiling: a run bigger than it raises the gap
+   * past it, because 1,000 is only the spacing that leaves room for the *next*
+   * insert, while seating this one is what the save is for - a 1,500-row paste
+   * asks for 1,501. The API has no such cap; its only bound is the one checked
+   * below, so raising it is accepted and clamping to 1,000 would send a paste
+   * that cannot fit where the user pasted it.
+   *
    * The upper bound is the API's own: it rejects a commit whose
    * `gap * (liveCount + 1)` would run off the column with a 400, and a failed
    * save is the outcome this change exists to prevent, so the two have to agree.
+   * Nothing this side reaches it - `MAX_GAP` alone needs 2.1M rows, and the
+   * raise for a run needs one bigger than 2147483647 / liveCount - so it is
+   * here for that agreement rather than for a case anything exercises.
    * @param {Number} liveCount - Rows the data source holds now
    * @param {Array} runs - Runs of new rows, from insertRuns
    * @returns {Number} The gap to ask for, or 0 when the column cannot hold one
@@ -456,7 +469,14 @@ var EntryDiff = (function() {
       // renumber was declined - or the span runs off the end of the column,
       // which is a rejected write rather than a row in the wrong place.
       if ((after !== null && highest >= after) || !storable(base, highest)) {
-        unplaced += count;
+        // One row declined at the very bottom of the grid is not misplaced: an
+        // unnumbered row sorts after every numbered one, so it reloads exactly
+        // where it was dropped. Only a run reverses there - unnumbered rows are
+        // read newest id first - and anywhere else the row moves. Reporting the
+        // harmless case teaches the user to ignore the message that matters.
+        if (after !== null || count > 1) {
+          unplaced += count;
+        }
 
         continue;
       }
@@ -550,6 +570,13 @@ var EntryDiff = (function() {
 
     if (viewMatchesStoredOrder && (newRows || moved)
       && !(ordersAreUsable(stored) && placementFits(stored.slice().sort(ascending), runs))) {
+      // MERGE HAZARD (#275, pagination). Both the row count and the predicted
+      // numbering below take `originalMap` to be the whole data source, because
+      // that is what the API renumbers - every live entry, not a page of them.
+      // Cache one page here instead and the client predicts a numbering the
+      // server never writes, and every insert lands in the wrong place. If this
+      // file gains pagination, the renumber has to be asked for against the
+      // real live count and the placement recomputed from what comes back.
       gap = gapForNormalize(Object.keys(originalMap).length, runs);
 
       if (gap) {

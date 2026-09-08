@@ -1258,7 +1258,30 @@ describe('PS-1781 — an order the column cannot hold is not a position', functi
 
     expect(unstorable(payload)).toHaveLength(0);
     expect(payload.entries[0].order).toBeUndefined();
-    expect(payload.declined.rows).toBe(1);
+    // Declined but not misplaced, so not reported: an unnumbered row sorts
+    // after every numbered one, which is the bottom of the grid - where the
+    // user put it. A notice here would be a warning about nothing.
+    expect(payload.declined.rows).toBe(0);
+    expect(applyAndRead(rows, payload)).toBe('A,B,NEW');
+  });
+
+  it('reports a run appended past the column, which does reverse', function() {
+    var rows = [
+      { id: 1, name: 'A', order: 10 },
+      { id: 2, name: 'B', order: INT_MAX }
+    ];
+    var d = build(rows);
+
+    d.entries.push({ data: { Name: 'N1' } });
+    d.entries.push({ data: { Name: 'N2' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    // Unnumbered rows are read newest id first, so two of them at the bottom
+    // come back the other way round. That one is worth saying.
+    expect(unstorable(payload)).toHaveLength(0);
+    expect(payload.declined.rows).toBe(2);
+    expect(applyAndRead(rows, payload)).toBe('A,B,N2,N1');
   });
 
   it('declines a row inserted before the lowest order the column holds', function() {
@@ -1604,6 +1627,12 @@ describe('PS-1781 — the renumber the API is asked for', function() {
     // An empty `entries` is how the commit endpoint is told to replace the
     // whole data source, so a renumber with nothing to apply is not a cheap
     // no-op - it deletes every row.
+    //
+    // Nothing can construct that shape: a renumber is only asked for by a save
+    // that has a row to place, and every such row is in the commit. So this
+    // pins the property rather than driving the guard that enforces it - the
+    // guard at entry-diff.js is belt to this braces, on a data-loss path with a
+    // public API on the other side of it.
     var rows = [
       { id: 3, name: 'A', order: null },
       { id: 2, name: 'B', order: null },

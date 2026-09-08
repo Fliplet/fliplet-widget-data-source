@@ -46,9 +46,13 @@ describe('CommitNotice.forDeclined', function() {
     expect(CommitNotice.forDeclined({ sorted: false, rows: 4 }).indexOf('4 new rows') === 0).toBe(true);
   });
 
-  it('prefers the sort, which is the one the user can undo', function() {
+  it('does not blame the order column for a row a sort could not place', function() {
+    // Two very different causes, and the wrong one is unactionable: a sorted
+    // grid is fixed by clearing the sort, a full order column is not fixed by
+    // anything the user can do.
     var message = CommitNotice.forDeclined({ sorted: true, rows: 1 });
 
     expect(message.indexOf('Clear the sort') > -1).toBe(true);
+    expect(message.indexOf('row order values') > -1).toBe(false);
   });
 });
