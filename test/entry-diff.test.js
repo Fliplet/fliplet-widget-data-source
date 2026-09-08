@@ -47,122 +47,15 @@ function commit(entries, originals, rowsMoved, viewMatchesStoredOrder) {
 }
 
 /**
- * Apply a payload the way the API would, then read the rows back the way the
- * platform sorts: order ASC with nulls last, ties on id DESC. The manager asks
- * for no sort of its own, so this is what the user sees and what every app
- * sees. Lets a test assert the sequence rather than the payload's shape.
- * @param {Array} rows - Stored rows, [{ id, name, order }]
- * @param {Object} payload - Result of computeCommitPayload
- * @returns {String} Comma-separated names in read order
- */
-function applyAndRead(rows, payload) {
-  var stored = {};
-
-  rows.forEach(function(row) {
-    stored[row.id] = { id: row.id, name: row.name, order: row.order };
-  });
-
-  payload.delete.forEach(function(id) {
-    delete stored[id];
-  });
-
-  var nextId = 900000;
-
-  payload.entries.forEach(function(entry) {
-    if (typeof entry.id === 'undefined') {
-      nextId += 1;
-      stored[nextId] = {
-        id: nextId,
-        name: entry.data.Name,
-        order: typeof entry.order === 'undefined' ? null : entry.order
-      };
-
-      return;
-    }
-
-    if (!stored[entry.id]) {
-      return;
-    }
-
-    stored[entry.id].name = entry.data.Name;
-
-    if (typeof entry.order !== 'undefined') {
-      stored[entry.id].order = entry.order;
-    }
-  });
-
-  return Object.keys(stored).map(function(key) {
-    return stored[key];
-  }).sort(function(a, b) {
-    var aNull = a.order === null || typeof a.order === 'undefined';
-    var bNull = b.order === null || typeof b.order === 'undefined';
-
-    if (aNull && bNull) {
-      return b.id - a.id;
-    }
-
-    if (aNull) {
-      return 1;
-    }
-
-    if (bNull) {
-      return -1;
-    }
-
-    return a.order !== b.order ? a.order - b.order : b.id - a.id;
-  }).map(function(row) {
-    return row.name;
-  }).join(',');
-}
-
-/**
- * Read rows back with the id tie-break in a given direction. The platform
- * default is id DESC, which is what the manager and every app get; reading the
- * same either way proves the arrangement does not rest on the tie-break.
- * @param {Array} rows - Stored rows, [{ id, name, order }]
- * @param {Object} payload - Result of computeCommitPayload
+ * Sort rows the way the platform reads a data source, with the id tie-break in
+ * a given direction. The default is id DESC, which is what the manager and
+ * every app get; reading the same either way proves the arrangement does not
+ * rest on the tie-break.
  * @param {Number} idDirection - -1 for the platform default, 1 to reverse ties
- * @returns {String} Comma-separated names in read order
+ * @returns {Function} Comparator over { id, order }
  */
-function readAs(rows, payload, idDirection) {
-  var stored = {};
-
-  rows.forEach(function(row) {
-    stored[row.id] = { id: row.id, name: row.name, order: row.order };
-  });
-
-  payload.delete.forEach(function(id) {
-    delete stored[id];
-  });
-
-  var nextId = 900000;
-
-  payload.entries.forEach(function(entry) {
-    if (typeof entry.id === 'undefined') {
-      nextId += 1;
-      stored[nextId] = {
-        id: nextId,
-        name: entry.data.Name,
-        order: typeof entry.order === 'undefined' ? null : entry.order
-      };
-
-      return;
-    }
-
-    if (!stored[entry.id]) {
-      return;
-    }
-
-    stored[entry.id].name = entry.data.Name;
-
-    if (typeof entry.order !== 'undefined') {
-      stored[entry.id].order = entry.order;
-    }
-  });
-
-  return Object.keys(stored).map(function(key) {
-    return stored[key];
-  }).sort(function(a, b) {
+function readComparator(idDirection) {
+  return function(a, b) {
     var aNull = a.order === null || typeof a.order === 'undefined';
     var bNull = b.order === null || typeof b.order === 'undefined';
 
@@ -179,9 +72,117 @@ function readAs(rows, payload, idDirection) {
     }
 
     return a.order !== b.order ? a.order - b.order : idDirection * (a.id - b.id);
-  }).map(function(row) {
+  };
+}
+
+/**
+ * Apply a payload the way the API does, in the order it does: the renumber
+ * first, over every live entry, then the deletes, then the entries themselves.
+ * Modelling the renumber here is the whole point - the client predicts it
+ * rather than reading it back, so a test that skipped it would be asserting
+ * against a data source the API never produces.
+ * @param {Array} rows - Stored rows, [{ id, name, order }]
+ * @param {Object} payload - Result of computeCommitPayload
+ * @returns {Object} Stored rows by id, after the save
+ */
+function applyPayload(rows, payload) {
+  var stored = {};
+
+  rows.forEach(function(row) {
+    stored[row.id] = { id: row.id, name: row.name, order: row.order };
+  });
+
+  if (payload.normalizeOrder) {
+    Object.keys(stored).map(function(key) {
+      return stored[key];
+    }).sort(readComparator(-1)).forEach(function(row, index) {
+      row.order = (index + 1) * payload.normalizeOrder.gap;
+    });
+  }
+
+  payload.delete.forEach(function(id) {
+    delete stored[id];
+  });
+
+  var nextId = 900000;
+
+  payload.entries.forEach(function(entry) {
+    if (typeof entry.id === 'undefined') {
+      nextId += 1;
+      stored[nextId] = {
+        id: nextId,
+        name: entry.data.Name,
+        order: typeof entry.order === 'undefined' ? null : entry.order
+      };
+
+      return;
+    }
+
+    if (!stored[entry.id]) {
+      return;
+    }
+
+    stored[entry.id].name = entry.data.Name;
+
+    if (typeof entry.order !== 'undefined') {
+      stored[entry.id].order = entry.order;
+    }
+  });
+
+  return stored;
+}
+
+/**
+ * Read rows back with the id tie-break in a given direction.
+ * @param {Array} rows - Stored rows, [{ id, name, order }]
+ * @param {Object} payload - Result of computeCommitPayload
+ * @param {Number} idDirection - -1 for the platform default, 1 to reverse ties
+ * @returns {String} Comma-separated names in read order
+ */
+function readAs(rows, payload, idDirection) {
+  var stored = applyPayload(rows, payload);
+
+  return Object.keys(stored).map(function(key) {
+    return stored[key];
+  }).sort(readComparator(idDirection)).map(function(row) {
     return row.name;
   }).join(',');
+}
+
+/**
+ * Read a saved data source back the way the manager and every app see it.
+ * @param {Array} rows - Stored rows, [{ id, name, order }]
+ * @param {Object} payload - Result of computeCommitPayload
+ * @returns {String} Comma-separated names in read order
+ */
+function applyAndRead(rows, payload) {
+  return readAs(rows, payload, -1);
+}
+
+/**
+ * Orders held by more than one row once the payload has been applied. Nothing
+ * a save writes may collide with a row it never touched.
+ * @param {Array} rows - Stored rows before the save
+ * @param {Object} payload - Result of computeCommitPayload
+ * @returns {Array} Duplicated order values
+ */
+function sharedOrders(rows, payload) {
+  var stored = applyPayload(rows, payload);
+  var byOrder = {};
+
+  Object.keys(stored).forEach(function(key) {
+    var order = stored[key].order;
+
+    if (typeof order !== 'number') {
+      return;
+    }
+
+    byOrder[order] = (byOrder[order] || 0) + 1;
+  });
+
+  return Object.keys(byOrder).filter(function(order) {
+    return byOrder[order] > 1;
+  });
 }
 
 function dense(count) {
@@ -310,10 +311,13 @@ describe('PS-1781 — inserts must land where the user put them (review P1 #2)',
     { id: 2, name: 'B', order: 10 },
     { id: 3, name: 'C', order: 20 }
   ];
+  // Rows with no order read newest first, so the ids descend down the grid -
+  // the manager shows a data source in exactly the sequence the platform reads
+  // it, and a fixture that does not is asserting against a view nobody has.
   var nulls = [
-    { id: 1, name: 'A', order: null },
+    { id: 3, name: 'A', order: null },
     { id: 2, name: 'B', order: null },
-    { id: 3, name: 'C', order: null }
+    { id: 1, name: 'C', order: null }
   ];
 
   function withInsertAt(rows, index, name) {
@@ -496,7 +500,7 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     }
   });
 
-  it('numbers only up to the last row that moved on an unordered data source', function() {
+  it('rewrites only the span a drag crossed on an unordered data source', function() {
     var rows = [];
     var i;
 
@@ -509,10 +513,14 @@ describe('PS-1781 — reordering (review P2 #3)', function() {
     var d = build(rows);
     var payload = commit(move(d.entries, 10, 20), d.originals, true);
 
-    // The rows past the move still read correctly on their ids, and they read
-    // that way for every consumer - numbering them would commit the whole data
-    // source for one drag
-    expect(payload.entries).toHaveLength(21);
+    // Numbering the rows above the move is what used to make this cost the
+    // depth of the drag. The renumber does that server-side over the sequence
+    // the manager is already showing, so the commit is the span and no more.
+    expect(payload.normalizeOrder.gap).toBe(1000);
+    expect(payload.entries).toHaveLength(11);
+    expect(applyAndRead(rows, payload)).toBe(move(rows, 10, 20).map(function(row) {
+      return row.name;
+    }).join(','));
   });
 
   it('writes nothing on an unordered data source when no row actually moved', function() {
@@ -677,26 +685,32 @@ describe('PS-1781 — a saved order must read the same for every consumer', func
 
     // An unnumbered row always sorts after a numbered one, so the only thing
     // that holds the new row at the end is numbering what is above it. The new
-    // row would otherwise carry the highest id and read first.
+    // row would otherwise carry the highest id and read first. The renumber
+    // does the numbering, so the commit is the one row the user added.
     expect(readAs(rows, payload, -1)).toBe(expected);
-    expect(payload.entries).toHaveLength(21);
+    expect(readAs(rows, payload, 1)).toBe(expected);
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.normalizeOrder.gap).toBe(1000);
   });
 
-  it('does not commit a large unordered data source to place an added row', function() {
+  it('places a row added to a large unordered data source without committing it', function() {
     var rows = unorderedRows(2000);
     var d = build(rows);
 
     d.entries.push({ data: { Name: 'NEW' } });
 
     var payload = commit(d.entries, d.originals);
+    var expected = rows.map(function(row) {
+      return row.name;
+    }).concat('NEW').join(',');
 
-    // Past the anchor limit the trade goes the other way: numbering 2,000 rows
-    // to hold one of them at the end is the whole-dataset commit that times out
-    // (PS-1781), so the row is left unnumbered and reads where every other
-    // unnumbered row in this data source reads - by id, newest first.
+    // Numbering 2,000 rows from here to hold one of them at the end is the
+    // whole-dataset commit that times out (PS-1781). The renumber costs the
+    // client nothing, so the row is placed exactly and one row is sent.
     expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBeUndefined();
-    expect(readAs(rows, payload, -1).indexOf('NEW')).toBe(0);
+    expect(typeof payload.entries[0].order).toBe('number');
+    expect(payload.normalizeOrder.gap).toBe(1000);
+    expect(readAs(rows, payload, -1)).toBe(expected);
   });
 
   it('does not renumber a moved row onto an order a later row still holds', function() {
@@ -828,7 +842,7 @@ describe('PS-1781 — placing a row must not commit the data source', function()
     return rows;
   }
 
-  it('places a mid-source insert exactly while it stays cheap', function() {
+  it('places a mid-source insert exactly, and sends one row', function() {
     var rows = packedRows(200);
     var d = build(rows);
 
@@ -837,29 +851,35 @@ describe('PS-1781 — placing a row must not commit the data source', function()
     var payload = commit(d.entries, d.originals);
     var read = readAs(rows, payload, -1).split(',');
 
-    // Nothing fits between two consecutive integers, so one side has to shift.
-    // The shorter side is the 100 rows above, not the 100 below - and either
-    // way the row lands where the user dropped it.
+    // Nothing fits between two consecutive integers, so the data source has to
+    // be respaced. The renumber does it in one statement over the sequence
+    // already on screen, so the row lands where the user dropped it and the
+    // 100 rows that used to be rewritten to make room are not sent at all.
     expect(read[100]).toBe('NEW');
-    expect(payload.entries).toHaveLength(101);
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.normalizeOrder.gap).toBe(1000);
   });
 
-  it('appends rather than commit half a large packed data source', function() {
+  it('places a row in the middle of a large packed data source (PS1781-D-11)', function() {
     var rows = packedRows(15000);
     var d = build(rows);
 
     d.entries.splice(7500, 0, { data: { Name: 'NEW' } });
 
     var payload = commit(d.entries, d.originals);
+    var read = readAs(rows, payload, -1).split(',');
 
-    // 7,501 entries is ~1.7 MB and ~7s - inside the window the ticket reports
-    // as a 502. Neither side is cheap enough, so the row keeps its place in the
-    // grid for this session and reloads at the end.
+    // QA's NO-GO: the row was committed with no order at all, which the API
+    // stores as null and sorts after every numbered row - the very end of a
+    // 15,000-row data source. Shifting a side to make room would have been
+    // 7,501 entries, ~1.7 MB and ~7s, inside the window that 502s.
+    expect(read[7500]).toBe('NEW');
     expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBeUndefined();
+    expect(typeof payload.entries[0].order).toBe('number');
+    expect(payload.normalizeOrder.gap).toBe(1000);
   });
 
-  it('costs no more than the write limit wherever the row goes', function() {
+  it('costs one row wherever the row goes', function() {
     var rows = packedRows(4000);
     var positions = [0, 1, 400, 501, 2000, 3600, 3999, 4000];
 
@@ -870,8 +890,37 @@ describe('PS-1781 — placing a row must not commit the data source', function()
 
       var payload = commit(d.entries, d.originals);
 
-      expect(payload.entries.length).toBeLessThanOrEqual(501);
+      // The cost is what the user typed, not where they typed it. The write
+      // limit that used to bound this was a limit on rows the client renumbers,
+      // and the client no longer renumbers anything.
+      expect(payload.entries).toHaveLength(1);
+      expect(readAs(rows, payload, -1).split(',')[at]).toBe('NEW');
     });
+  });
+
+  it('seats a paste too large for one gap by widening the renumber', function() {
+    var rows = packedRows(600);
+    var d = build(rows);
+    var pasted = [];
+    var i;
+
+    for (i = 0; i < 1500; i++) {
+      pasted.push({ data: { Name: 'P' + i } });
+    }
+
+    // A paste is a run: it has to fit between the orders of the two rows it
+    // landed between, so the gap the renumber uses is chosen to hold it.
+    d.entries.splice.apply(d.entries, [300, 0].concat(pasted));
+
+    var payload = commit(d.entries, d.originals);
+    var read = readAs(rows, payload, -1).split(',');
+
+    expect(payload.normalizeOrder.gap).toBe(1501);
+    expect(payload.entries).toHaveLength(1500);
+    expect(read[299]).toBe('R299');
+    expect(read[300]).toBe('P0');
+    expect(read[1799]).toBe('P1499');
+    expect(read[1800]).toBe('R300');
   });
 });
 
@@ -1089,69 +1138,31 @@ describe('PS-1781 — a drag must not commit the data source either', function()
     return entries;
   }
 
-  /**
-   * Orders held by more than one row once the payload has been applied.
-   * @param {Array} rows - Stored rows before the save
-   * @param {Object} payload - Result of computeCommitPayload
-   * @returns {Array} Duplicated order values
-   */
-  function sharedOrders(rows, payload) {
-    var stored = {};
-    var byOrder = {};
-    var nextId = 900000;
-
-    rows.forEach(function(row) {
-      stored[row.id] = { order: row.order };
-    });
-
-    payload.entries.forEach(function(entry) {
-      if (typeof entry.id === 'undefined') {
-        nextId += 1;
-        stored[nextId] = { order: typeof entry.order === 'undefined' ? null : entry.order };
-
-        return;
-      }
-
-      if (typeof entry.order !== 'undefined') {
-        stored[entry.id].order = entry.order;
-      }
-    });
-
-    Object.keys(stored).forEach(function(key) {
-      var order = stored[key].order;
-
-      if (typeof order !== 'number') {
-        return;
-      }
-
-      byOrder[order] = (byOrder[order] || 0) + 1;
-    });
-
-    return Object.keys(byOrder).filter(function(order) {
-      return byOrder[order] > 1;
-    });
-  }
-
-  it('does not persist a drag deeper than the write limit', function() {
+  it('persists a drag deeper than the old write limit, and sends two rows', function() {
     // Holding a row among unnumbered ones means numbering every row above it,
-    // so this cost is the depth of the drag: one adjacent swap at index 600
-    // wrote 602 rows, and the same swap at 14,900 wrote 14,902 - the payload
-    // and the 502 this whole change exists to remove.
+    // so this used to cost the depth of the drag: one adjacent swap at index
+    // 600 wrote 602 rows, and the same swap at 14,900 wrote 14,902 - the
+    // payload and the 502 this whole change exists to remove. Past the limit
+    // the drag was refused outright and the grid silently reverted on reload.
     var rows = unorderedRows(700);
     var d = build(rows);
+    var expected = swap(rows.slice(), 600).map(function(row) {
+      return row.name;
+    }).join(',');
     var payload = commit(swap(d.entries, 600), d.originals, true);
 
-    expect(payload.entries).toHaveLength(0);
+    expect(payload.entries).toHaveLength(2);
     expect(payload.delete).toHaveLength(0);
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+    expect(readAs(rows, payload, -1)).toBe(expected);
   });
 
-  it('still persists a drag inside the limit', function() {
+  it('still persists a shallow drag as cheaply', function() {
     var rows = unorderedRows(700);
     var d = build(rows);
     var payload = commit(swap(d.entries, 5), d.originals, true);
 
-    expect(payload.entries.length).toBeGreaterThan(0);
-    expect(payload.entries.length).toBeLessThanOrEqual(7);
+    expect(payload.entries).toHaveLength(2);
     expect(sharedOrders(rows, payload)).toHaveLength(0);
   });
 
@@ -1180,11 +1191,12 @@ describe('PS-1781 — a drag must not commit the data source either', function()
     expect(sharedOrders(rows, payload)).toHaveLength(0);
   });
 
-  it('does not place new rows against a sequence it refused to persist', function() {
-    // A refused drag leaves the grid showing an arrangement the data source
-    // does not hold, so the row above a new one is not the row it will reload
-    // after - the same reason a sorted view contributes no positions. Reading
-    // it anyway gave the new row an order an untouched row was still holding.
+  it('places a new row inside the span a drag disturbed', function() {
+    // Both halves of one save: a drag the client cannot express against the
+    // stored orders, and a new row dropped inside the span it disturbed. The
+    // drag used to be refused, which left the grid showing a sequence the data
+    // source did not hold, so the new row had to be left unplaced too. Both are
+    // now decided against the same renumbering.
     var rows = [];
     var i;
 
@@ -1202,8 +1214,13 @@ describe('PS-1781 — a drag must not commit the data source either', function()
     entries.splice(601, 0, { data: { Name: 'NEW' } });
 
     var payload = commit(entries, d.originals, true);
+    var read = readAs(rows, payload, -1).split(',');
 
     expect(sharedOrders(rows, payload)).toHaveLength(0);
+    expect(read[599]).toBe('M599');
+    expect(read[600]).toBe('M601');
+    expect(read[601]).toBe('NEW');
+    expect(read[602]).toBe('M600');
   });
 });
 
@@ -1260,10 +1277,13 @@ describe('PS-1781 — an order the column cannot hold is not a position', functi
     expect(payload.declined.rows).toBe(1);
   });
 
-  it('declines a drag whose prefix would be numbered below the column', function() {
-    // Rows sharing an order make the source incomplete, so a drag numbers the
-    // prefix below the lowest order left in the tail. With that order already
-    // at the bottom of the column there is nowhere below it to number into.
+  it('persists a drag on rows parked at the bottom of the column', function() {
+    // Rows sharing an order cannot be positioned against - they are separated
+    // by id, which the manager and the platform read in opposite directions -
+    // and with that order already at the bottom of the column there was nowhere
+    // below it to number a prefix into either, so the drag was refused. The
+    // renumber leaves neither problem: it moves the whole data source into the
+    // middle of the column, away from both ends.
     // The rows are given in read order - shared orders are read by descending
     // id - because in any other order the drag looks like a different move.
     var rows = [
@@ -1280,14 +1300,16 @@ describe('PS-1781 — an order the column cannot hold is not a position', functi
     var payload = commit(d.entries, d.originals, true);
 
     expect(unstorable(payload)).toHaveLength(0);
-    expect(payload.entries).toHaveLength(0);
-    expect(payload.declined.reorder).toBe(true);
+    expect(payload.normalizeOrder.gap).toBe(1000);
+    expect(readAs(rows, payload, -1)).toBe('B,C,A');
+    expect(readAs(rows, payload, 1)).toBe('B,C,A');
   });
 
-  it('declines a row that could only be held by numbering past the column', function() {
-    // Nothing is numbered above the new row except a row already at the top of
-    // the column, so the unnumbered rows between cannot be given the values
-    // that would hold it in place.
+  it('places a row that could only be held by numbering past the column', function() {
+    // Nothing was numbered above the new row except a row already at the top of
+    // the column, so the unnumbered rows between could not be given the values
+    // that would hold it in place. After the renumber nothing sits at the top
+    // of the column at all.
     var rows = [
       { id: 1, name: 'M', order: INT_MAX - 1 },
       { id: 20, name: 'U1', order: null },
@@ -1300,7 +1322,29 @@ describe('PS-1781 — an order the column cannot hold is not a position', functi
     var payload = commit(d.entries, d.originals);
 
     expect(unstorable(payload)).toHaveLength(0);
-    expect(payload.declined.rows).toBe(1);
+    expect(payload.declined.rows).toBe(0);
+    expect(readAs(rows, payload, -1)).toBe('M,U1,U2,NEW');
+  });
+
+  it('keeps the gap it asks for inside the range the API will accept', function() {
+    // The API rejects a commit whose gap * (live rows + 1) runs off the column
+    // with a 400, and a rejected write is the failed save this exists to
+    // prevent - so the two bounds have to be the same bound.
+    var rows = [];
+    var i;
+
+    for (i = 0; i < 4000; i++) {
+      rows.push({ id: 1000 + i, name: 'R' + i, order: i });
+    }
+
+    var d = build(rows);
+
+    d.entries.splice(2000, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.normalizeOrder.gap).toBeGreaterThan(0);
+    expect(payload.normalizeOrder.gap * (rows.length + 1)).toBeLessThanOrEqual(INT_MAX);
   });
 });
 
@@ -1317,11 +1361,11 @@ describe('PS-1781 — a save must say what it declined', function() {
 
     var payload = commit(d.entries, d.originals);
 
-    expect(payload.declined.reorder).toBe(false);
+    expect(payload.declined.sorted).toBe(false);
     expect(payload.declined.rows).toBe(0);
   });
 
-  it('reports a drag it refused to persist', function() {
+  it('reports nothing for a drag it used to refuse', function() {
     var rows = [];
     var i;
 
@@ -1337,11 +1381,12 @@ describe('PS-1781 — a save must say what it declined', function() {
 
     var payload = commit(d.entries, d.originals, true);
 
-    expect(payload.entries).toHaveLength(0);
-    expect(payload.declined.reorder).toBe(true);
+    expect(payload.entries).toHaveLength(2);
+    expect(payload.declined.rows).toBe(0);
+    expect(payload.declined.sorted).toBe(false);
   });
 
-  it('reports a new row it could not place', function() {
+  it('places a new row deep in an unordered data source', function() {
     var rows = [];
     var i;
 
@@ -1352,17 +1397,16 @@ describe('PS-1781 — a save must say what it declined', function() {
     var d = build(rows);
 
     // Far enough down that numbering the unnumbered rows above it - the only
-    // thing that could hold it there - costs more than the limit allows. Higher
-    // up the same insert is affordable and is placed exactly, which is why this
-    // has to be past the boundary to be the case it claims to be.
+    // thing that could hold it there - used to cost more than the write limit
+    // allowed, so the row was committed with no order and reloaded at the top.
     d.entries.splice(600, 0, { data: { Name: 'NEW' } });
 
     var payload = commit(d.entries, d.originals);
 
-    expect(payload.declined.reorder).toBe(false);
-    expect(payload.declined.rows).toBe(1);
+    expect(payload.declined.rows).toBe(0);
     expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBeUndefined();
+    expect(typeof payload.entries[0].order).toBe('number');
+    expect(readAs(rows, payload, -1).split(',')[600]).toBe('NEW');
   });
 });
 
@@ -1390,7 +1434,7 @@ describe('PS-1781 — the paths that skip placement must still report it', funct
     expect(readAs(rows, payload, -1).indexOf('NEW')).toBe(0);
   });
 
-  it('reports the new rows a refused drag took with it', function() {
+  it('persists a deep drag and the row added in the same save', function() {
     var rows = [];
     var i;
 
@@ -1399,14 +1443,20 @@ describe('PS-1781 — the paths that skip placement must still report it', funct
     }
 
     var d = build(rows);
+    var expected;
 
     d.entries.splice(580, 0, d.entries.splice(590, 1)[0]);
     d.entries.push({ data: { Name: 'NEW' } });
 
+    expected = d.entries.map(function(entry) {
+      return entry.data.Name;
+    }).join(',');
+
     var payload = commit(d.entries, d.originals, true);
 
-    expect(payload.declined.reorder).toBe(true);
-    expect(payload.declined.rows).toBe(1);
+    expect(payload.declined.rows).toBe(0);
+    expect(payload.declined.sorted).toBe(false);
+    expect(readAs(rows, payload, -1)).toBe(expected);
   });
 
   it('reports nothing when a sorted save adds no rows', function() {
@@ -1424,14 +1474,13 @@ describe('PS-1781 — the paths that skip placement must still report it', funct
   });
 });
 
-describe('PS-1781 — a refused drag must not position new rows', function() {
-  it('does not write a new row onto an order an untouched row still holds', function() {
-    // The guard this pins had no test, and the collision it prevents needs an
-    // exact shape: enough numbered rows that renumbering them exceeds the write
-    // limit, an unnumbered tail to make the reorder refusable, and a new row
-    // inside the span the drag disturbed. The visual neighbours are then in an
-    // order the data source does not hold, so placing against them reads the
-    // row below as the row above.
+describe('PS-1781 — a drag and an insert in the same save', function() {
+  it('does not write a new row onto an order another row still holds', function() {
+    // The collision this pins needs an exact shape: enough numbered rows that
+    // the client could never have renumbered them itself, an unnumbered tail
+    // that leaves the stored orders unable to express the arrangement, and a
+    // new row inside the span the drag disturbed - so the row's neighbours are
+    // decided by the drag rather than by anything stored.
     var rows = [];
     var i;
 
@@ -1445,46 +1494,33 @@ describe('PS-1781 — a refused drag must not position new rows', function() {
 
     var d = build(rows);
     var moved;
+    var expected;
 
     d.entries.splice(501, 0, { data: { Name: 'NEW' } });
     moved = d.entries[500];
     d.entries[500] = d.entries[499];
     d.entries[499] = moved;
 
+    expected = d.entries.map(function(entry) {
+      return entry.data.Name;
+    }).join(',');
+
     var payload = commit(d.entries, d.originals, true);
-    var touched = {};
 
-    expect(payload.declined.reorder).toBe(true);
-
-    payload.entries.forEach(function(entry) {
-      if (typeof entry.id !== 'undefined') {
-        touched[entry.id] = true;
-      }
-    });
-
-    payload.entries.forEach(function(entry) {
-      if (typeof entry.order !== 'number') {
-        return;
-      }
-
-      rows.forEach(function(row) {
-        if (row.order === entry.order && !touched[row.id]) {
-          throw new Error('order ' + entry.order + ' written while untouched row '
-            + row.name + ' still holds it');
-        }
-      });
-    });
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+    expect(readAs(rows, payload, -1)).toBe(expected);
+    expect(readAs(rows, payload, 1)).toBe(expected);
   });
 });
 
-describe('PS-1781 — two rows added in one save, past the write limit', function() {
+describe('PS-1781 — two rows added in one save, far apart', function() {
   it('does not write an order a row nobody touched is still holding', function() {
-    // The walk that makes room for a new row stops at the first row with no
-    // settled order. A row inserted later in the same save reads exactly like
-    // the end of the data source, so the walk stopped there and wrote into
-    // space the rows past it still held: adding a row at index 505 and another
-    // at 512 of a packed 1,200-row source wrote order 511 onto the row above
-    // while the row already holding 511 was never touched.
+    // The walk that used to make room for a new row stopped at the first row
+    // with no settled order. A row inserted later in the same save reads
+    // exactly like the end of the data source, so the walk stopped there and
+    // wrote into space the rows past it still held: adding a row at index 505
+    // and another at 512 of a packed 1,200-row source wrote order 511 onto the
+    // row above while the row already holding 511 was never touched.
     var rows = [];
     var i;
 
@@ -1499,25 +1535,172 @@ describe('PS-1781 — two rows added in one save, past the write limit', functio
     entries.splice(512, 0, { data: { Name: 'NEW-B' } });
 
     var payload = commit(entries, d.originals);
-    var touched = {};
+    var read = readAs(rows, payload, -1).split(',');
 
-    payload.entries.forEach(function(entry) {
-      if (typeof entry.id !== 'undefined') {
-        touched[entry.id] = true;
-      }
-    });
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+    expect(payload.entries).toHaveLength(2);
+    expect(read[505]).toBe('NEW-A');
+    expect(read[512]).toBe('NEW-B');
+  });
+});
 
-    payload.entries.forEach(function(entry) {
-      if (typeof entry.order !== 'number') {
-        return;
-      }
+describe('PS-1781 — the renumber the API is asked for', function() {
+  var sparse = [
+    { id: 1, name: 'A', order: 0 },
+    { id: 2, name: 'B', order: 10 },
+    { id: 3, name: 'C', order: 20 }
+  ];
 
-      rows.forEach(function(row) {
-        if (row.order === entry.order && !touched[row.id]) {
-          throw new Error('order ' + entry.order + ' written while untouched row '
-            + row.name + ' still holds it');
-        }
-      });
-    });
+  it('is not asked for when the stored orders can already seat the row', function() {
+    var d = build(sparse);
+
+    d.entries.splice(1, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    // The common case has to stay byte-identical: a renumber rewrites every
+    // row in the data source, and this one needs no room made for it.
+    expect(payload.normalizeOrder).toBe(null);
+    expect(applyAndRead(sparse, payload)).toBe('A,NEW,B,C');
+  });
+
+  it('is not asked for by a save that positions nothing', function() {
+    var rows = [
+      { id: 3, name: 'A', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 1, name: 'C', order: null }
+    ];
+    var d = build(rows);
+
+    d.entries[1] = { id: 2, data: { Name: 'B edited' } };
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.normalizeOrder).toBe(null);
+  });
+
+  it('is not asked for by a drag that put every row back where it was', function() {
+    // The drag flag says the user dragged something, not that anything ended up
+    // somewhere new. A cell edited in the same save makes the commit non-empty,
+    // so nothing else here would notice the renumber going out - and it would
+    // rewrite every row in the data source to change nothing.
+    var rows = [
+      { id: 3, name: 'A', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 1, name: 'C', order: null }
+    ];
+    var d = build(rows);
+
+    d.entries[1] = { id: 2, data: { Name: 'B edited' } };
+
+    var payload = commit(d.entries, d.originals, true);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.normalizeOrder).toBe(null);
+  });
+
+  it('is never sent on its own, which the API reads as a full replace', function() {
+    // An empty `entries` is how the commit endpoint is told to replace the
+    // whole data source, so a renumber with nothing to apply is not a cheap
+    // no-op - it deletes every row.
+    var rows = [
+      { id: 3, name: 'A', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 1, name: 'C', order: null }
+    ];
+    var d = build(rows);
+    var payload = commit(d.entries.slice(0, 2), d.originals, true);
+
+    expect(payload.entries).toHaveLength(0);
+    expect(payload.delete).toEqual([1]);
+    expect(payload.normalizeOrder).toBe(null);
+  });
+
+  it('numbers the first row gap, not zero', function() {
+    // ROW_NUMBER() is one-based, so the renumber writes gap, 2*gap, ... The
+    // client predicts those values and sends its new rows into the space
+    // between them; predicting a zero-based sequence would put every new row
+    // one whole gap away from where the user dropped it.
+    var rows = [
+      { id: 3, name: 'A', order: null },
+      { id: 2, name: 'B', order: null },
+      { id: 1, name: 'C', order: null }
+    ];
+    var d = build(rows);
+
+    d.entries.splice(1, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+    var placed = payload.entries[0];
+
+    expect(payload.normalizeOrder).toEqual({ gap: 1000 });
+    // Between A at 1*1000 and B at 2*1000. A zero-based prediction would have
+    // put it between 0 and 1000, i.e. above every row in the data source.
+    expect(placed.order).toBeGreaterThan(1000);
+    expect(placed.order).toBeLessThan(2000);
+  });
+
+  it('is visually a no-op: the same rows come back in the same sequence', function() {
+    var rows = [
+      { id: 10, name: 'A', order: 5 },
+      { id: 11, name: 'B', order: 5 },
+      { id: 12, name: 'C', order: null },
+      { id: 13, name: 'D', order: -40 },
+      { id: 14, name: 'E', order: null }
+    ];
+    // How the manager shows it: order ASC, nulls last, ties on descending id
+    var d = build([rows[3], rows[1], rows[0], rows[4], rows[2]]);
+
+    d.entries.push({ data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.normalizeOrder).toEqual({ gap: 1000 });
+    expect(readAs(rows, payload, -1)).toBe('D,B,A,E,C,NEW');
+    expect(readAs(rows, payload, 1)).toBe('D,B,A,E,C,NEW');
+  });
+
+  it('places a row between two that share an order (PS1781-D-12)', function() {
+    // QA's second NO-GO. Rows sharing an order are separated by id, which the
+    // manager and the platform read in opposite directions, so there was no
+    // position to read off the grid at all and the row was committed with none.
+    var rows = [
+      { id: 1, name: 'A', order: 7 },
+      { id: 2, name: 'B', order: 7 },
+      { id: 3, name: 'C', order: 9 }
+    ];
+    // Shared orders read by descending id, so B is above A
+    var d = build([rows[1], rows[0], rows[2]]);
+
+    d.entries.splice(1, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(readAs(rows, payload, -1)).toBe('B,NEW,A,C');
+    expect(readAs(rows, payload, 1)).toBe('B,NEW,A,C');
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
+  });
+
+  it('renumbers over the rows a save is about to delete as well', function() {
+    // The renumber runs before the deletes, so the row being deleted still
+    // takes a slot in the numbering the client is predicting.
+    var rows = [
+      { id: 1, name: 'A', order: 0 },
+      { id: 2, name: 'B', order: 1 },
+      { id: 3, name: 'C', order: 2 },
+      { id: 4, name: 'D', order: 3 }
+    ];
+    var d = build(rows);
+
+    d.entries.splice(2, 1);
+    d.entries.splice(1, 0, { data: { Name: 'NEW' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.delete).toEqual([3]);
+    expect(readAs(rows, payload, -1)).toBe('A,NEW,B,D');
+    expect(sharedOrders(rows, payload)).toHaveLength(0);
   });
 });

@@ -11,45 +11,33 @@ var EntryDiff = (function() {
   'use strict';
 
   /**
-   * How many existing rows one change of position may renumber - whether that
-   * position belongs to a row being added or to a row being dragged.
+   * Spacing asked for when the save needs the data source renumbered.
    *
-   * Two shapes make placing a row expensive, and an integer `order` column
-   * leaves no way around either:
+   * Two shapes make a position impossible to express, and both are common: rows
+   * carrying no order at all, and rows numbered 0..n-1 with no gaps. Neither can
+   * be fixed from here without committing the whole data source, which is the
+   * multi-megabyte save this change exists to remove (PS-1781).
    *
-   *  - Rows that carry no order. An unnumbered row always sorts after a
-   *    numbered one, so holding a new row below k unnumbered rows means
-   *    numbering all k of them.
-   *  - Rows numbered 0..n-1 with no gaps. Nothing fits between two consecutive
-   *    integers, so the rows above or the rows below have to shift - whichever
-   *    side is shorter, which at the middle is half the data source.
-   *
-   * Both are the whole-dataset commit this change exists to remove: 15,000
-   * entries measured at 3.22 MB and ~15s, answered with a 502 (PS-1781), and
-   * 7,500 of them still ~1.7 MB and ~7s. So placement is bought only while it
-   * stays this cheap - 500 rows measured at ~110 KB, well under a second. Past
-   * that the row keeps its position in the grid for this session and reloads
-   * where the API puts a row with no order of its own - after every numbered
-   * row, or, on a data source that carries no order at all, at the very top,
-   * since unnumbered rows are read newest first. Slower to notice than a failed
-   * save, but it never loses the row, and the grid now says so.
-   *
-   * A drag is bounded by the same number, counted the same way - by what it
-   * actually writes. Renumbering a prefix that is already numbered 0..k hands
-   * most rows back the value they were holding and commits only the few that
-   * moved, so those drags stay exact however deep they are; it is a data source
-   * that carries no order at all where every row in the prefix is a write, and
-   * that is the one refused.
+   * So the commit carries `normalizeOrder: { gap }` instead, and the API
+   * renumbers every live entry to `ROW_NUMBER() OVER (ORDER BY "order" ASC NULLS
+   * LAST, id DESC) * gap` before applying the payload. That sort is the
+   * platform's own read order - the sequence the manager is already showing - so
+   * it moves nothing on screen, and it is deterministic, so this module predicts
+   * the result as `(index + 1) * gap` and sends its new rows already numbered
+   * into the space the renumber will open. One round trip, and the payload is
+   * the rows the user actually touched.
    */
-  var MAX_ORDER_WRITES = 500;
+  var MAX_GAP = 1000;
 
   /**
    * What a stored order can hold. `order` is a 32-bit signed integer in the
    * database, so a value outside this range is not a worse position - it is a
    * rejected write and a failed save, which is the outcome this whole change
    * exists to prevent. Every path that invents a number checks that the span it
-   * would write fits, and declines the position when it does not, exactly as it
-   * declines one that costs too much.
+   * would write fits, and declines the position when it does not.
+   *
+   * It matters more since the renumber, not less: a renumber is monotonic and
+   * never reclaims the space below, so orders drift upward over repeated saves.
    */
   var MIN_ORDER = -2147483648;
   var MAX_ORDER = 2147483647;
@@ -131,6 +119,65 @@ var EntryDiff = (function() {
   }
 
   /**
+   * Whether a row is new to the data source. A recovered entry whose id the
+   * cache no longer knows counts as new too - the commit treats it that way.
+   * @param {Object} entry - Entry from the table
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @returns {Boolean} True when the row has no stored counterpart
+   */
+  function isNewEntry(entry, originalMap) {
+    return typeof entry.id === 'undefined' || !originalMap[entry.id];
+  }
+
+  /**
+   * Sort rows the way the platform reads a data source: order ASC, rows with no
+   * order last, ties broken on descending id. The manager asks for no sort of
+   * its own, so this is the sequence it shows, the sequence every app sees, and
+   * the sequence the API's renumber walks.
+   * @param {Object} a - Row with { id, order }
+   * @param {Object} b - Row with { id, order }
+   * @returns {Number} Comparator result
+   */
+  function byReadOrder(a, b) {
+    var aNumbered = typeof a.order === 'number';
+    var bNumbered = typeof b.order === 'number';
+
+    if (aNumbered && bNumbered && a.order !== b.order) {
+      return a.order - b.order;
+    }
+
+    if (aNumbered !== bNumbered) {
+      return aNumbered ? -1 : 1;
+    }
+
+    return b.id - a.id;
+  }
+
+  /**
+   * Ascending numeric sort.
+   * @param {Number} a - First value
+   * @param {Number} b - Second value
+   * @returns {Number} Comparator result
+   */
+  function ascending(a, b) {
+    return a - b;
+  }
+
+  /**
+   * Whether a set of stored orders can express an arrangement at all. Rows with
+   * no order always sort after numbered ones, and rows sharing an order are
+   * separated by id - which the manager and the platform read in opposite
+   * directions - so neither can be positioned against.
+   * @param {Array} stored - Stored order values
+   * @returns {Boolean} True when every row carries a distinct number
+   */
+  function ordersAreUsable(stored) {
+    return stored.every(function(value) {
+      return typeof value === 'number';
+    }) && new Set(stored).size === stored.length;
+  }
+
+  /**
    * Work out the row order to persist after a reorder.
    *
    * Rather than renumbering from zero, the stored order values the rows already
@@ -143,17 +190,14 @@ var EntryDiff = (function() {
    *    the same save shifted every visual index below it.
    *
    * Sparse orders are preserved, since the pool is whatever the data source
-   * already used. If any row has no stored order (never ordered, or inserted
-   * through the API) the pool cannot be trusted, so a dense sequence is assigned
-   * instead, which heals the data source on the next save.
-   * A move that would cost more than MAX_ORDER_WRITES is refused rather than
-   * paid for, and says so: nothing is written, and the caller stops reading
-   * positions off a grid whose sequence the data source does not hold.
+   * already used. A pool that cannot express an arrangement is not redistributed
+   * at all: the caller asks the API to renumber instead, and calls this again
+   * against the numbering that will produce.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @returns {Object} { positions: Map of entry id to order, refused: Boolean }
+   * @returns {Object} Map of entry id to the order it should be given
    */
-  function reorderPlan(entries, originalMap) {
+  function computeReorderedPositions(entries, originalMap) {
     var positioned = (entries || []).filter(function(entry) {
       return typeof entry.id !== 'undefined' && originalMap[entry.id];
     });
@@ -162,127 +206,150 @@ var EntryDiff = (function() {
       return originalMap[entry.id].order;
     });
 
-    // Repeats are as unusable as gaps: two rows sharing an order are separated
-    // by id, which the manager and the platform read in opposite directions.
-    var complete = stored.every(function(value) {
-      return typeof value === 'number';
-    }) && new Set(stored).size === stored.length;
-
-    if (complete) {
-      var pool = stored.slice().sort(function(a, b) {
-        return a - b;
-      });
-
-      var positions = {};
-
-      positioned.forEach(function(entry, index) {
-        positions[entry.id] = pool[index];
-      });
-
-      return { positions: positions, refused: false };
+    if (!ordersAreUsable(stored)) {
+      return {};
     }
 
-    // Nothing usable is stored, so the rows currently read back on their ids.
-    // Numbering all of them would commit the whole data source for one drag, so
-    // only the prefix up to the last row that actually moved is numbered. The
-    // rows past it still read correctly on their ids alone - and because the
-    // manager reads a data source exactly as the rest of the platform does,
-    // that tail means the same thing to every consumer.
-    // The rows read back numbered-first, then the unnumbered ones by descending
-    // id - so the baseline has to be built the same way. Sorting on ascending id
-    // made a data source with both kinds look reordered when nothing had moved.
-    var baseline = positioned.slice().sort(function(a, b) {
-      var aOrder = originalMap[a.id].order;
-      var bOrder = originalMap[b.id].order;
-      var aNumbered = typeof aOrder === 'number';
-      var bNumbered = typeof bOrder === 'number';
-
-      if (aNumbered && bNumbered && aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
-
-      if (aNumbered !== bNumbered) {
-        return aNumbered ? -1 : 1;
-      }
-
-      return b.id - a.id;
-    });
-
-    var lastMoved = -1;
+    var pool = stored.slice().sort(ascending);
+    var positions = {};
 
     positioned.forEach(function(entry, index) {
-      if (baseline[index].id !== entry.id) {
-        lastMoved = index;
-      }
+      positions[entry.id] = pool[index];
     });
 
-    var renumbered = {};
-
-    if (lastMoved < 0) {
-      return { positions: renumbered, refused: false };
-    }
-
-    // The rows past the prefix keep whatever order they already hold, so the
-    // prefix has to be numbered below the lowest of them. Starting at zero
-    // collided with rows nobody touched: a data source holding -1, 0, 1 and a
-    // null would answer a drag by writing 1 over a row already sitting at 1,
-    // and the two then separated on id rather than on the arrangement.
-    var tailMin = null;
-
-    for (var t = lastMoved + 1; t < positioned.length; t++) {
-      var tailOrder = originalMap[positioned[t].id].order;
-
-      if (typeof tailOrder === 'number' && (tailMin === null || tailOrder < tailMin)) {
-        tailMin = tailOrder;
-      }
-    }
-
-    var count = lastMoved + 1;
-    var first = tailMin === null ? 0 : tailMin - count;
-
-    // A data source using the very ends of the range leaves nowhere below its
-    // lowest row to number a prefix into.
-    if (!storable(first, first + lastMoved)) {
-      return { positions: {}, refused: true };
-    }
-
-    var changed = 0;
-
-    for (var i = 0; i <= lastMoved; i++) {
-      renumbered[positioned[i].id] = first + i;
-
-      if (first + i !== originalMap[positioned[i].id].order) {
-        changed += 1;
-      }
-    }
-
-    // Holding a row among unnumbered ones means numbering every row above it -
-    // there is nothing for it to sit after otherwise - so a drag can cost far
-    // more than the span it crossed. What it actually costs is how many of
-    // those rows end up holding a different number: on a data source already
-    // numbered 0..n, a deep drag renumbers thousands of rows onto the values
-    // they were already holding and commits two. On one that carries no order,
-    // every row in the prefix is being numbered for the first time, so an
-    // adjacent swap at index 14,900 commits 14,902 rows - the multi-megabyte
-    // save and the 502 this change exists to remove. Counting the writes rather
-    // than the span keeps the cheap case cheap and refuses only the ruinous
-    // one: past the limit the move is not persisted and the row reloads where
-    // it was stored, the same trade insertion makes past the same limit.
-    if (changed > MAX_ORDER_WRITES) {
-      return { positions: {}, refused: true };
-    }
-
-    return { positions: renumbered, refused: false };
+    return positions;
   }
 
   /**
-   * The positions a reorder wants to write, without the refusal flag.
+   * Whether the visual sequence differs from the one the data source holds.
+   *
+   * The drag flag on its own only means the user dragged something, not that
+   * anything ended up somewhere new - and asking for a renumber a save does not
+   * need would rewrite every row for nothing.
+   * @param {Array} positioned - Entries that exist in the data source, in visual order
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @returns {Boolean} True when at least one row sits somewhere else
+   */
+  function sequenceMoved(positioned, originalMap) {
+    var baseline = positioned.map(function(entry) {
+      return { id: entry.id, order: originalMap[entry.id].order };
+    }).sort(byReadOrder);
+
+    return positioned.some(function(entry, index) {
+      return baseline[index].id !== entry.id;
+    });
+  }
+
+  /**
+   * The runs of consecutive new rows in a save, each with the position of the
+   * stored row above it. A run between two stored rows needs room between their
+   * orders; one at either end of the grid does not.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @returns {Object} Map of entry id to the order it should be given
+   * @returns {Array} [{ count, above, interior }]
    */
-  function computeReorderedPositions(entries, originalMap) {
-    return reorderPlan(entries, originalMap).positions;
+  function insertRuns(entries, originalMap) {
+    var runs = [];
+    var above = -1;
+    var index = 0;
+    var count;
+
+    while (index < entries.length) {
+      if (!isNewEntry(entries[index], originalMap)) {
+        above += 1;
+        index += 1;
+
+        continue;
+      }
+
+      count = 0;
+
+      while (index < entries.length && isNewEntry(entries[index], originalMap)) {
+        count += 1;
+        index += 1;
+      }
+
+      runs.push({
+        count: count,
+        above: above,
+        interior: above >= 0 && index < entries.length
+      });
+    }
+
+    return runs;
+  }
+
+  /**
+   * Whether every run of new rows fits between the orders of its neighbours.
+   *
+   * The row at visual position j ends up holding the j-th smallest stored order
+   * - handed back its own when nothing moved, or the pool value a reorder gives
+   * it - so the room a run has is the gap between consecutive values of the
+   * sorted pool.
+   * @param {Array} pool - Stored orders of the positioned rows, ascending
+   * @param {Array} runs - Runs of new rows, from insertRuns
+   * @returns {Boolean} True when nothing has to move to seat them
+   */
+  function placementFits(pool, runs) {
+    return runs.every(function(run) {
+      return !run.interior || pool[run.above + 1] - pool[run.above] - 1 >= run.count;
+    });
+  }
+
+  /**
+   * Spacing to ask the API to renumber with.
+   *
+   * Wide enough to seat the rows being added between any two existing ones - a
+   * large paste is one run and has to fit in a single gap - and narrow enough
+   * that the whole data source still fits the column with a gap to spare above
+   * it for the next append.
+   *
+   * The upper bound is the API's own: it rejects a commit whose
+   * `gap * (liveCount + 1)` would run off the column with a 400, and a failed
+   * save is the outcome this change exists to prevent, so the two have to agree.
+   * @param {Number} liveCount - Rows the data source holds now
+   * @param {Array} runs - Runs of new rows, from insertRuns
+   * @returns {Number} The gap to ask for, or 0 when the column cannot hold one
+   */
+  function gapForNormalize(liveCount, runs) {
+    var needed = 1;
+    var gap = Math.max(1, Math.min(MAX_GAP, Math.floor(MAX_ORDER / (liveCount + 1))));
+
+    runs.forEach(function(run) {
+      if (run.interior && run.count + 1 > needed) {
+        needed = run.count + 1;
+      }
+    });
+
+    if (gap < needed) {
+      gap = needed;
+    }
+
+    return storable(gap, gap * (liveCount + 1)) ? gap : 0;
+  }
+
+  /**
+   * The orders the data source will hold once the API has renumbered it. The
+   * renumber walks the platform's read order, which is the sequence the manager
+   * is already showing, so this is predicted here rather than read back.
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @param {Number} gap - Spacing the renumber will use
+   * @returns {Object} Originals carrying their post-renumber orders
+   */
+  function normalizedOrders(originalMap, gap) {
+    var normalized = {};
+
+    Object.keys(originalMap).map(function(key) {
+      return originalMap[key];
+    }).sort(byReadOrder).forEach(function(original, index) {
+      normalized[original.id] = {
+        id: original.id,
+        data: original.data,
+        order: (index + 1) * gap
+      };
+    });
+
+    return normalized;
   }
 
   /**
@@ -292,29 +359,22 @@ var EntryDiff = (function() {
    * numbered row. That is right for an append but wrong for insert-before or
    * insert-after, which the toolbar offers - the row would reload at the end.
    *
-   * Each new row is slotted into the gap between the stored orders of its
-   * neighbours. Where the neighbours leave no room, something has to move: the
-   * rows below are pushed further down, or the rows above are pulled down into
-   * the space beneath them, whichever is fewer rows. Where the row above has no
-   * order at all there is nothing to sit after, so the rows above are numbered
-   * - up to MAX_ORDER_WRITES of them, past which the new row is left where an
-   * unnumbered row reads.
+   * Each new row is slotted into the gap between the settled orders of its
+   * neighbours. The caller has already made sure there is a gap to slot into, by
+   * asking the API to renumber where there was not; what is left here is the
+   * arithmetic, and the one thing it still declines - a value the column cannot
+   * hold, which is a rejected write rather than a worse position.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
    * @param {Object} positions - Positions already decided for existing rows
-   * @returns {Object} { inserts: Map index to order, updates: Map id to order }
+   * @returns {Object} { inserts: Map index to order, unplaced: Number }
    */
   function computeInsertPositions(entries, originalMap, positions) {
     var inserts = {};
-    var updates = {};
     // New rows whose position could not be honoured. They still save - they
     // just reload somewhere other than where the user dropped them, which is
     // the one thing about this that a user cannot see coming.
     var unplaced = 0;
-
-    function isNew(entry) {
-      return typeof entry.id === 'undefined' || !originalMap[entry.id];
-    }
 
     /**
      * Order the row at this index will hold once the save is applied, for both
@@ -331,15 +391,8 @@ var EntryDiff = (function() {
         return null;
       }
 
-      if (isNew(entry)) {
+      if (isNewEntry(entry, originalMap)) {
         return typeof inserts[index] === 'number' ? inserts[index] : null;
-      }
-
-      // A row displaced by an earlier insertion in this same pass already has a
-      // new position; reading its stored one would hand the next insertion a
-      // stale neighbour and produce a duplicate order.
-      if (typeof updates[entry.id] === 'number') {
-        return updates[entry.id];
       }
 
       var pending = positions && positions[entry.id];
@@ -347,163 +400,10 @@ var EntryDiff = (function() {
       return typeof pending === 'number' ? pending : originalMap[entry.id].order;
     }
 
-    /**
-     * Record an order for whichever kind of row sits at this index. New rows
-     * are keyed by position because they have no id yet.
-     * @param {Number} index - Position in the visual sequence
-     * @param {Number} order - Order to give it
-     * @returns {undefined}
-     */
-    function assignOrder(index, order) {
-      if (isNew(entries[index])) {
-        inserts[index] = order;
-
-        return;
-      }
-
-      updates[entries[index].id] = order;
-    }
-
-    /**
-     * Lowest order held by anything from this index onwards. Anything written
-     * above has to stay below it, or it collides with rows nobody touched.
-     * @param {Number} from - Index to start looking from
-     * @returns {Number|null} The lowest settled order, or null when there is none
-     */
-    function lowestOrderFrom(from) {
-      var lowest = null;
-
-      for (var i = from; i < entries.length; i++) {
-        var order = settledOrderAt(i);
-
-        if (typeof order === 'number' && (lowest === null || order < lowest)) {
-          lowest = order;
-        }
-      }
-
-      return lowest;
-    }
-
-    /**
-     * Number the rows above an insertion point so the new rows can sit after
-     * them.
-     *
-     * An unnumbered row always sorts after every numbered one, so a new row
-     * dropped below unnumbered rows cannot be given an order of its own - any
-     * number would lift it above them. The only thing that pins it is numbering
-     * what is above it, and only the rows that are not already usable are
-     * touched, in the sequence they are shown.
-     * @param {Number} runStart - Index of the first new row in the run
-     * @param {Number} runEnd - Index just past the run
-     * @param {Number} runCount - How many new rows the run holds
-     * @returns {Boolean} True when the rows above were numbered
-     */
-    function anchorRowsAbove(runStart, runEnd, runCount) {
-      var tailMin = lowestOrderFrom(runEnd);
-      var pending = [];
-      var assigned = null;
-      var i;
-
-      for (i = 0; i < runStart; i++) {
-        var current = settledOrderAt(i);
-
-        // Already numbered above everything before it, so it stays as it is
-        if (typeof current === 'number' && (assigned === null || current > assigned)) {
-          assigned = current;
-
-          continue;
-        }
-
-        assigned = assigned === null ? 0 : assigned + 1;
-        pending.push({ index: i, order: assigned });
-      }
-
-      if (!pending.length || pending.length > MAX_ORDER_WRITES) {
-        return false;
-      }
-
-      if (!storable(pending[0].order, pending[pending.length - 1].order)) {
-        return false;
-      }
-
-      // No room left for the run itself between the anchors and the rows below
-      if (tailMin !== null && assigned + runCount >= tailMin) {
-        return false;
-      }
-
-      pending.forEach(function(row) {
-        assignOrder(row.index, row.order);
-      });
-
-      return true;
-    }
-
-    /**
-     * Make room for a run by moving the rows above it down, rather than moving
-     * every row below it further down.
-     * @param {Number} runStart - Index of the first new row in the run
-     * @param {Number} runCount - How many new rows the run holds
-     * @param {Number} ceiling - Order of the row following the run
-     * @returns {Boolean} True when the rows above were moved and the run placed
-     */
-    function pullDownRowsAbove(runStart, runCount, ceiling) {
-      var i;
-
-      if (runStart > MAX_ORDER_WRITES) {
-        return false;
-      }
-
-      var base = ceiling - (runStart + runCount);
-
-      if (!storable(base, base + runStart + runCount - 1)) {
-        return false;
-      }
-
-      for (i = 0; i < runStart + runCount; i++) {
-        assignOrder(i, base + i);
-      }
-
-      return true;
-    }
-
-    /**
-     * Number a run sitting at the very top, where there is nothing above it and
-     * nothing numbered below.
-     *
-     * A numbered row always sorts before an unnumbered one, so this holds the
-     * run above the rest whichever way ids happen to break ties. Leaving a
-     * single row unnumbered would read the same today - it holds the newest id,
-     * and unnumbered rows read newest first - but that rests on the tie-break
-     * rather than on anything stored, and it costs nothing to persist: the new
-     * rows are in the commit either way, this only fills in their order.
-     * @param {Number} runCount - How many new rows the run holds
-     * @param {Number} runEnd - Index just past the run
-     * @returns {Boolean} True when the run was numbered
-     */
-    function numberRunAtTop(runCount, runEnd) {
-      var tailMin = lowestOrderFrom(runEnd);
-      var base = tailMin === null ? 0 : tailMin - runCount;
-
-      // Defensive, and honestly so: no spec drives this one. A numbered row
-      // always reads before an unnumbered one, so the row below a top run
-      // having no order means nothing below it has one either, and tailMin is
-      // null. It is here because the arithmetic is the same as everywhere else
-      // and a later change to how positions settle could reach it.
-      if (!storable(base, base + runCount - 1)) {
-        return false;
-      }
-
-      for (var i = 0; i < runCount; i++) {
-        inserts[i] = base + i;
-      }
-
-      return true;
-    }
-
     var index = 0;
 
     while (index < entries.length) {
-      if (!isNew(entries[index])) {
+      if (!isNewEntry(entries[index], originalMap)) {
         index += 1;
 
         continue;
@@ -512,113 +412,50 @@ var EntryDiff = (function() {
       // A run of consecutive new rows
       var start = index;
 
-      while (index < entries.length && isNew(entries[index])) {
+      while (index < entries.length && isNewEntry(entries[index], originalMap)) {
         index += 1;
       }
 
       var count = index - start;
-
-      // Already placed, by a widening pass that carried this run along to make
-      // room for one above it. Deciding it again from the same neighbours would
-      // overwrite a position that was chosen with more context than this.
-      if (typeof inserts[start] === 'number') {
-        continue;
-      }
-
-      // The row above carries no order, so there is nothing to sit after.
-      // Numbering the rows above is what pins the new row; where there are too
-      // many of them to write, it stays unnumbered.
-      if (start > 0 && settledOrderAt(start - 1) === null) {
-        anchorRowsAbove(start, index, count);
-      }
-
       var before = start > 0 ? settledOrderAt(start - 1) : null;
-      var cursor = index;
-      var after = settledOrderAt(cursor);
-
-      // Widen past following rows until the run fits, renumbering those we pass
-      var displaced = [];
-      // The order of the row directly below the run, before the walk moves the
-      // cursor past it - that is the ceiling the rows above have to fit under
-      var firstAfter = after;
-      var pulled = false;
-      var triedPulling = false;
-
-      while (after !== null && before !== null
-        && after - before - 1 < count + displaced.length
-        && displaced.length <= MAX_ORDER_WRITES) {
-        // A sequence with no gaps left has to give somewhere. Walking down for
-        // slack passes every row to the end of a packed data source - inserting
-        // near the top of a 15,000-row one wrote 14,997 of them, and into the
-        // middle 7,501, both inside the timeout this change exists to remove.
-        // Moving the rows above down instead costs one write per row above the
-        // insertion point, so once the walk has passed that many rows, the
-        // other side is the cheaper one.
-        if (!triedPulling && displaced.length >= start) {
-          triedPulling = true;
-
-          if (pullDownRowsAbove(start, count, firstAfter)) {
-            pulled = true;
-
-            break;
-          }
-        }
-
-        displaced.push(cursor);
-        cursor += 1;
-        after = settledOrderAt(cursor);
-
-        // A row inserted later in this same save has no order yet, which read
-        // exactly like the end of the data source and stopped the walk there -
-        // so the run was written into space the rows past it were still
-        // holding, and two rows ended up sharing an order. It needs a position
-        // as much as anything else being moved, so it is carried along.
-        while (after === null && cursor < entries.length && isNew(entries[cursor])) {
-          displaced.push(cursor);
-          cursor += 1;
-          after = settledOrderAt(cursor);
-        }
-      }
-
-      if (pulled) {
-        continue;
-      }
-
-      // Neither side is cheap enough: the walk hit the limit and there were
-      // more rows above it than the limit too. Leave the run unnumbered rather
-      // than commit half the data source to position one row.
-      if (after !== null && before !== null
-        && after - before - 1 < count + displaced.length) {
-        unplaced += count;
-
-        continue;
-      }
-
-      // Still nothing numbered on either side. At the very top that is free to
-      // fix - see numberRunAtTop. Anywhere else it means the rows above could
-      // not be numbered, and numbering only the run would jump it ahead of
-      // every existing row, which is further from where the user put it than
-      // leaving it alone.
-      if (before === null && after === null) {
-        if (start !== 0 || !numberRunAtTop(count, index)) {
-          unplaced += count;
-        }
-
-        continue;
-      }
-
-      var needed = count + displaced.length;
-      var base = before === null ? after - needed : before + 1;
+      var after = settledOrderAt(index);
       var step = 1;
+      var base;
+      var i;
 
-      if (before !== null && after !== null) {
-        step = Math.max(1, Math.floor((after - before) / (needed + 1)));
+      // Nothing numbered on either side. That is a grid typed into from empty,
+      // where the run is the whole data source. Anywhere else it means the
+      // renumber was declined, and numbering only the run would jump it ahead of
+      // every row this save never touched.
+      if (before === null && after === null) {
+        if (start !== 0 || index !== entries.length) {
+          unplaced += count;
+
+          continue;
+        }
+
+        for (i = 0; i < count; i++) {
+          inserts[i] = i;
+        }
+
+        continue;
+      }
+
+      if (before === null) {
+        base = after - count;
+      } else if (after === null) {
+        base = before + 1;
+      } else {
+        step = Math.max(1, Math.floor((after - before) / (count + 1)));
         base = before + step;
       }
 
-      // Nothing between the neighbours is worth writing if it cannot be stored:
-      // the save would be rejected outright rather than land in the wrong place.
-      if (!storable(base, base + (step * (needed - 1)))) {
+      var highest = base + (step * (count - 1));
+
+      // Either the neighbours left no room after all - only reachable when the
+      // renumber was declined - or the span runs off the end of the column,
+      // which is a rejected write rather than a row in the wrong place.
+      if ((after !== null && highest >= after) || !storable(base, highest)) {
         unplaced += count;
 
         continue;
@@ -626,18 +463,13 @@ var EntryDiff = (function() {
 
       var next = base;
 
-      for (var i = start; i < start + count; i++) {
+      for (i = start; i < start + count; i++) {
         inserts[i] = next;
-        next += step;
-      }
-
-      for (var d = 0; d < displaced.length; d++) {
-        assignOrder(displaced[d], next);
         next += step;
       }
     }
 
-    return { inserts: inserts, updates: updates, unplaced: unplaced };
+    return { inserts: inserts, unplaced: unplaced };
   }
 
   /**
@@ -666,7 +498,7 @@ var EntryDiff = (function() {
    */
   function countNewRows(entries, originalMap) {
     return (entries || []).filter(function(entry) {
-      return typeof entry.id === 'undefined' || !originalMap[entry.id];
+      return isNewEntry(entry, originalMap);
     }).length;
   }
 
@@ -677,7 +509,7 @@ var EntryDiff = (function() {
    * @param {Array} entries - Current entries from the table, in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
    * @param {Object} options - { rowsMoved, viewMatchesStoredOrder, isEqual, guid }
-   * @returns {Object} { entries: [...updated, ...inserted], delete: [...ids] }
+   * @returns {Object} { entries, delete, normalizeOrder, declined }
    */
   function computeCommitPayload(entries, originalMap, options) {
     entries = entries || [];
@@ -690,32 +522,54 @@ var EntryDiff = (function() {
     // Nothing about a position can be read off it then: the row above a new one
     // is not the row it will reload after, and treating the sorted sequence as
     // an arrangement to persist writes the sort into the data source - on a
-    // 15,000-row source, all of it. Positions are left alone until the view is
-    // the stored order again.
+    // 15,000-row source, all of it. The API can make room for a row; it cannot
+    // infer where the user meant it to go. Positions are left alone until the
+    // view is the stored order again.
     var viewMatchesStoredOrder = options.viewMatchesStoredOrder !== false;
-    var reorder = options.rowsMoved && viewMatchesStoredOrder
-      ? reorderPlan(entries, originalMap)
-      : { positions: null, refused: false };
-    var positions = reorder.positions;
 
-    // New rows need a position of their own, so insert-before/after lands where
-    // the user put it rather than at the end.
-    //
-    // Not when the reorder was refused, though. The grid is then showing a
-    // sequence the data source does not hold, which is the same situation as a
-    // column sort - the row above a new one is not the row it will reload
-    // after. Placing against it put a new row onto an order that a row this
-    // save never touched was still holding.
-    var placeable = viewMatchesStoredOrder && !reorder.refused;
+    var positioned = entries.filter(function(entry) {
+      return !isNewEntry(entry, originalMap);
+    });
+    var stored = positioned.map(function(entry) {
+      return originalMap[entry.id].order;
+    });
+    var runs = insertRuns(entries, originalMap);
+    var newRows = countNewRows(entries, originalMap);
+    var moved = !!options.rowsMoved
+      && viewMatchesStoredOrder
+      && sequenceMoved(positioned, originalMap);
 
-    // Skipping the placement pass is still a decision about every new row in
-    // the save: each one keeps the position the API gives an unordered row
-    // rather than the one the user dropped it on. Reporting nothing here left
-    // the two paths that skip it - a sorted grid and a refused drag - as the
-    // only silent ones left, which is the failure this set out to remove.
-    var placed = placeable
-      ? computeInsertPositions(entries, originalMap, positions)
-      : { inserts: {}, updates: {}, unplaced: countNewRows(entries, originalMap) };
+    // Only a save with somewhere to put a row asks for a renumber, and only when
+    // the orders the data source holds cannot seat it. One that can takes the
+    // same path it always did, byte for byte. Asking on a save that positions
+    // nothing would rewrite every row for nothing - and a save has to settle:
+    // reopening the data source and saving it again must write nothing at all.
+    var normalizeOrder = null;
+    var orders = originalMap;
+    var gap;
+
+    if (viewMatchesStoredOrder && (newRows || moved)
+      && !(ordersAreUsable(stored) && placementFits(stored.slice().sort(ascending), runs))) {
+      gap = gapForNormalize(Object.keys(originalMap).length, runs);
+
+      if (gap) {
+        normalizeOrder = { gap: gap };
+        orders = normalizedOrders(originalMap, gap);
+      }
+    }
+
+    // Everything below reads the orders the data source will hold once this
+    // payload is applied, which are the renumbered ones whenever a renumber was
+    // asked for. Comparing against the values it holds now would re-send the
+    // whole data source, which is the save this change exists to prevent.
+    var positions = moved ? computeReorderedPositions(entries, orders) : null;
+
+    // Skipping the placement pass is still a decision about every new row in the
+    // save: each one keeps the position the API gives an unordered row rather
+    // than the one the user dropped it on, so it is reported rather than silent.
+    var placed = viewMatchesStoredOrder
+      ? computeInsertPositions(entries, orders, positions)
+      : { inserts: {}, unplaced: newRows };
 
     var inserted = [];
     var updated = [];
@@ -737,7 +591,7 @@ var EntryDiff = (function() {
       }
 
       // Recovered entry whose id is no longer known - treat it as new
-      if (!originalMap[entry.id]) {
+      if (!orders[entry.id]) {
         delete entry.id;
         entry.clientId = guidFn();
 
@@ -753,8 +607,8 @@ var EntryDiff = (function() {
       seen[entry.id] = entry;
     });
 
-    Object.keys(originalMap).forEach(function(id) {
-      var original = originalMap[id];
+    Object.keys(orders).forEach(function(id) {
+      var original = orders[id];
       var entry = seen[original.id];
 
       if (!entry) {
@@ -763,15 +617,9 @@ var EntryDiff = (function() {
         return;
       }
 
-      // One decision per row. A row displaced by an insertion was placed against
-      // its settled neighbours, so that value supersedes anything the reorder
-      // proposed - falling back to the reorder value here left two rows sharing
-      // an order.
       var finalOrder;
 
-      if (Object.prototype.hasOwnProperty.call(placed.updates, entry.id)) {
-        finalOrder = placed.updates[entry.id];
-      } else if (positions && Object.prototype.hasOwnProperty.call(positions, entry.id)) {
+      if (positions && Object.prototype.hasOwnProperty.call(positions, entry.id)) {
         finalOrder = positions[entry.id];
       }
 
@@ -790,19 +638,30 @@ var EntryDiff = (function() {
       updated.push(entry);
     });
 
+    var committed = updated.concat(inserted);
+
+    // Never on its own. The commit endpoint reads an empty `entries` as a full
+    // replace and deletes every row in the data source, so a renumber with
+    // nothing to apply is not a cheap no-op - it is the whole data source. It
+    // has nothing to do anyway: the renumber exists to seat the rows below it.
+    if (!committed.length) {
+      normalizeOrder = null;
+    }
+
     return {
-      entries: updated.concat(inserted),
+      entries: committed,
       delete: deleted,
 
-      // What this save could not persist. Every bounded path here answers a
-      // change it cannot afford by declining it, which is the right trade
-      // against a failed save - but silently, so the user sees the grid accept
-      // a drag and then a reload undo it. The caller says so instead.
+      // Renumber every live entry before applying the payload above. Null on a
+      // data source whose own orders can already hold the arrangement.
+      normalizeOrder: normalizeOrder,
+
+      // What this save could not persist. Declining silently is how a user sees
+      // the grid accept a row and then a reload move it, so the caller says so.
       declined: {
-        reorder: reorder.refused,
         // A sorted grid is not an arrangement, so nothing about a new row's
-        // position can be read off it. Named separately because it is the one
-        // the user can undo themselves, by clearing the sort.
+        // position can be read off it - and unlike everything else here, the
+        // user can undo it themselves by clearing the sort.
         sorted: !viewMatchesStoredOrder,
         rows: placed.unplaced || 0
       }
