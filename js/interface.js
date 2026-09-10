@@ -414,7 +414,7 @@ function navigateToPage(targetPage) {
     fetchCurrentDataSourceEntries();
   }
 
-  if (table.hasChanges()) {
+  if (table && table.hasChanges()) {
     Fliplet.Modal.confirm({
       message: 'You have unsaved changes. Navigating away will discard them. Continue?'
     }).then(function(result) {
@@ -558,12 +558,14 @@ function fetchCurrentDataSourceEntries(entries) {
 
       requestAnimationFrame(function() {
         table.destroy();
+        table = null;
         initialLoad = false;
         renderSpreadsheet(rows, thisFetch);
       });
     } else {
       if (table) {
         table.destroy();
+        table = null;
       }
 
       renderSpreadsheet(rows, thisFetch);
@@ -756,6 +758,10 @@ function getCommitPayload(entries) {
 
 function saveCurrentData() {
   var columns;
+
+  if (!table) {
+    return Promise.resolve();
+  }
 
   table.onSave();
   fetchCurrentDataSourceEntries();
@@ -1428,7 +1434,7 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         table.setChanges(false);
 
         return saveCurrentData();
@@ -1442,7 +1448,10 @@ $('#app')
       }
 
       $('#show-versions').show();
-      table.onSaveComplete();
+
+      if (table) {
+        table.onSaveComplete();
+      }
     }).catch(function(err) {
       if (Fliplet.Error.isHandled(err)) {
         return;
@@ -1453,8 +1462,10 @@ $('#app')
         message: Fliplet.parseError(err)
       });
 
-      table.setChanges(true);
-      table.onSaveError();
+      if (table) {
+        table.setChanges(true);
+        table.onSaveError();
+      }
     });
   })
   .on('click', '[data-page-prev], [data-page-next]', function(event) {
@@ -1855,7 +1866,7 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -1879,10 +1890,12 @@ $('#app')
         hot.render();
       }
 
-      if (table.hasChanges()) {
-        table.onChange();
-      } else {
-        table.reset();
+      if (table) {
+        if (table.hasChanges()) {
+          table.onChange();
+        } else {
+          table.reset();
+        }
       }
 
       $('.back-name-holder').removeClass('hide-date');
