@@ -1,4 +1,4 @@
-/* global Pagination */
+/* global Pagination, WaitUntilSized */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -269,30 +269,16 @@ function renderError(options) {
   });
 }
 
-function waitUntilSized(selector, callback) {
-  var el = document.querySelector(selector);
-
-  function check() {
-    if (!el || !document.contains(el)) {
+function renderSpreadsheet(rowsData, fetchId) {
+  WaitUntilSized.waitUntilSized('.table-entries', function() {
+    // Discard a stale render: a newer fetch (fetchGeneration) started
+    // while this one was waiting for the container to be sized.
+    if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
       return;
     }
 
-    var rect = el.getBoundingClientRect();
-
-    if (rect.width > 0 && rect.height > 0) {
-      callback();
-    } else {
-      requestAnimationFrame(check);
-    }
-  }
-
-  check();
-}
-
-function renderSpreadsheet(rowsData) {
-  waitUntilSized('.table-entries', function() {
     table = spreadsheet({ columns: columns, rows: rowsData });
-    $('.table-entries').css('visibility', 'visible');
+    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
     $('.page-loading-overlay').addClass('hidden');
     $('#versions').removeClass('hidden');
     updatePaginationControls();
@@ -562,6 +548,8 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
+      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
+
       if (table) {
         table.destroy();
       }
@@ -571,14 +559,14 @@ function fetchCurrentDataSourceEntries(entries) {
       requestAnimationFrame(function() {
         table.destroy();
         initialLoad = false;
-        renderSpreadsheet(rows);
+        renderSpreadsheet(rows, thisFetch);
       });
     } else {
       if (table) {
         table.destroy();
       }
 
-      renderSpreadsheet(rows);
+      renderSpreadsheet(rows, thisFetch);
     }
   })
     .catch(function onFetchError(error) {
@@ -936,6 +924,11 @@ function browseDataSource(id) {
     // Something went wrong
     // EG: User try to edit an already deleted data source
     // TODO: Show some error message
+
+      // Ensure .table-entries still gets sized even though the
+      // Promise.all().then() branch that normally does this was skipped -
+      // otherwise any pending waitUntilSized() gate would poll forever.
+      windowResized();
       getDataSources();
     });
 }
