@@ -41,8 +41,8 @@ describe('renderSpreadsheet wiring (regression for the render-race fix)', functi
     var callSites = interfaceSource
       .split('\n')
       .filter(function(line) {
-        return line.indexOf('renderSpreadsheet(') !== -1 &&
-          line.indexOf('function renderSpreadsheet(') === -1;
+        return line.indexOf('renderSpreadsheet(') !== -1
+          && line.indexOf('function renderSpreadsheet(') === -1;
       });
 
     expect(callSites.length).toBeGreaterThanOrEqual(2);
