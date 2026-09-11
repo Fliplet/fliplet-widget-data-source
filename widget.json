@@ -38,6 +38,7 @@
 
       "js/history.js",
       "js/pagination.js",
+      "js/waitUntilSized.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/interface.js",
