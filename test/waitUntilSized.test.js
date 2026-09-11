@@ -1,3 +1,4 @@
+/* eslint-env jest */
 var WaitUntilSized = require('../js/waitUntilSized');
 
 describe('WaitUntilSized.waitUntilSized', function() {
@@ -12,6 +13,7 @@ describe('WaitUntilSized.waitUntilSized', function() {
 
     global.requestAnimationFrame = function(cb) {
       rafCallbacks.push(cb);
+
       return rafCallbacks.length;
     };
   });
@@ -19,6 +21,7 @@ describe('WaitUntilSized.waitUntilSized', function() {
   afterEach(function() {
     global.document = originalDocument;
     global.requestAnimationFrame = originalRAF;
+    jest.restoreAllMocks();
   });
 
   function flushRAF() {
@@ -113,7 +116,5 @@ describe('WaitUntilSized.waitUntilSized', function() {
     flushRAF();
 
     expect(callback).toHaveBeenCalledTimes(1);
-
-    Date.now.mockRestore();
   });
 });

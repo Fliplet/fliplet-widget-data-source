@@ -836,7 +836,10 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ columns: columns, rows: entries });
+
+    if (table) {
+      table.setData({ columns: columns, rows: entries });
+    }
 
     return fetchCurrentDataSourceEntries();
   });
@@ -1333,7 +1336,7 @@ $('#app')
       getDataSources();
     }
 
-    if (table.hasChanges()) {
+    if (table && table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
       }).then(function(result) {
