@@ -1,3 +1,4 @@
+/* global WaitUntilSized */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -261,6 +262,20 @@ function renderError(options) {
   });
 }
 
+function renderSpreadsheet(rowsData, fetchId) {
+  WaitUntilSized.waitUntilSized('.table-entries', function() {
+    // Discard a stale render: a newer fetch (fetchGeneration) started
+    // while this one was waiting for the container to be sized.
+    if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
+      return;
+    }
+
+    table = spreadsheet({ columns: columns, rows: rowsData });
+    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
+    $('#versions').removeClass('hidden');
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -422,30 +437,27 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
+      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
+
       if (table) {
         table.destroy();
       }
 
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         table.destroy();
+        table = null;
         initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-
-        $('#versions').removeClass('hidden');
-      }, 0);
+        renderSpreadsheet(rows, thisFetch);
+      });
     } else {
       if (table) {
         table.destroy();
+        table = null;
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-
-      $('#versions').removeClass('hidden');
+      renderSpreadsheet(rows, thisFetch);
     }
   })
     .catch(function onFetchError(error) {
@@ -679,6 +691,10 @@ function getCommitPayload(entries) {
 function saveCurrentData() {
   var columns;
 
+  if (!table) {
+    return Promise.resolve();
+  }
+
   table.onSave();
   fetchCurrentDataSourceEntries();
 
@@ -752,7 +768,10 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ columns: columns, rows: entries });
+
+    if (table) {
+      table.setData({ columns: columns, rows: entries });
+    }
 
     return fetchCurrentDataSourceEntries();
   });
@@ -846,6 +865,11 @@ function browseDataSource(id) {
     // Something went wrong
     // EG: User try to edit an already deleted data source
     // TODO: Show some error message
+
+      // Ensure .table-entries still gets sized even though the
+      // Promise.all().then() branch that normally does this was skipped -
+      // otherwise any pending waitUntilSized() gate would poll forever.
+      windowResized();
       getDataSources();
     });
 }
@@ -1224,7 +1248,7 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    if (table.hasChanges()) {
+    if (table && table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
       }).then(function(result) {
@@ -1345,7 +1369,7 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         table.setChanges(false);
 
         return saveCurrentData();
@@ -1359,7 +1383,10 @@ $('#app')
       }
 
       $('#show-versions').show();
-      table.onSaveComplete();
+
+      if (table) {
+        table.onSaveComplete();
+      }
     }).catch(function(err) {
       if (Fliplet.Error.isHandled(err)) {
         return;
@@ -1370,8 +1397,10 @@ $('#app')
         message: Fliplet.parseError(err)
       });
 
-      table.setChanges(true);
-      table.onSaveError();
+      if (table) {
+        table.setChanges(true);
+        table.onSaveError();
+      }
     });
   })
   .on('click', '[save-settings]', function() {
@@ -1748,7 +1777,7 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -1772,10 +1801,12 @@ $('#app')
         hot.render();
       }
 
-      if (table.hasChanges()) {
-        table.onChange();
-      } else {
-        table.reset();
+      if (table) {
+        if (table.hasChanges()) {
+          table.onChange();
+        } else {
+          table.reset();
+        }
       }
 
       $('.back-name-holder').removeClass('hide-date');
