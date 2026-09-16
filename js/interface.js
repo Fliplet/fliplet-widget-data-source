@@ -59,6 +59,11 @@ var currentPage = 0;
 var totalEntries = 0;
 var totalPages = 0;
 var fetchGeneration = 0;
+// The page whose entries are actually rendered in the grid right now. Distinct
+// from currentPage, which is updated optimistically before a page fetch even
+// starts — on a failed fetch we roll currentPage back to this so pagination
+// controls (and the next navigation request) stay aligned with what's on screen.
+var lastRenderedPage = 0;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -500,6 +505,11 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    // Reached only for a genuinely successful, non-stale fetch — record the
+    // page these entries belong to so a later failed navigation can roll
+    // currentPage back to what's actually on screen.
+    lastRenderedPage = currentPage;
+
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
@@ -543,7 +553,9 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = _.uniq(_.concat(columns, computedColumns));
     }
 
-    currentDataSourceRowsCount = rows.length;
+    // rows is only the current page (PAGE_SIZE at most) since pagination — totalEntries
+    // is the true data-source-wide count and is what the Versions tab should reflect.
+    currentDataSourceRowsCount = totalEntries;
     currentDataSourceColumnsCount = columns.length;
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
@@ -591,6 +603,13 @@ function fetchCurrentDataSourceEntries(entries) {
 
       $('.entries-message').html('<br>' + message);
       $('.page-loading-overlay').addClass('hidden');
+
+      // A failed page navigation leaves currentPage pointing at the page that
+      // never rendered, and the pagination controls disabled from goToPage().
+      // Roll back to the page that's actually on screen and recompute control
+      // state from it, so Prev/Next/jump stay usable and correctly targeted.
+      currentPage = lastRenderedPage;
+      updatePaginationControls();
     });
 }
 
@@ -770,6 +789,10 @@ function saveCurrentData() {
     parseJSON: true,
     removeEmptyRows: true
   });
+
+  // See Pagination.applyPageOrderOffset (PS-20272) — getData() has no notion
+  // of pagination and always assigns order starting from 0 for the current page.
+  Pagination.applyPageOrderOffset(entries, currentPage, PAGE_SIZE);
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -1319,6 +1342,7 @@ $('#app')
     function resetAndGoBack() {
       // Reset pagination and connection state when leaving a data source
       currentPage = 0;
+      lastRenderedPage = 0;
       totalEntries = 0;
       totalPages = 0;
       currentDataSource = null;

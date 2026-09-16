@@ -103,9 +103,46 @@ var Pagination = (function() {
     };
   }
 
+  /**
+   * Convert page-local order indexes into their true position in the data
+   * source's global order space.
+   *
+   * The grid (spreadsheet.js getData()) assigns entry.order from a row's
+   * visual position within whatever page is currently loaded — it has no
+   * notion of pagination, so it always starts counting from 0. Saving page
+   * 2+ as-is collides with page 1's 0..pageSize-1 order range and corrupts
+   * the data source's row order (PS-20272). This offsets order by the page's
+   * start index so it lands in the correct global range instead.
+   *
+   * Reordering within a page (drag-to-reorder) still produces a correct,
+   * contiguous order range for that page once offset — pages can't be
+   * cross-dragged since only one page of rows is ever loaded in the grid.
+   *
+   * @param {Array} entries - Entries with a page-local `order` field (mutated in place)
+   * @param {Number} currentPage - 0-based current page index
+   * @param {Number} pageSize - Entries per page
+   * @returns {Array} The same `entries` array, for convenience
+   */
+  function applyPageOrderOffset(entries, currentPage, pageSize) {
+    var offset = currentPage * pageSize;
+
+    if (!offset || !entries) {
+      return entries;
+    }
+
+    entries.forEach(function(entry) {
+      if (typeof entry.order === 'number') {
+        entry.order += offset;
+      }
+    });
+
+    return entries;
+  }
+
   return {
     computePageInfo: computePageInfo,
-    computeCommitPayload: computeCommitPayload
+    computeCommitPayload: computeCommitPayload,
+    applyPageOrderOffset: applyPageOrderOffset
   };
 })();
 
