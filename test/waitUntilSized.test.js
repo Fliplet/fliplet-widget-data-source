@@ -117,4 +117,58 @@ describe('WaitUntilSized.waitUntilSized', function() {
 
     expect(callback).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps polling instead of going silent when the element has never existed, and falls open at the deadline', function() {
+    var callback = jest.fn();
+    var now = 1000;
+
+    // querySelector never finds anything - the case a one-time lookup at call
+    // time would have missed entirely.
+    global.document = makeDocument(null);
+    jest.spyOn(Date, 'now').mockImplementation(function() {
+      return now;
+    });
+
+    WaitUntilSized.waitUntilSized('.table-entries', callback, 50);
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(rafCallbacks.length).toBe(1);
+
+    flushRAF();
+    expect(callback).not.toHaveBeenCalled();
+    expect(rafCallbacks.length).toBe(1);
+
+    now += 60;
+    flushRAF();
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('finds the element once it appears in the DOM, having been absent at call time', function() {
+    var callback = jest.fn();
+    var el = null;
+    var doc = {
+      querySelector: function() {
+        return el;
+      },
+      contains: function(node) {
+        return node === el;
+      }
+    };
+
+    global.document = doc;
+
+    WaitUntilSized.waitUntilSized('.table-entries', callback);
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(rafCallbacks.length).toBe(1);
+
+    flushRAF();
+    expect(callback).not.toHaveBeenCalled();
+
+    el = { getBoundingClientRect: function() { return { width: 100, height: 50 }; } };
+    flushRAF();
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });

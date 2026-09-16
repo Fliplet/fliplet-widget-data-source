@@ -62,4 +62,32 @@ describe('renderSpreadsheet wiring (regression for the render-race fix)', functi
     expect(interfaceIndex).toBeGreaterThan(-1);
     expect(waitUntilSizedIndex).toBeLessThan(interfaceIndex);
   });
+
+  // Regression check: fetchGeneration/thisFetch are read at four call sites
+  // (renderSpreadsheet's fetchId check, and the two renderSpreadsheet(rows,
+  // thisFetch) calls) but were never declared on a branch built without
+  // pagination, which is where fetchGeneration originally lived. Reading an
+  // undeclared identifier throws uncaught inside the requestAnimationFrame
+  // callback, so the grid never renders - this is a plain source-text check
+  // (not a running function) precisely because that failure mode is a
+  // ReferenceError, not a wrong return value.
+  it('declares fetchGeneration and thisFetch rather than leaving them as bare reads', function() {
+    expect(interfaceSource.indexOf('var fetchGeneration')).toBeGreaterThan(-1);
+    expect(interfaceSource.indexOf('var thisFetch = ++fetchGeneration;')).toBeGreaterThan(-1);
+  });
+
+  it('passes thisFetch to renderSpreadsheet from both render branches', function() {
+    var callSites = interfaceSource
+      .split('\n')
+      .filter(function(line) {
+        return line.indexOf('renderSpreadsheet(') !== -1
+          && line.indexOf('function renderSpreadsheet(') === -1;
+      });
+
+    expect(callSites.length).toBeGreaterThanOrEqual(2);
+
+    callSites.forEach(function(line) {
+      expect(line.indexOf('renderSpreadsheet(rows, thisFetch)')).toBeGreaterThan(-1);
+    });
+  });
 });
