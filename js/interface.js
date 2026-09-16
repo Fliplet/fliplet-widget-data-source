@@ -2543,8 +2543,8 @@ $('#show-access-rules').click(function() {
 
           return '-';
         })(),
-        apps: rule.appId ?
-          _.compact(rule.appId.map(function(appId) {
+        apps: rule.appId
+          ? _.compact(rule.appId.map(function(appId) {
             var app = _.find(apps, {
               id: appId
             });

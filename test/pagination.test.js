@@ -1,3 +1,4 @@
+/* eslint-env jest */
 var Pagination = require('../js/pagination');
 
 describe('Pagination.computePageInfo', function() {
