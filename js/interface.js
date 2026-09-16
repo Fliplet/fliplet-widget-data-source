@@ -1,3 +1,4 @@
+/* global WaitUntilSized */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -51,6 +52,11 @@ var selectedTokenName;
 var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
+
+// Bumped on every fetchCurrentDataSourceEntries() call so an in-flight request
+// can tell it has been superseded and discard its own (now stale) response
+// instead of racing a newer fetch to render the grid.
+var fetchGeneration = 0;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -261,6 +267,20 @@ function renderError(options) {
   });
 }
 
+function renderSpreadsheet(rowsData, fetchId) {
+  WaitUntilSized.waitUntilSized('.table-entries', function() {
+    // Discard a stale render: a newer fetch (fetchGeneration) started
+    // while this one was waiting for the container to be sized.
+    if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
+      return;
+    }
+
+    table = spreadsheet({ columns: columns, rows: rowsData });
+    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
+    $('#versions').removeClass('hidden');
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -351,12 +371,19 @@ function startLiveDataTimer() {
 }
 
 function fetchCurrentDataSourceEntries(entries) {
+  var thisFetch = ++fetchGeneration;
+
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+      // Discard stale response if a newer fetch was started
+      if (thisFetch !== fetchGeneration) {
+        return Promise.reject({ stale: true });
+      }
+
       var sourceName = dataSource.name;
 
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
@@ -369,7 +396,18 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      return source.find({}).catch(function() {
+      return source.find({}).then(function(foundRows) {
+        // Discard stale response if a newer fetch was started
+        if (thisFetch !== fetchGeneration) {
+          return Promise.reject({ stale: true });
+        }
+
+        return foundRows;
+      }).catch(function(err) {
+        if (err && err.stale) {
+          return Promise.reject(err);
+        }
+
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
@@ -422,33 +460,42 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
+      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
+
       if (table) {
         table.destroy();
       }
 
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         table.destroy();
+        // `table` stays null until the render's WaitUntilSized gate below
+        // resolves (up to WaitUntilSized.DEFAULT_TIMEOUT). Every `table &&
+        // table.hasChanges()` guard reads this as "no changes" during that
+        // window, so an unsaved-changes confirm is skipped rather than
+        // deferred. Low exposure in practice - there is nothing to have
+        // unsaved changes on right after a fresh fetch - but not zero.
+        table = null;
         initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-
-        $('#versions').removeClass('hidden');
-      }, 0);
+        renderSpreadsheet(rows, thisFetch);
+      });
     } else {
       if (table) {
         table.destroy();
+        // See the initialLoad branch above - same gated-render window.
+        table = null;
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-
-      $('#versions').removeClass('hidden');
+      renderSpreadsheet(rows, thisFetch);
     }
   })
     .catch(function onFetchError(error) {
+      // Silently ignore stale fetch responses (superseded by a newer navigation)
+      if (error && error.stale) {
+        return;
+      }
+
       var message = error;
 
       if (error instanceof Error) {
@@ -679,6 +726,15 @@ function getCommitPayload(entries) {
 function saveCurrentData() {
   var columns;
 
+  if (!table) {
+    // table is briefly null while a render is gated on WaitUntilSized; there is
+    // nothing to save yet, but the refetch still runs so the caller sees the
+    // same side effect it would on the non-null path.
+    fetchCurrentDataSourceEntries();
+
+    return Promise.resolve();
+  }
+
   table.onSave();
   fetchCurrentDataSourceEntries();
 
@@ -752,7 +808,10 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap);
-    table.setData({ columns: columns, rows: entries });
+
+    if (table) {
+      table.setData({ columns: columns, rows: entries });
+    }
 
     return fetchCurrentDataSourceEntries();
   });
@@ -843,9 +902,14 @@ function browseDataSource(id) {
     }
   })
     .catch(function() {
-    // Something went wrong
-    // EG: User try to edit an already deleted data source
-    // TODO: Show some error message
+      // Something went wrong
+      // EG: User try to edit an already deleted data source
+      // TODO: Show some error message
+
+      // Ensure .table-entries still gets sized even though the
+      // Promise.all().then() branch that normally does this was skipped -
+      // otherwise any pending waitUntilSized() gate would poll forever.
+      windowResized();
       getDataSources();
     });
 }
@@ -1224,7 +1288,7 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    if (table.hasChanges()) {
+    if (table && table.hasChanges()) {
       Fliplet.Modal.confirm({
         message: 'Are you sure? Changes that you made may not be saved.'
       }).then(function(result) {
@@ -1345,7 +1409,7 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         table.setChanges(false);
 
         return saveCurrentData();
@@ -1359,7 +1423,10 @@ $('#app')
       }
 
       $('#show-versions').show();
-      table.onSaveComplete();
+
+      if (table) {
+        table.onSaveComplete();
+      }
     }).catch(function(err) {
       if (Fliplet.Error.isHandled(err)) {
         return;
@@ -1370,8 +1437,10 @@ $('#app')
         message: Fliplet.parseError(err)
       });
 
-      table.setChanges(true);
-      table.onSaveError();
+      if (table) {
+        table.setChanges(true);
+        table.onSaveError();
+      }
     });
   })
   .on('click', '[save-settings]', function() {
@@ -1748,7 +1817,7 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -1772,10 +1841,12 @@ $('#app')
         hot.render();
       }
 
-      if (table.hasChanges()) {
-        table.onChange();
-      } else {
-        table.reset();
+      if (table) {
+        if (table.hasChanges()) {
+          table.onChange();
+        } else {
+          table.reset();
+        }
       }
 
       $('.back-name-holder').removeClass('hide-date');
