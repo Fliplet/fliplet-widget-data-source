@@ -479,7 +479,11 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
 
     // And every value is pairwise distinct — no tie left to break.
     var orders = entries.map(function(e) { return e.order; });
-    expect(new Set(orders).size).toBe(orders.length);
+    var uniqueOrders = orders.filter(function(value, index) {
+      return orders.indexOf(value) === index;
+    });
+
+    expect(uniqueOrders.length).toBe(orders.length);
   });
 
   it('FOLLOW-UP FIX: a genuine reorder on an all-NULL page actually persists (was: silently discarded as "unchanged")', function() {
