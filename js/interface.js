@@ -610,16 +610,15 @@ function fetchCurrentDataSourceEntries(entries) {
       $('.entries-message').html('<br>' + message);
       $('.page-loading-overlay').addClass('hidden');
 
-      // stale is always false here — the guard above already returned for it —
-      // but the decision goes through the same shared function either way so
-      // there's one tested source of truth for it, not two.
-      var recovery = Pagination.resolveFetchErrorRecovery(false, lastRenderedPage);
+      // A stale error never reaches here — the guard at the top of onFetchError
+      // already returned for it — so there is no staleness left to decide on.
+      // The rollback itself still goes through the shared function so there's
+      // one tested source of truth for it.
+      var recovery = Pagination.resolveFetchErrorRecovery(lastRenderedPage);
 
-      if (recovery.shouldRecover) {
-        currentPage = recovery.currentPage;
-        lastRenderedPage = recovery.lastRenderedPage;
-        updatePaginationControls();
-      }
+      currentPage = recovery.currentPage;
+      lastRenderedPage = recovery.lastRenderedPage;
+      updatePaginationControls();
     });
 }
 
@@ -805,13 +804,28 @@ function saveCurrentData() {
   });
 
   // See Pagination.resolveEntryOrder (PS-2072) — getData() has no notion of
-  // pagination or of this data source's real order values, and always
-  // assigns order from plain visual rank. didReorder is the real signal for
-  // whether the user actually dragged a row this save (not inferred from
-  // comparing order values, which is blind where those values tie — see the
-  // function's own doc comment). Without a real reorder, every row keeps its
-  // true order untouched, whatever shape it has.
-  Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder);
+  // pagination or of this data source's real order values, and always assigns
+  // order from plain visual rank. didReorder is the real signal for whether the
+  // user actually dragged a row this save (not inferred from comparing order
+  // values, which is blind where those values tie). Without a real reorder
+  // every row keeps its true order untouched, whatever shape it has; with one,
+  // the new arrangement is written using orders this page already occupied, so
+  // the page can't move relative to pages the user never touched. Rank is never
+  // used as an order on a paginated page — that's what the function exists to
+  // prevent. See its doc comment for the full decision.
+  var orderResult = Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder);
+
+  if (orderResult.refused) {
+    // The rows on this page hold no positions a new arrangement can be written
+    // into (see resolveEntryOrder's doc comment), so the drag is dropped rather
+    // than applied in a way that would move rows the user never touched on
+    // other pages. Everything else in this save still commits, and the refetch
+    // below puts the grid back to the stored arrangement.
+    Fliplet.Modal.alert({
+      title: 'Row order not saved',
+      message: 'These rows don\'t have saved positions yet, so their new order couldn\'t be saved. Any other changes you made were saved, and the rows have been put back where they were.'
+    });
+  }
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -881,9 +895,13 @@ function saveCurrentData() {
 
     if (table) {
       table.setData({ columns: columns, rows: entries });
-      // Only clear this once the reorder it reflects has actually been
-      // committed — a failed commit must leave it set so a retry still
-      // knows a real reorder happened.
+      // rowsMoved lives on the spreadsheet instance, and the refetch this save
+      // already started replaces that instance with a fresh one (rowsMoved
+      // false) as soon as it renders. So this is housekeeping for the case
+      // where `table` is still the instance that was saved — not a fail-safe
+      // carrying a reorder into a retry, which the per-instance flag could
+      // never do. Nothing needs it to: a failed commit leaves the refetch to
+      // put the grid back to server state, so no pending reorder survives.
       table.clearRowsMoved();
     }
 

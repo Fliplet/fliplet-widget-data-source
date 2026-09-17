@@ -267,13 +267,15 @@ describe('Pagination.resolveEntryOrder — unit', function() {
     expect(entries[0].order).toBe(5000);
   });
 
-  it('with a real reorder signal, gives every known row a fresh rank+offset value instead', function() {
+  it('with a real reorder signal, replays the page\'s own stored orders instead of inventing rank+offset values', function() {
     var originals = { 1: { id: 1, order: 5000 } };
     var entries = [{ id: 1, order: 0 }];
 
     Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
 
-    expect(entries[0].order).toBe(500); // rank 0 + page offset 500, not the preserved 5000
+    // 5000 is a value this page already occupied. Writing rank+offset (500)
+    // here is what moved the whole page within the data source.
+    expect(entries[0].order).toBe(5000);
   });
 
   it('a brand-new row gets the same rank+offset value whether or not a reorder happened', function() {
@@ -287,19 +289,21 @@ describe('Pagination.resolveEntryOrder — unit', function() {
     expect(entriesReorder[0].order).toBe(1000);
   });
 
-  it('mutates entries in place and also returns them', function() {
+  it('mutates entries in place and reports the decision it made', function() {
     var originals = { 1: { id: 1, order: 5 } };
     var entries = [{ id: 1, order: 0 }];
     var result = Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE, false);
 
-    expect(result).toBe(entries);
+    expect(result.entries).toBe(entries);
+    expect(result.reordered).toBe(false);
+    expect(result.refused).toBe(false);
     expect(entries[0].order).toBe(5);
   });
 
   it('handles null/empty entries and a missing originalMap gracefully', function() {
-    expect(Pagination.resolveEntryOrder([], {}, 1, PAGE_SIZE, false)).toEqual([]);
-    expect(Pagination.resolveEntryOrder(null, {}, 1, PAGE_SIZE, false)).toEqual([]);
-    expect(Pagination.resolveEntryOrder([{ data: {}, order: 0 }], undefined, 1, PAGE_SIZE, false)[0].order).toBe(500);
+    expect(Pagination.resolveEntryOrder([], {}, 1, PAGE_SIZE, false).entries).toEqual([]);
+    expect(Pagination.resolveEntryOrder(null, {}, 1, PAGE_SIZE, false).entries).toEqual([]);
+    expect(Pagination.resolveEntryOrder([{ data: {}, order: 0 }], undefined, 1, PAGE_SIZE, false).entries[0].order).toBe(500);
   });
 });
 
@@ -486,7 +490,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     expect(uniqueOrders.length).toBe(orders.length);
   });
 
-  it('FOLLOW-UP FIX: a genuine reorder on an all-NULL page actually persists (was: silently discarded as "unchanged")', function() {
+  it('FOLLOW-UP FIX: a genuine reorder on an all-NULL first page actually persists (was: silently discarded as "unchanged")', function() {
     var originals = {
       1: { id: 1, data: { name: 'A' }, order: null },
       2: { id: 2, data: { name: 'B' }, order: null },
@@ -498,12 +502,16 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       { id: 2, data: { name: 'B' }, order: 2 }
     ];
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+    var result = Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE, true);
+
+    expect(result.refused).toBe(false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     // All three now carry a real order and are correctly flagged as updated —
-    // the drag reaches the commit payload instead of vanishing.
+    // the drag reaches the commit payload instead of vanishing. Safe on page 0
+    // specifically: NULLs sort last, so an all-NULL first page means no numeric
+    // order exists anywhere in the data source and nothing can sort before it.
     expect(payload.entries).toHaveLength(3);
     payload.entries.forEach(function(entry) {
       expect(typeof entry.order).toBe('number');
@@ -514,6 +522,63 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     });
 
     expect(reloaded.map(function(e) { return e.id; })).toEqual([3, 1, 2]);
+  });
+
+  it('a genuine reorder on an all-NULL page past the first is refused, not approximated', function() {
+    // The honest limit of this fix. An all-NULL page that isn't the first has
+    // no stored positions to write a new arrangement into, and no value the
+    // widget can invent from one page of cached originals is safe: numbering it
+    // would jump the whole page ahead of every other still-NULL page. So the
+    // drag is refused and reported, and nothing moves. Ordering a data source
+    // in this shape needs the API-side normalisation in #277.
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: null },
+      2: { id: 2, data: { name: 'B' }, order: null },
+      3: { id: 3, data: { name: 'C' }, order: null }
+    };
+    var entries = [
+      { id: 3, data: { name: 'C' }, order: 0 },
+      { id: 1, data: { name: 'A' }, order: 1 },
+      { id: 2, data: { name: 'B' }, order: 2 }
+    ];
+
+    var result = Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+    expect(result.refused).toBe(true);
+    expect(result.reordered).toBe(false);
+
+    // Every row is back on its stored order, so nothing reaches the payload and
+    // no row on any other page moves relative to this one.
+    entries.forEach(function(entry) {
+      expect(entry.order).toBe(null);
+    });
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('a refusal still commits the edits made in the same save — only the new order is dropped', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: null },
+      2: { id: 2, data: { name: 'B' }, order: null },
+      3: { id: 3, data: { name: 'C' }, order: null }
+    };
+    var entries = [
+      { id: 3, data: { name: 'C EDITED' }, order: 0 },
+      { id: 1, data: { name: 'A' }, order: 1 },
+      { id: 2, data: { name: 'B' }, order: 2 }
+    ];
+
+    var result = Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+    expect(result.refused).toBe(true);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].id).toBe(3);
+    expect(payload.entries[0].data.name).toBe('C EDITED');
   });
 
   it('without didReorder, a tied/NULL page stays exactly as it was (no false-positive renumbering)', function() {
@@ -537,24 +602,244 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
 });
 
 describe('Pagination.resolveFetchErrorRecovery', function() {
-  it('does not recover on a stale error — a newer fetch already owns the state', function() {
-    var result = Pagination.resolveFetchErrorRecovery(true, 3);
-
-    expect(result.shouldRecover).toBe(false);
-  });
+  // Stale errors never reach this function: onFetchError returns for them
+  // before any recovery, so there is no staleness left for it to decide on.
 
   it('rolls back to the page actually on screen on a real failure', function() {
-    var result = Pagination.resolveFetchErrorRecovery(false, 2);
+    var result = Pagination.resolveFetchErrorRecovery(2);
 
-    expect(result.shouldRecover).toBe(true);
     expect(result.currentPage).toBe(2);
     expect(result.lastRenderedPage).toBe(2);
   });
 
   it('is a no-op rollback when the page that failed is the page already on screen', function() {
     // e.g. a save-triggered refetch of the current page that fails
-    var result = Pagination.resolveFetchErrorRecovery(false, 0);
+    var result = Pagination.resolveFetchErrorRecovery(0);
 
     expect(result.currentPage).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The gap every other reorder test above falls through: each one re-sorts only
+// the entries of the page under test, which proves the page round-trips
+// internally — and it does. What that can never see is a page that keeps its
+// internal sequence while moving as a block relative to pages nobody touched,
+// which is exactly how `rank + pageOffset` corrupted a data source whose stored
+// orders weren't dense and page-aligned. So these fixtures build a whole
+// two-page data source, commit a drag on the second page only, and sort all
+// 1000 rows together.
+// ---------------------------------------------------------------------------
+describe('Pagination.resolveEntryOrder — a reorder keeps the page in its global slot', function() {
+  var PAGE_SIZE = 500;
+  var TOTAL_ROWS = 1000;
+
+  // How the API reloads a data source: ORDER BY "order" ASC, "id" ASC, with
+  // Postgres sorting NULL last.
+  function reload(rows) {
+    return rows.slice().sort(function(a, b) {
+      var aNull = a.order === null || typeof a.order === 'undefined';
+      var bNull = b.order === null || typeof b.order === 'undefined';
+
+      if (aNull && bNull) {
+        return a.id - b.id;
+      }
+
+      if (aNull !== bNull) {
+        return aNull ? 1 : -1;
+      }
+
+      return (a.order - b.order) || (a.id - b.id);
+    });
+  }
+
+  function ids(rows) {
+    return rows.map(function(row) {
+      return row.id;
+    });
+  }
+
+  // Build a 1000-row data source in a given stored-order shape, drag the last
+  // row of page 2 to the top of page 2, commit, and reload the whole thing.
+  function dragWithinSecondPage(orderFor) {
+    var rows = [];
+    var i;
+
+    for (i = 0; i < TOTAL_ROWS; i++) {
+      rows.push({ id: i + 1, order: orderFor(i) });
+    }
+
+    var before = reload(rows);
+    var page = before.slice(PAGE_SIZE, TOTAL_ROWS);
+    var originals = {};
+
+    page.forEach(function(row) {
+      originals[row.id] = { id: row.id, order: row.order };
+    });
+
+    var visual = page.slice();
+
+    visual.unshift(visual.pop());
+
+    var entries = visual.map(function(row) {
+      return { id: row.id };
+    });
+
+    var result = Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+    var committed = {};
+
+    entries.forEach(function(entry) {
+      committed[entry.id] = entry.order;
+    });
+
+    // Only this page was saved. Every other row keeps whatever it had stored.
+    var after = reload(before.map(function(row) {
+      return {
+        id: row.id,
+        order: Object.prototype.hasOwnProperty.call(committed, row.id)
+          ? committed[row.id]
+          : row.order
+      };
+    }));
+
+    var afterIds = ids(after);
+
+    return {
+      result: result,
+      before: before,
+      after: after,
+      draggedId: entries[0].id,
+      positions: entries.map(function(entry) {
+        return afterIds.indexOf(entry.id);
+      })
+    };
+  }
+
+  function expectSlotKept(run) {
+    // The saved page still occupies global positions 500..999 — it did not
+    // move relative to page 1, which nobody touched.
+    expect(Math.min.apply(null, run.positions)).toBe(PAGE_SIZE);
+    expect(Math.max.apply(null, run.positions)).toBe(TOTAL_ROWS - 1);
+
+    // And page 1 came back completely unchanged.
+    expect(ids(run.after).slice(0, PAGE_SIZE)).toEqual(ids(run.before).slice(0, PAGE_SIZE));
+  }
+
+  it('dense 0..999: the drag persists and page 2 stays at global 500..999', function() {
+    var run = dragWithinSecondPage(function(i) {
+      return i;
+    });
+
+    expect(run.result.refused).toBe(false);
+    expectSlotKept(run);
+    expect(run.after[PAGE_SIZE].id).toBe(run.draggedId);
+  });
+
+  it('dense 1..1000: the drag persists and page 2 stays at global 500..999', function() {
+    var run = dragWithinSecondPage(function(i) {
+      return i + 1;
+    });
+
+    expect(run.result.refused).toBe(false);
+    expectSlotKept(run);
+    expect(run.after[PAGE_SIZE].id).toBe(run.draggedId);
+  });
+
+  it('sparse, gap=10 from 5000 (what #277 produces): the drag persists, spacing survives, page 2 stays at global 500..999', function() {
+    var run = dragWithinSecondPage(function(i) {
+      return 5000 + (i * 10);
+    });
+
+    expect(run.result.refused).toBe(false);
+    expectSlotKept(run);
+    expect(run.after[PAGE_SIZE].id).toBe(run.draggedId);
+
+    // The page's own stored values were replayed, not replaced: the set of
+    // orders in the data source is exactly what it was.
+    expect(ids(run.after).length).toBe(TOTAL_ROWS);
+    expect(run.after.map(function(row) {
+      return row.order;
+    }).sort(function(a, b) {
+      return a - b;
+    })).toEqual(run.before.map(function(row) {
+      return row.order;
+    }).sort(function(a, b) {
+      return a - b;
+    }));
+  });
+
+  it('every order duplicated: the drag persists and page 2 stays at global 500..999', function() {
+    var run = dragWithinSecondPage(function(i) {
+      return 5000 + (Math.floor(i / 2) * 10);
+    });
+
+    expect(run.result.refused).toBe(false);
+    expectSlotKept(run);
+  });
+
+  it('numeric prefix then NULLs: the drag persists and page 2 stays at global 500..999', function() {
+    var run = dragWithinSecondPage(function(i) {
+      return i < 600 ? i * 10 : null;
+    });
+
+    expect(run.result.refused).toBe(false);
+    expectSlotKept(run);
+  });
+
+  it('all NULL (SSO / public insert): the drag is refused and the data source is left exactly as it was', function() {
+    var run = dragWithinSecondPage(function() {
+      return null;
+    });
+
+    expect(run.result.refused).toBe(true);
+    expectSlotKept(run);
+
+    // Nothing moved anywhere — not the saved page, not any other page.
+    expect(ids(run.after)).toEqual(ids(run.before));
+  });
+
+  it('an adjacent swap on a dense or sparse page commits only the two rows that moved', function() {
+    [
+      function(i) {
+        return i;
+      },
+      function(i) {
+        return 5000 + (i * 10);
+      }
+    ].forEach(function(orderFor) {
+      var rows = [];
+      var i;
+
+      for (i = 0; i < TOTAL_ROWS; i++) {
+        rows.push({ id: i + 1, order: orderFor(i) });
+      }
+
+      var page = reload(rows).slice(PAGE_SIZE, TOTAL_ROWS);
+      var originals = {};
+
+      page.forEach(function(row) {
+        originals[row.id] = { id: row.id, order: row.order };
+      });
+
+      var visual = page.slice();
+      var swapped = visual[10];
+
+      visual[10] = visual[11];
+      visual[11] = swapped;
+
+      var entries = visual.map(function(row) {
+        return { id: row.id };
+      });
+
+      Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+      var changed = entries.filter(function(entry) {
+        return entry.order !== originals[entry.id].order;
+      });
+
+      // Replaying the page's own values means a one-row drag costs two writes,
+      // not 500 — the payload-size problem #276/#277 exist to solve.
+      expect(changed).toHaveLength(2);
+    });
   });
 });

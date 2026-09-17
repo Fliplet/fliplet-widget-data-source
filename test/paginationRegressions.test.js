@@ -206,11 +206,11 @@ describe('onFetchError wiring (PS-2072)', function() {
   it('no longer contains the old unconditional rollback (superseded by the tested pure function)', function() {
     var body = extractOnFetchErrorBody(interfaceSource);
 
-    // The old fix wrote `currentPage = lastRenderedPage;` directly and
-    // unconditionally. It's now gated behind `recovery.shouldRecover` and
+    // The old fix wrote `currentPage = lastRenderedPage;` directly. It's now
     // sourced from the tested Pagination.resolveFetchErrorRecovery result.
     expect(body.indexOf('currentPage = lastRenderedPage;')).toBe(-1);
-    expect(body.indexOf('recovery.shouldRecover')).toBeGreaterThan(-1);
+    expect(body.indexOf('currentPage = recovery.currentPage;')).toBeGreaterThan(-1);
+    expect(body.indexOf('lastRenderedPage = recovery.lastRenderedPage;')).toBeGreaterThan(-1);
   });
 });
 
