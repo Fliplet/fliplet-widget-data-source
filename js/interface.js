@@ -795,6 +795,10 @@ function saveCurrentData() {
   table.onSave();
   fetchCurrentDataSourceEntries();
 
+  // Captured before getData() reads the grid, but nothing async happens
+  // between here and resolveEntryOrder() using it, so the value can't change.
+  var didReorder = table.hasRowsMoved();
+
   var entries = table.getData({
     parseJSON: true,
     removeEmptyRows: true
@@ -802,10 +806,12 @@ function saveCurrentData() {
 
   // See Pagination.resolveEntryOrder (PS-2072) — getData() has no notion of
   // pagination or of this data source's real order values, and always
-  // assigns order from plain visual rank. This restores each untouched row's
-  // true order (whatever shape it has) and only computes new values for rows
-  // that actually moved, using this page's own existing order values.
-  Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE);
+  // assigns order from plain visual rank. didReorder is the real signal for
+  // whether the user actually dragged a row this save (not inferred from
+  // comparing order values, which is blind where those values tie — see the
+  // function's own doc comment). Without a real reorder, every row keeps its
+  // true order untouched, whatever shape it has.
+  Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder);
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -875,6 +881,10 @@ function saveCurrentData() {
 
     if (table) {
       table.setData({ columns: columns, rows: entries });
+      // Only clear this once the reorder it reflects has actually been
+      // committed — a failed commit must leave it set so a retry still
+      // knows a real reorder happened.
+      table.clearRowsMoved();
     }
 
     return fetchCurrentDataSourceEntries();

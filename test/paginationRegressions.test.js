@@ -76,14 +76,17 @@ function extractOnFetchErrorBody(source) {
 }
 
 describe('saveCurrentData wiring (PS-2072)', function() {
-  it('resolves entry order (against the real originalMap) before building the commit payload', function() {
+  it('captures the real Handsontable reorder signal before getData() and passes it to resolveEntryOrder', function() {
     var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
 
-    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE)');
+    var captureIndex = body.indexOf('table.hasRowsMoved()');
+    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder)');
     var commitPayloadIndex = body.indexOf('getCommitPayload(entries)');
 
+    expect(captureIndex).toBeGreaterThan(-1);
     expect(resolveCallIndex).toBeGreaterThan(-1);
     expect(commitPayloadIndex).toBeGreaterThan(-1);
+    expect(captureIndex).toBeLessThan(resolveCallIndex);
     // Order matters: order must be resolved before the commit payload is
     // computed from entries, otherwise the fix is a no-op.
     expect(resolveCallIndex).toBeLessThan(commitPayloadIndex);
@@ -100,8 +103,43 @@ describe('saveCurrentData wiring (PS-2072)', function() {
     expect(resolveCallIndex).toBeLessThan(commitCallIndex);
   });
 
+  it('clears the reorder signal only after a successful commit, not before', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var commitCallIndex = body.indexOf('currentDataSource.commit(');
+    var clearIndex = body.indexOf('table.clearRowsMoved()');
+
+    expect(commitCallIndex).toBeGreaterThan(-1);
+    expect(clearIndex).toBeGreaterThan(-1);
+    // Must be inside the commit's success handler, not before commit() is
+    // even called — a failed save must leave the signal set for a retry.
+    expect(clearIndex).toBeGreaterThan(commitCallIndex);
+  });
+
   it('no longer calls the old, unsafe rank-only offset function', function() {
     expect(interfaceSource.indexOf('applyPageOrderOffset')).toBe(-1);
+  });
+});
+
+describe('spreadsheet.js — real reorder signal wiring (PS-2072 follow-up)', function() {
+  var spreadsheetSource = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
+
+  it('sets rowsMoved from the real Handsontable afterRowMove hook, not inferred from values', function() {
+    var afterRowMoveIndex = spreadsheetSource.indexOf('afterRowMove: function()');
+    var setIndex = spreadsheetSource.indexOf('rowsMoved = true;');
+
+    expect(afterRowMoveIndex).toBeGreaterThan(-1);
+    expect(setIndex).toBeGreaterThan(-1);
+    expect(setIndex).toBeGreaterThan(afterRowMoveIndex);
+  });
+
+  it('exposes hasRowsMoved/clearRowsMoved and clears the flag on reset', function() {
+    expect(spreadsheetSource.indexOf('hasRowsMoved: hasRowsMoved')).toBeGreaterThan(-1);
+    expect(spreadsheetSource.indexOf('clearRowsMoved: clearRowsMoved')).toBeGreaterThan(-1);
+
+    var resetBody = extractFunctionBody(spreadsheetSource.slice(spreadsheetSource.indexOf('function reset(')), 'reset');
+
+    expect(resetBody.indexOf('clearRowsMoved()')).toBeGreaterThan(-1);
   });
 });
 

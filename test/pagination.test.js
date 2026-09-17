@@ -247,62 +247,59 @@ describe('Pagination.computeCommitPayload', function() {
   });
 });
 
-describe('Pagination.compareOrderNullsLast', function() {
-  it('sorts ascending for two numbers', function() {
-    expect(Pagination.compareOrderNullsLast(1, 2)).toBeLessThan(0);
-    expect(Pagination.compareOrderNullsLast(2, 1)).toBeGreaterThan(0);
-    expect(Pagination.compareOrderNullsLast(5, 5)).toBe(0);
-  });
-
-  it('sorts null after every number, matching Postgres ORDER BY ... ASC', function() {
-    expect(Pagination.compareOrderNullsLast(null, 5)).toBeGreaterThan(0);
-    expect(Pagination.compareOrderNullsLast(5, null)).toBeLessThan(0);
-  });
-
-  it('treats undefined the same as null', function() {
-    expect(Pagination.compareOrderNullsLast(undefined, 5)).toBeGreaterThan(0);
-    expect(Pagination.compareOrderNullsLast(5, undefined)).toBeLessThan(0);
-  });
-
-  it('treats two nulls as tied', function() {
-    expect(Pagination.compareOrderNullsLast(null, null)).toBe(0);
-    expect(Pagination.compareOrderNullsLast(null, undefined)).toBe(0);
-  });
-});
-
 describe('Pagination.resolveEntryOrder — unit', function() {
   var PAGE_SIZE = 500;
 
-  it('gives a brand-new row (no id) a page-correct rank+offset value', function() {
+  it('gives a brand-new row (no id) a page-correct rank+offset value, no reorder', function() {
     var entries = [{ data: { name: 'New' }, order: 0 }];
 
-    Pagination.resolveEntryOrder(entries, {}, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, {}, 1, PAGE_SIZE, false);
 
     expect(entries[0].order).toBe(500);
   });
 
-  it('restores an untouched row\'s true order exactly, discarding the rank-derived value', function() {
+  it('without a reorder, restores an untouched row\'s true order exactly, discarding the rank-derived value', function() {
     var originals = { 1: { id: 1, order: 5000 } };
     var entries = [{ id: 1, order: 0 }]; // getData()'s rank-derived value, page-local
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     expect(entries[0].order).toBe(5000);
+  });
+
+  it('with a real reorder signal, gives every known row a fresh rank+offset value instead', function() {
+    var originals = { 1: { id: 1, order: 5000 } };
+    var entries = [{ id: 1, order: 0 }];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+    expect(entries[0].order).toBe(500); // rank 0 + page offset 500, not the preserved 5000
+  });
+
+  it('a brand-new row gets the same rank+offset value whether or not a reorder happened', function() {
+    var entriesNoReorder = [{ data: {}, order: 0 }];
+    var entriesReorder = [{ data: {}, order: 0 }];
+
+    Pagination.resolveEntryOrder(entriesNoReorder, {}, 2, PAGE_SIZE, false);
+    Pagination.resolveEntryOrder(entriesReorder, {}, 2, PAGE_SIZE, true);
+
+    expect(entriesNoReorder[0].order).toBe(1000);
+    expect(entriesReorder[0].order).toBe(1000);
   });
 
   it('mutates entries in place and also returns them', function() {
     var originals = { 1: { id: 1, order: 5 } };
     var entries = [{ id: 1, order: 0 }];
-    var result = Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE);
+    var result = Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE, false);
 
     expect(result).toBe(entries);
     expect(entries[0].order).toBe(5);
   });
 
   it('handles null/empty entries and a missing originalMap gracefully', function() {
-    expect(Pagination.resolveEntryOrder([], {}, 1, PAGE_SIZE)).toEqual([]);
-    expect(Pagination.resolveEntryOrder(null, {}, 1, PAGE_SIZE)).toEqual([]);
-    expect(Pagination.resolveEntryOrder([{ data: {}, order: 0 }], undefined, 1, PAGE_SIZE)[0].order).toBe(500);
+    expect(Pagination.resolveEntryOrder([], {}, 1, PAGE_SIZE, false)).toEqual([]);
+    expect(Pagination.resolveEntryOrder(null, {}, 1, PAGE_SIZE, false)).toEqual([]);
+    expect(Pagination.resolveEntryOrder([{ data: {}, order: 0 }], undefined, 1, PAGE_SIZE, false)[0].order).toBe(500);
   });
 });
 
@@ -316,26 +313,26 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     guidCounter = 0;
   });
 
-  // Mirrors the review's own evidence table exactly: page 2, user edited
-  // nothing, three shapes of the *real* stored order.
+  // Mirrors the review's own evidence table: page 2, no reorder, no edit —
+  // three shapes of the *real* stored order.
 
-  it('dense originals (500..999), no edit -> 0 rows flagged (this always worked)', function() {
+  it('dense originals (500..999), no reorder, no edit -> 0 rows flagged (this always worked)', function() {
     var originals = {};
     var entries = [];
 
     for (var i = 0; i < 5; i++) {
       originals[500 + i] = { id: 500 + i, data: { name: 'Row' + i }, order: 500 + i };
-      entries.push({ id: 500 + i, data: { name: 'Row' + i }, order: i }); // rank-derived, page-local
+      entries.push({ id: 500 + i, data: { name: 'Row' + i }, order: i });
     }
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(0);
   });
 
-  it('NULL originals (SSO/API-created rows), no edit -> 0 rows flagged (was 500/500 — the Critical)', function() {
+  it('NULL originals (SSO/API-created rows), no reorder, no edit -> 0 rows flagged (was 500/500 — the original Critical)', function() {
     var originals = {};
     var entries = [];
 
@@ -344,7 +341,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       entries.push({ id: 900 + i, data: { name: 'Row' + i }, order: i });
     }
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
@@ -352,7 +349,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     entries.forEach(function(entry) { expect(entry.order).toBeNull(); });
   });
 
-  it('sparse originals, gap=10, no edit -> 0 rows flagged (was 500/500 — the Critical)', function() {
+  it('sparse originals, gap=10, no reorder, no edit -> 0 rows flagged (was 500/500 — the original Critical)', function() {
     var originals = {};
     var entries = [];
 
@@ -361,14 +358,14 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       entries.push({ id: 700 + i, data: { name: 'Row' + i }, order: i });
     }
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(0);
   });
 
-  it('duplicate originals, no edit -> 0 rows flagged', function() {
+  it('duplicate originals, no reorder, no edit -> 0 rows flagged', function() {
     var originals = {
       1: { id: 1, data: { name: 'A' }, order: 500 },
       2: { id: 2, data: { name: 'B' }, order: 500 }, // duplicate of row 1's order
@@ -380,14 +377,14 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       { id: 3, data: { name: 'C' }, order: 2 }
     ];
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(0);
   });
 
-  it('one row edited on a page of NULL-order rows -> only that row is flagged, with its own order preserved', function() {
+  it('one row edited on a page of NULL-order rows, no reorder -> only that row is flagged, with its own order preserved', function() {
     var originals = {
       901: { id: 901, data: { name: 'Keep' }, order: null },
       902: { id: 902, data: { name: 'EditMe' }, order: null },
@@ -399,7 +396,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       { id: 903, data: { name: 'AlsoKeep' }, order: 2 }
     ];
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
@@ -409,57 +406,11 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     expect(payload.entries[0].order).toBeNull(); // preserved, not rewritten to a rank value
   });
 
-  it('genuine reorder on page 2 (dense originals) redistributes the page\'s own order values', function() {
-    var originals = {
-      501: { id: 501, data: { name: 'First' }, order: 500 },
-      502: { id: 502, data: { name: 'Second' }, order: 501 }
-    };
-    var entries = [
-      { id: 502, data: { name: 'Second' }, order: 0 }, // dragged to visually first
-      { id: 501, data: { name: 'First' }, order: 1 }
-    ];
-
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
-
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
-
-    expect(payload.entries).toHaveLength(2);
-
-    var second = payload.entries.filter(function(e) { return e.id === 502; })[0];
-    var first = payload.entries.filter(function(e) { return e.id === 501; })[0];
-
-    // Values are exactly the page's own pre-existing set {500, 501} — redistributed, not invented.
-    expect(second.order).toBe(500);
-    expect(first.order).toBe(501);
-  });
-
-  it('genuine reorder on a page with NULL originals redistributes without inventing a numeric value', function() {
-    var originals = {
-      901: { id: 901, data: { name: 'A' }, order: null },
-      902: { id: 902, data: { name: 'B' }, order: null }
-    };
-    var entries = [
-      { id: 902, data: { name: 'B' }, order: 0 }, // dragged above A
-      { id: 901, data: { name: 'A' }, order: 1 }
-    ];
-
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
-
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
-
-    // Both originals were NULL and tied — the comparator can't distinguish
-    // them, so this reads as "unchanged" rather than a detected reorder, and
-    // both rows correctly keep the only value they ever had: null. Nothing
-    // invents a numeric value out of two nulls.
-    expect(payload.entries).toHaveLength(0);
-    entries.forEach(function(entry) { expect(entry.order).toBeNull(); });
-  });
-
-  it('a brand-new row inserted on page 3 gets a page-correct value, not a 0-based one', function() {
+  it('a brand-new row inserted on page 3, no reorder -> gets a page-correct value, not a 0-based one', function() {
     var originals = {};
     var entries = [{ data: { name: 'Brand new' }, order: 0 }];
 
-    Pagination.resolveEntryOrder(entries, originals, 2, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 2, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
@@ -467,7 +418,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     expect(payload.entries[0].order).toBe(1000);
   });
 
-  it('deleting a row on a NULL-order page is unaffected — kept rows still preserve their order', function() {
+  it('deleting a row on a NULL-order page, no reorder -> unaffected, kept rows still preserve their order', function() {
     var originals = {
       901: { id: 901, data: { name: 'Keep' }, order: null },
       902: { id: 902, data: { name: 'Delete' }, order: null }
@@ -477,7 +428,7 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
       // 902 missing — deleted
     ];
 
-    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
@@ -485,20 +436,99 @@ describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Cr
     expect(payload.entries).toHaveLength(0);
   });
 
-  it('page 1 (offset 0) behaves identically to before for the dense case', function() {
-    var originals = {
-      1: { id: 1, data: { name: 'Row1' }, order: 0 }
-    };
-    var entries = [
-      { id: 1, data: { name: 'Row1 EDITED' }, order: 0 }
-    ];
+  it('page 1 (offset 0), no reorder -> behaves identically to before for the dense case', function() {
+    var originals = { 1: { id: 1, data: { name: 'Row1' }, order: 0 } };
+    var entries = [{ id: 1, data: { name: 'Row1 EDITED' }, order: 0 }];
 
-    Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE, false);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(1);
     expect(payload.entries[0].order).toBe(0);
+  });
+
+  // Follow-up review findings (on commit ddaed13/b48170d): the *previous*
+  // value-inference design silently dropped a reorder on an all-tied page,
+  // and could round-trip a tied redistribution pool in the wrong order on
+  // reload (falls back to `id ASC`, which doesn't always match the drag).
+  // These reproduce both exactly, with a real didReorder=true signal.
+
+  it('FOLLOW-UP FIX: a genuine reorder on a tied-order page round-trips exactly as dragged (was: id ASC tiebreak, wrong)', function() {
+    // Reviewer's own failing case: stored 1(500) 2(500) 3(501), user drags
+    // the page to visual order [3, 1, 2].
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: 500 },
+      2: { id: 2, data: { name: 'B' }, order: 500 },
+      3: { id: 3, data: { name: 'C' }, order: 501 }
+    };
+    var entries = [
+      { id: 3, data: { name: 'C' }, order: 0 }, // dragged to visually first
+      { id: 1, data: { name: 'A' }, order: 1 },
+      { id: 2, data: { name: 'B' }, order: 2 }
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+    // Simulate the API's reload: ORDER BY order ASC, id ASC.
+    var reloaded = entries.slice().sort(function(a, b) {
+      return (a.order - b.order) || (a.id - b.id);
+    });
+
+    expect(reloaded.map(function(e) { return e.id; })).toEqual([3, 1, 2]);
+
+    // And every value is pairwise distinct — no tie left to break.
+    var orders = entries.map(function(e) { return e.order; });
+    expect(new Set(orders).size).toBe(orders.length);
+  });
+
+  it('FOLLOW-UP FIX: a genuine reorder on an all-NULL page actually persists (was: silently discarded as "unchanged")', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: null },
+      2: { id: 2, data: { name: 'B' }, order: null },
+      3: { id: 3, data: { name: 'C' }, order: null }
+    };
+    var entries = [
+      { id: 3, data: { name: 'C' }, order: 0 },
+      { id: 1, data: { name: 'A' }, order: 1 },
+      { id: 2, data: { name: 'B' }, order: 2 }
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, true);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    // All three now carry a real order and are correctly flagged as updated —
+    // the drag reaches the commit payload instead of vanishing.
+    expect(payload.entries).toHaveLength(3);
+    payload.entries.forEach(function(entry) {
+      expect(typeof entry.order).toBe('number');
+    });
+
+    var reloaded = entries.slice().sort(function(a, b) {
+      return (a.order - b.order) || (a.id - b.id);
+    });
+
+    expect(reloaded.map(function(e) { return e.id; })).toEqual([3, 1, 2]);
+  });
+
+  it('without didReorder, a tied/NULL page stays exactly as it was (no false-positive renumbering)', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: null },
+      2: { id: 2, data: { name: 'B' }, order: null },
+      3: { id: 3, data: { name: 'C' }, order: null }
+    };
+    var entries = [
+      { id: 1, data: { name: 'A' }, order: 0 },
+      { id: 2, data: { name: 'B' }, order: 1 },
+      { id: 3, data: { name: 'C' }, order: 2 }
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE, false);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
   });
 });
 

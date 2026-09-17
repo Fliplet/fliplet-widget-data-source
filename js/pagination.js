@@ -104,33 +104,6 @@ var Pagination = (function() {
   }
 
   /**
-   * Order comparator with SQL "ORDER BY ... ASC" NULLS LAST semantics —
-   * matches how fliplet-api's Postgres query actually sorts a nullable,
-   * non-unique `order` column (confirmed: NULL sorts after every number).
-   * @param {Number|null|undefined} a - first order value to compare
-   * @param {Number|null|undefined} b - second order value to compare
-   * @returns {Number} comparator result
-   */
-  function compareOrderNullsLast(a, b) {
-    var aNull = a === null || typeof a === 'undefined';
-    var bNull = b === null || typeof b === 'undefined';
-
-    if (aNull && bNull) {
-      return 0;
-    }
-
-    if (aNull) {
-      return 1;
-    }
-
-    if (bNull) {
-      return -1;
-    }
-
-    return a - b;
-  }
-
-  /**
    * Decide each entry's `order` for the commit payload, without assuming a
    * row's stored order is dense, 0-based, or gapless (PS-2072 / PS-1781).
    *
@@ -143,73 +116,53 @@ var Pagination = (function() {
    * provisioning and the public insert endpoint. On such a data source, an
    * ordinary save with zero edits would silently rewrite every row's order.
    *
-   * This restores each row's own true cached order when nothing on the page
-   * actually changed position — verified by comparing the page's current
-   * visual sequence against the sequence its cached original orders would
-   * produce (NULLS LAST, matching Postgres). Only when that comparison shows
-   * a genuine reorder does it touch `order` at all, and even then it only
-   * redistributes the page's own existing set of order values across the new
-   * sequence — it never invents a value or reaches into another page's range.
-   * A brand-new row (no cached original) has no true order to preserve, so it
-   * gets a page-correct rank+offset value — the same bounded, pre-existing
-   * limitation this widget already had for inserts.
+   * An earlier version of this function tried to detect "did a reorder
+   * happen" by comparing the page's current visual sequence against the
+   * sequence its cached original orders implied. That inference is blind
+   * exactly where those orders tie (duplicates, or — the common case for
+   * SSO/API-created data — multiple NULLs): a genuine drag on an all-NULL
+   * page read as "nothing changed" and was silently discarded, and
+   * redistributing a pool containing ties fell back to `id ASC` on reload,
+   * which doesn't always match what the user dragged. Both are symptoms of
+   * inferring intent from values instead of asking whether a move actually
+   * happened.
+   *
+   * `didReorder` is the real signal instead — sourced from Handsontable's own
+   * `afterRowMove` (see spreadsheet.js's `hasRowsMoved`), not inferred:
+   * - No reorder this save: every known row keeps its own true order,
+   *   untouched, whatever shape it has. This is what closes the original
+   *   Critical — an ordinary save can never rewrite an untouched row's order.
+   * - A reorder did happen: every known row on the page gets a fresh
+   *   rank+offset value from its new visual position. These are always
+   *   pairwise distinct (rank is a plain array index), so there is no tie to
+   *   break on reload — the save round-trips exactly as arranged, at the
+   *   cost of renumbering the whole page rather than only the rows that
+   *   moved (the same trade #276 makes for a de-densified prefix).
+   * - A brand-new row (no cached original) has no true order to preserve
+   *   either way, so it gets the same page-correct rank+offset value.
    *
    * @param {Array} entries - Current entries from getData() (mutated in place)
    * @param {Object} originalMap - Map of entry ID -> cached original (order/data), scoped to this page
    * @param {Number} currentPage - 0-based current page index
    * @param {Number} pageSize - Entries per page
+   * @param {Boolean} didReorder - a real Handsontable afterRowMove fired this save (spreadsheet.js hasRowsMoved())
    * @returns {Array} The same `entries` array, for convenience
    */
-  function resolveEntryOrder(entries, originalMap, currentPage, pageSize) {
+  function resolveEntryOrder(entries, originalMap, currentPage, pageSize, didReorder) {
     entries = entries || [];
     originalMap = originalMap || {};
 
     var pageOffset = currentPage * pageSize;
-    var known = [];
 
     entries.forEach(function(entry, localIndex) {
       var original = typeof entry.id !== 'undefined' ? originalMap[entry.id] : undefined;
+      var hasKnownOrder = original && typeof original.order !== 'undefined';
 
-      if (original && typeof original.order !== 'undefined') {
-        known.push({ entry: entry, originalOrder: original.order });
+      if (hasKnownOrder && !didReorder) {
+        entry.order = original.order;
       } else {
-        // No cached original — a genuinely new row. Nothing to preserve.
         entry.order = localIndex + pageOffset;
       }
-    });
-
-    if (!known.length) {
-      return entries;
-    }
-
-    // `known` is already in current visual order (entries was iterated in
-    // that order). Compare it against the sequence its true original orders
-    // would produce — if identical, nothing on this page actually moved.
-    var byOriginalOrder = known.slice().sort(function(a, b) {
-      return compareOrderNullsLast(a.originalOrder, b.originalOrder);
-    });
-
-    var unchanged = known.every(function(item, i) {
-      return item === byOriginalOrder[i];
-    });
-
-    if (unchanged) {
-      known.forEach(function(item) {
-        item.entry.order = item.originalOrder;
-      });
-
-      return entries;
-    }
-
-    // A genuine reorder happened — redistribute the page's own set of order
-    // values (sorted) across the new visual sequence. Every value already
-    // legitimately belongs to a row on this page; none is invented.
-    var orderPool = byOriginalOrder.map(function(item) {
-      return item.originalOrder;
-    });
-
-    known.forEach(function(item, i) {
-      item.entry.order = orderPool[i];
     });
 
     return entries;
@@ -246,7 +199,6 @@ var Pagination = (function() {
   return {
     computePageInfo: computePageInfo,
     computeCommitPayload: computeCommitPayload,
-    compareOrderNullsLast: compareOrderNullsLast,
     resolveEntryOrder: resolveEntryOrder,
     resolveFetchErrorRecovery: resolveFetchErrorRecovery
   };
