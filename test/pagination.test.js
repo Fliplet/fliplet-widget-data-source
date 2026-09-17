@@ -247,73 +247,66 @@ describe('Pagination.computeCommitPayload', function() {
   });
 });
 
-describe('Pagination.applyPageOrderOffset', function() {
-  var PAGE_SIZE = 500;
-
-  it('does not change order values on page 1 (offset is 0)', function() {
-    var entries = [{ order: 0 }, { order: 1 }, { order: 2 }];
-
-    Pagination.applyPageOrderOffset(entries, 0, PAGE_SIZE);
-
-    expect(entries.map(function(e) { return e.order; })).toEqual([0, 1, 2]);
+describe('Pagination.compareOrderNullsLast', function() {
+  it('sorts ascending for two numbers', function() {
+    expect(Pagination.compareOrderNullsLast(1, 2)).toBeLessThan(0);
+    expect(Pagination.compareOrderNullsLast(2, 1)).toBeGreaterThan(0);
+    expect(Pagination.compareOrderNullsLast(5, 5)).toBe(0);
   });
 
-  it('offsets page-local order into the correct global range on page 2', function() {
-    var entries = [{ order: 0 }, { order: 1 }, { order: 2 }];
-
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
-
-    expect(entries.map(function(e) { return e.order; })).toEqual([500, 501, 502]);
+  it('sorts null after every number, matching Postgres ORDER BY ... ASC', function() {
+    expect(Pagination.compareOrderNullsLast(null, 5)).toBeGreaterThan(0);
+    expect(Pagination.compareOrderNullsLast(5, null)).toBeLessThan(0);
   });
 
-  it('offsets correctly on page 3 (offset = currentPage * pageSize)', function() {
-    var entries = [{ order: 0 }, { order: 5 }];
-
-    Pagination.applyPageOrderOffset(entries, 2, PAGE_SIZE);
-
-    expect(entries.map(function(e) { return e.order; })).toEqual([1000, 1005]);
+  it('treats undefined the same as null', function() {
+    expect(Pagination.compareOrderNullsLast(undefined, 5)).toBeGreaterThan(0);
+    expect(Pagination.compareOrderNullsLast(5, undefined)).toBeLessThan(0);
   });
 
-  it('never produces colliding order ranges across consecutive pages', function() {
-    var page1 = [{ order: 0 }, { order: 499 }];
-    var page2 = [{ order: 0 }, { order: 499 }];
-    var page3 = [{ order: 0 }, { order: 499 }];
-
-    Pagination.applyPageOrderOffset(page1, 0, PAGE_SIZE);
-    Pagination.applyPageOrderOffset(page2, 1, PAGE_SIZE);
-    Pagination.applyPageOrderOffset(page3, 2, PAGE_SIZE);
-
-    var maxOf = function(rows) { return Math.max.apply(null, rows.map(function(e) { return e.order; })); };
-    var minOf = function(rows) { return Math.min.apply(null, rows.map(function(e) { return e.order; })); };
-
-    expect(maxOf(page1)).toBeLessThan(minOf(page2));
-    expect(maxOf(page2)).toBeLessThan(minOf(page3));
-  });
-
-  it('mutates entries in place and also returns them', function() {
-    var entries = [{ order: 0 }];
-    var result = Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
-
-    expect(result).toBe(entries);
-    expect(entries[0].order).toBe(500);
-  });
-
-  it('leaves entries without a numeric order field untouched', function() {
-    var entries = [{ id: 1 }, { order: null }];
-
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
-
-    expect(entries[0].order).toBeUndefined();
-    expect(entries[1].order).toBeNull();
-  });
-
-  it('handles null/empty entries gracefully', function() {
-    expect(Pagination.applyPageOrderOffset(null, 1, PAGE_SIZE)).toBeNull();
-    expect(Pagination.applyPageOrderOffset([], 1, PAGE_SIZE)).toEqual([]);
+  it('treats two nulls as tied', function() {
+    expect(Pagination.compareOrderNullsLast(null, null)).toBe(0);
+    expect(Pagination.compareOrderNullsLast(null, undefined)).toBe(0);
   });
 });
 
-describe('applyPageOrderOffset + computeCommitPayload integration (PS-20272 regression)', function() {
+describe('Pagination.resolveEntryOrder — unit', function() {
+  var PAGE_SIZE = 500;
+
+  it('gives a brand-new row (no id) a page-correct rank+offset value', function() {
+    var entries = [{ data: { name: 'New' }, order: 0 }];
+
+    Pagination.resolveEntryOrder(entries, {}, 1, PAGE_SIZE);
+
+    expect(entries[0].order).toBe(500);
+  });
+
+  it('restores an untouched row\'s true order exactly, discarding the rank-derived value', function() {
+    var originals = { 1: { id: 1, order: 5000 } };
+    var entries = [{ id: 1, order: 0 }]; // getData()'s rank-derived value, page-local
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+
+    expect(entries[0].order).toBe(5000);
+  });
+
+  it('mutates entries in place and also returns them', function() {
+    var originals = { 1: { id: 1, order: 5 } };
+    var entries = [{ id: 1, order: 0 }];
+    var result = Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE);
+
+    expect(result).toBe(entries);
+    expect(entries[0].order).toBe(5);
+  });
+
+  it('handles null/empty entries and a missing originalMap gracefully', function() {
+    expect(Pagination.resolveEntryOrder([], {}, 1, PAGE_SIZE)).toEqual([]);
+    expect(Pagination.resolveEntryOrder(null, {}, 1, PAGE_SIZE)).toEqual([]);
+    expect(Pagination.resolveEntryOrder([{ data: {}, order: 0 }], undefined, 1, PAGE_SIZE)[0].order).toBe(500);
+  });
+});
+
+describe('Pagination.resolveEntryOrder + computeCommitPayload — the PS-2072 Critical, reproduced and fixed', function() {
   var guidCounter;
   var mockGuid = function() { return 'guid-' + (++guidCounter); };
   var deepEqual = function(a, b) { return JSON.stringify(a) === JSON.stringify(b); };
@@ -323,117 +316,110 @@ describe('applyPageOrderOffset + computeCommitPayload integration (PS-20272 regr
     guidCounter = 0;
   });
 
-  it('demonstrates the bug: without the offset, an untouched page-2 row is wrongly flagged as updated', function() {
-    // Reproduces exactly what getData() + computeCommitPayload did before the
-    // fix: entry.order is page-local (0-based), fed straight in with no offset.
-    var originals = {
-      501: { id: 501, data: { name: 'Page2Row' }, order: 500 } // true global order, cached from the server
-    };
-    var entries = [
-      { id: 501, data: { name: 'Page2Row' }, order: 0 } // page-local index from getData(), user made no edit
-    ];
+  // Mirrors the review's own evidence table exactly: page 2, user edited
+  // nothing, three shapes of the *real* stored order.
 
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+  it('dense originals (500..999), no edit -> 0 rows flagged (this always worked)', function() {
+    var originals = {};
+    var entries = [];
 
-    // Bug reproduced: identical data, but order mismatch alone makes it look "updated" —
-    // saving it would have overwritten the true order=500 with 0.
-    expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBe(0);
-  });
+    for (var i = 0; i < 5; i++) {
+      originals[500 + i] = { id: 500 + i, data: { name: 'Row' + i }, order: 500 + i };
+      entries.push({ id: 500 + i, data: { name: 'Row' + i }, order: i }); // rank-derived, page-local
+    }
 
-  it('fix: an untouched page-2 row is left alone once the page offset is applied first', function() {
-    var originals = {
-      501: { id: 501, data: { name: 'Page2Row' }, order: 500 }
-    };
-    var entries = [
-      { id: 501, data: { name: 'Page2Row' }, order: 0 }
-    ];
-
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE); // page index 1 = second page
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(0);
   });
 
-  it('fix: a real edit on page 2 is still detected and saved with the correct global order', function() {
-    var originals = {
-      501: { id: 501, data: { name: 'Page2Row' }, order: 500 }
-    };
-    var entries = [
-      { id: 501, data: { name: 'Page2Row EDITED' }, order: 0 }
-    ];
-
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
-
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
-
-    expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].data.name).toBe('Page2Row EDITED');
-    expect(payload.entries[0].order).toBe(500);
-  });
-
-  it('fix: saving page 1 is unaffected — offset is 0, behavior unchanged', function() {
-    var originals = {
-      1: { id: 1, data: { name: 'Row1' }, order: 0 }
-    };
-    var entries = [
-      { id: 1, data: { name: 'Row1 EDITED' }, order: 0 }
-    ];
-
-    Pagination.applyPageOrderOffset(entries, 0, PAGE_SIZE);
-
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
-
-    expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBe(0);
-  });
-
-  it('fix: a new row inserted on page 3 gets the correct global order, not a 0-based one', function() {
+  it('NULL originals (SSO/API-created rows), no edit -> 0 rows flagged (was 500/500 — the Critical)', function() {
     var originals = {};
+    var entries = [];
+
+    for (var i = 0; i < 5; i++) {
+      originals[900 + i] = { id: 900 + i, data: { name: 'Row' + i }, order: null };
+      entries.push({ id: 900 + i, data: { name: 'Row' + i }, order: i });
+    }
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+    entries.forEach(function(entry) { expect(entry.order).toBeNull(); });
+  });
+
+  it('sparse originals, gap=10, no edit -> 0 rows flagged (was 500/500 — the Critical)', function() {
+    var originals = {};
+    var entries = [];
+
+    for (var i = 0; i < 5; i++) {
+      originals[700 + i] = { id: 700 + i, data: { name: 'Row' + i }, order: 5000 + (i * 10) };
+      entries.push({ id: 700 + i, data: { name: 'Row' + i }, order: i });
+    }
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('duplicate originals, no edit -> 0 rows flagged', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'A' }, order: 500 },
+      2: { id: 2, data: { name: 'B' }, order: 500 }, // duplicate of row 1's order
+      3: { id: 3, data: { name: 'C' }, order: 501 }
+    };
     var entries = [
-      { data: { name: 'Brand new row' }, order: 0 } // getData() assigns local index 0
+      { id: 1, data: { name: 'A' }, order: 0 },
+      { id: 2, data: { name: 'B' }, order: 1 },
+      { id: 3, data: { name: 'C' }, order: 2 }
     ];
 
-    Pagination.applyPageOrderOffset(entries, 2, PAGE_SIZE); // page index 2 = third page
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('one row edited on a page of NULL-order rows -> only that row is flagged, with its own order preserved', function() {
+    var originals = {
+      901: { id: 901, data: { name: 'Keep' }, order: null },
+      902: { id: 902, data: { name: 'EditMe' }, order: null },
+      903: { id: 903, data: { name: 'AlsoKeep' }, order: null }
+    };
+    var entries = [
+      { id: 901, data: { name: 'Keep' }, order: 0 },
+      { id: 902, data: { name: 'EditMe CHANGED' }, order: 1 },
+      { id: 903, data: { name: 'AlsoKeep' }, order: 2 }
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
     expect(payload.entries).toHaveLength(1);
-    expect(payload.entries[0].order).toBe(1000);
+    expect(payload.entries[0].id).toBe(902);
+    expect(payload.entries[0].data.name).toBe('EditMe CHANGED');
+    expect(payload.entries[0].order).toBeNull(); // preserved, not rewritten to a rank value
   });
 
-  it('fix: deleting a row on page 2 is reported by id — the kept row is unaffected by the offset', function() {
-    var originals = {
-      501: { id: 501, data: { name: 'KeepMe' }, order: 500 },
-      502: { id: 502, data: { name: 'DeleteMe' }, order: 501 }
-    };
-    var entries = [
-      { id: 501, data: { name: 'KeepMe' }, order: 0 }
-      // 502 missing from the grid — user deleted it on page 2
-    ];
-
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
-
-    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
-
-    expect(payload.delete).toEqual([502]);
-    expect(payload.entries).toHaveLength(0); // KeepMe's data+order both correctly match the original
-  });
-
-  it('fix: dragging to reorder within page 2 produces correct, distinct, in-range global order values', function() {
-    // User swaps the visual position of two rows on page 2 — getData()
-    // reassigns local indexes 0/1 based on the new visual order.
+  it('genuine reorder on page 2 (dense originals) redistributes the page\'s own order values', function() {
     var originals = {
       501: { id: 501, data: { name: 'First' }, order: 500 },
       502: { id: 502, data: { name: 'Second' }, order: 501 }
     };
     var entries = [
-      { id: 502, data: { name: 'Second' }, order: 0 }, // now visually first
-      { id: 501, data: { name: 'First' }, order: 1 } // now visually second
+      { id: 502, data: { name: 'Second' }, order: 0 }, // dragged to visually first
+      { id: 501, data: { name: 'First' }, order: 1 }
     ];
 
-    Pagination.applyPageOrderOffset(entries, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
 
     var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
 
@@ -442,21 +428,99 @@ describe('applyPageOrderOffset + computeCommitPayload integration (PS-20272 regr
     var second = payload.entries.filter(function(e) { return e.id === 502; })[0];
     var first = payload.entries.filter(function(e) { return e.id === 501; })[0];
 
-    expect(second.order).toBe(500); // now first visually -> lowest order in page 2's range
-    expect(first.order).toBe(501); // now second visually
-    expect(second.order).toBeLessThan(first.order);
-    expect(first.order).toBeLessThan(1000); // stays within page 2's range, doesn't bleed into page 3
+    // Values are exactly the page's own pre-existing set {500, 501} — redistributed, not invented.
+    expect(second.order).toBe(500);
+    expect(first.order).toBe(501);
   });
 
-  it('fix: page 1 and page 2 order ranges never collide even with simultaneous inserts on both', function() {
-    var page1Entries = [{ data: { name: 'New on page 1' }, order: 3 }];
-    var page2Entries = [{ data: { name: 'New on page 2' }, order: 2 }];
+  it('genuine reorder on a page with NULL originals redistributes without inventing a numeric value', function() {
+    var originals = {
+      901: { id: 901, data: { name: 'A' }, order: null },
+      902: { id: 902, data: { name: 'B' }, order: null }
+    };
+    var entries = [
+      { id: 902, data: { name: 'B' }, order: 0 }, // dragged above A
+      { id: 901, data: { name: 'A' }, order: 1 }
+    ];
 
-    Pagination.applyPageOrderOffset(page1Entries, 0, PAGE_SIZE);
-    Pagination.applyPageOrderOffset(page2Entries, 1, PAGE_SIZE);
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
 
-    expect(page1Entries[0].order).toBe(3);
-    expect(page2Entries[0].order).toBe(502);
-    expect(page1Entries[0].order).toBeLessThan(page2Entries[0].order);
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    // Both originals were NULL and tied — the comparator can't distinguish
+    // them, so this reads as "unchanged" rather than a detected reorder, and
+    // both rows correctly keep the only value they ever had: null. Nothing
+    // invents a numeric value out of two nulls.
+    expect(payload.entries).toHaveLength(0);
+    entries.forEach(function(entry) { expect(entry.order).toBeNull(); });
+  });
+
+  it('a brand-new row inserted on page 3 gets a page-correct value, not a 0-based one', function() {
+    var originals = {};
+    var entries = [{ data: { name: 'Brand new' }, order: 0 }];
+
+    Pagination.resolveEntryOrder(entries, originals, 2, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBe(1000);
+  });
+
+  it('deleting a row on a NULL-order page is unaffected — kept rows still preserve their order', function() {
+    var originals = {
+      901: { id: 901, data: { name: 'Keep' }, order: null },
+      902: { id: 902, data: { name: 'Delete' }, order: null }
+    };
+    var entries = [
+      { id: 901, data: { name: 'Keep' }, order: 0 }
+      // 902 missing — deleted
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 1, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.delete).toEqual([902]);
+    expect(payload.entries).toHaveLength(0);
+  });
+
+  it('page 1 (offset 0) behaves identically to before for the dense case', function() {
+    var originals = {
+      1: { id: 1, data: { name: 'Row1' }, order: 0 }
+    };
+    var entries = [
+      { id: 1, data: { name: 'Row1 EDITED' }, order: 0 }
+    ];
+
+    Pagination.resolveEntryOrder(entries, originals, 0, PAGE_SIZE);
+
+    var payload = Pagination.computeCommitPayload(entries, originals, deepEqual, mockGuid);
+
+    expect(payload.entries).toHaveLength(1);
+    expect(payload.entries[0].order).toBe(0);
+  });
+});
+
+describe('Pagination.resolveFetchErrorRecovery', function() {
+  it('does not recover on a stale error — a newer fetch already owns the state', function() {
+    var result = Pagination.resolveFetchErrorRecovery(true, 3);
+
+    expect(result.shouldRecover).toBe(false);
+  });
+
+  it('rolls back to the page actually on screen on a real failure', function() {
+    var result = Pagination.resolveFetchErrorRecovery(false, 2);
+
+    expect(result.shouldRecover).toBe(true);
+    expect(result.currentPage).toBe(2);
+    expect(result.lastRenderedPage).toBe(2);
+  });
+
+  it('is a no-op rollback when the page that failed is the page already on screen', function() {
+    // e.g. a save-triggered refetch of the current page that fails
+    var result = Pagination.resolveFetchErrorRecovery(false, 0);
+
+    expect(result.currentPage).toBe(0);
   });
 });

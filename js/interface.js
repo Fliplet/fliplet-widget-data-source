@@ -134,7 +134,7 @@ function getDataSources() {
 
         $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
-        $('[data-back]').text('See all my project\'s data sources');
+        $('[data-back]').text('See all my app\'s data sources');
         $helpIcon.addClass('hidden');
 
         // Filters data sources
@@ -281,6 +281,11 @@ function renderSpreadsheet(rowsData, fetchId) {
     if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
       return;
     }
+
+    // Reached only once this render has actually survived the sizing wait and
+    // the generation check — this is genuinely what's about to be painted, so
+    // it's the correct page to roll back to if a later navigation fails.
+    lastRenderedPage = currentPage;
 
     table = spreadsheet({ columns: columns, rows: rowsData });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
@@ -505,11 +510,10 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
-    // Reached only for a genuinely successful, non-stale fetch — record the
-    // page these entries belong to so a later failed navigation can roll
-    // currentPage back to what's actually on screen.
-    lastRenderedPage = currentPage;
-
+    // lastRenderedPage is set inside renderSpreadsheet's waitUntilSized
+    // callback below, not here — this .then() fires once the fetch itself
+    // resolves, but the render can still be discarded by the sizing wait or
+    // a newer navigation before anything is actually painted.
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
@@ -555,6 +559,8 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // rows is only the current page (PAGE_SIZE at most) since pagination — totalEntries
     // is the true data-source-wide count and is what the Versions tab should reflect.
+    // Note: entriesCount is read from an API read-replica, so immediately after a
+    // save it can briefly lag by one — cosmetic, not worth chasing as a bug.
     currentDataSourceRowsCount = totalEntries;
     currentDataSourceColumnsCount = columns.length;
 
@@ -604,12 +610,16 @@ function fetchCurrentDataSourceEntries(entries) {
       $('.entries-message').html('<br>' + message);
       $('.page-loading-overlay').addClass('hidden');
 
-      // A failed page navigation leaves currentPage pointing at the page that
-      // never rendered, and the pagination controls disabled from goToPage().
-      // Roll back to the page that's actually on screen and recompute control
-      // state from it, so Prev/Next/jump stay usable and correctly targeted.
-      currentPage = lastRenderedPage;
-      updatePaginationControls();
+      // stale is always false here — the guard above already returned for it —
+      // but the decision goes through the same shared function either way so
+      // there's one tested source of truth for it, not two.
+      var recovery = Pagination.resolveFetchErrorRecovery(false, lastRenderedPage);
+
+      if (recovery.shouldRecover) {
+        currentPage = recovery.currentPage;
+        lastRenderedPage = recovery.lastRenderedPage;
+        updatePaginationControls();
+      }
     });
 }
 
@@ -790,9 +800,12 @@ function saveCurrentData() {
     removeEmptyRows: true
   });
 
-  // See Pagination.applyPageOrderOffset (PS-20272) — getData() has no notion
-  // of pagination and always assigns order starting from 0 for the current page.
-  Pagination.applyPageOrderOffset(entries, currentPage, PAGE_SIZE);
+  // See Pagination.resolveEntryOrder (PS-2072) — getData() has no notion of
+  // pagination or of this data source's real order values, and always
+  // assigns order from plain visual rank. This restores each untouched row's
+  // true order (whatever shape it has) and only computes new values for rows
+  // that actually moved, using this page's own existing order values.
+  Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE);
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -1553,7 +1566,7 @@ $('#app')
     });
 
     if (currentDS && currentDS.apps && currentDS.apps.length) {
-      var appPrefix = currentDS.apps.length > 1 ? 'projects: ' : 'project: ';
+      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
@@ -2551,7 +2564,7 @@ $('#show-access-rules').click(function() {
 
             return app && app.name;
           })).join(', ')
-          : 'All projects',
+          : 'All apps',
         require: rule.require
           ? rule.require.map(function(require) {
             if (typeof require === 'string') {
@@ -2899,7 +2912,7 @@ function updateDataSourceRules() {
     $saveButton.html(buttonLabel).removeClass('disabled').addClass('hidden');
 
     Fliplet.Modal.alert({
-      message: 'Your changes have been applied to all affected projects.'
+      message: 'Your changes have been applied to all affected apps.'
     });
   }).catch(function(error) {
     $saveButton.html(buttonLabel).removeClass('disabled');
