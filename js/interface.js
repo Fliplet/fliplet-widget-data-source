@@ -709,13 +709,22 @@ function saveCurrentData() {
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
   var payload = getCommitPayload(entries);
-
-  return currentDataSource.commit({
+  var commitData = {
     entries: payload.entries,
     delete: payload.delete,
     columns: columns,
     returnEntries: false
-  }).then(function(response) {
+  };
+
+  // Only when the stored orders cannot seat the rows this save is placing. The
+  // API renumbers every live entry over its own read order before applying the
+  // payload, which is what lets the payload be the rows the user touched rather
+  // than the whole data source (PS-1781).
+  if (payload.normalizeOrder) {
+    commitData.normalizeOrder = payload.normalizeOrder;
+  }
+
+  return currentDataSource.commit(commitData).then(function(response) {
     var clientIds = [];
     var ids = [];
 
