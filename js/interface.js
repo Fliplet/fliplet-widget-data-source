@@ -59,6 +59,11 @@ var currentPage = 0;
 var totalEntries = 0;
 var totalPages = 0;
 var fetchGeneration = 0;
+// The page whose entries are actually rendered in the grid right now. Distinct
+// from currentPage, which is updated optimistically before a page fetch even
+// starts — on a failed fetch we roll currentPage back to this so pagination
+// controls (and the next navigation request) stay aligned with what's on screen.
+var lastRenderedPage = 0;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -276,6 +281,11 @@ function renderSpreadsheet(rowsData, fetchId) {
     if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
       return;
     }
+
+    // Reached only once this render has actually survived the sizing wait and
+    // the generation check — this is genuinely what's about to be painted, so
+    // it's the correct page to roll back to if a later navigation fails.
+    lastRenderedPage = currentPage;
 
     table = spreadsheet({ columns: columns, rows: rowsData });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
@@ -500,6 +510,10 @@ function fetchCurrentDataSourceEntries(entries) {
       });
     });
   }).then(function(rows) {
+    // lastRenderedPage is set inside renderSpreadsheet's waitUntilSized
+    // callback below, not here — this .then() fires once the fetch itself
+    // resolves, but the render can still be discarded by the sizing wait or
+    // a newer navigation before anything is actually painted.
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
@@ -543,7 +557,11 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = _.uniq(_.concat(columns, computedColumns));
     }
 
-    currentDataSourceRowsCount = rows.length;
+    // rows is only the current page (PAGE_SIZE at most) since pagination — totalEntries
+    // is the true data-source-wide count and is what the Versions tab should reflect.
+    // Note: entriesCount is read from an API read-replica, so immediately after a
+    // save it can briefly lag by one — cosmetic, not worth chasing as a bug.
+    currentDataSourceRowsCount = totalEntries;
     currentDataSourceColumnsCount = columns.length;
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
@@ -591,6 +609,16 @@ function fetchCurrentDataSourceEntries(entries) {
 
       $('.entries-message').html('<br>' + message);
       $('.page-loading-overlay').addClass('hidden');
+
+      // A stale error never reaches here — the guard at the top of onFetchError
+      // already returned for it — so there is no staleness left to decide on.
+      // The rollback itself still goes through the shared function so there's
+      // one tested source of truth for it.
+      var recovery = Pagination.resolveFetchErrorRecovery(lastRenderedPage);
+
+      currentPage = recovery.currentPage;
+      lastRenderedPage = recovery.lastRenderedPage;
+      updatePaginationControls();
     });
 }
 
@@ -766,10 +794,38 @@ function saveCurrentData() {
   table.onSave();
   fetchCurrentDataSourceEntries();
 
+  // Captured before getData() reads the grid, but nothing async happens
+  // between here and resolveEntryOrder() using it, so the value can't change.
+  var didReorder = table.hasRowsMoved();
+
   var entries = table.getData({
     parseJSON: true,
     removeEmptyRows: true
   });
+
+  // See Pagination.resolveEntryOrder (PS-2072) — getData() has no notion of
+  // pagination or of this data source's real order values, and always assigns
+  // order from plain visual rank. didReorder is the real signal for whether the
+  // user actually dragged a row this save (not inferred from comparing order
+  // values, which is blind where those values tie). Without a real reorder
+  // every row keeps its true order untouched, whatever shape it has; with one,
+  // the new arrangement is written using orders this page already occupied, so
+  // the page can't move relative to pages the user never touched. Rank is never
+  // used as an order on a paginated page — that's what the function exists to
+  // prevent. See its doc comment for the full decision.
+  var orderResult = Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder);
+
+  if (orderResult.refused) {
+    // The rows on this page hold no positions a new arrangement can be written
+    // into (see resolveEntryOrder's doc comment), so the drag is dropped rather
+    // than applied in a way that would move rows the user never touched on
+    // other pages. Everything else in this save still commits, and the refetch
+    // below puts the grid back to the stored arrangement.
+    Fliplet.Modal.alert({
+      title: 'Row order not saved',
+      message: 'These rows don\'t have saved positions yet, so their new order couldn\'t be saved. Any other changes you made were saved, and the rows have been put back where they were.'
+    });
+  }
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -839,6 +895,14 @@ function saveCurrentData() {
 
     if (table) {
       table.setData({ columns: columns, rows: entries });
+      // rowsMoved lives on the spreadsheet instance, and the refetch this save
+      // already started replaces that instance with a fresh one (rowsMoved
+      // false) as soon as it renders. So this is housekeeping for the case
+      // where `table` is still the instance that was saved — not a fail-safe
+      // carrying a reorder into a retry, which the per-instance flag could
+      // never do. Nothing needs it to: a failed commit leaves the refetch to
+      // put the grid back to server state, so no pending reorder survives.
+      table.clearRowsMoved();
     }
 
     return fetchCurrentDataSourceEntries();
@@ -1319,6 +1383,7 @@ $('#app')
     function resetAndGoBack() {
       // Reset pagination and connection state when leaving a data source
       currentPage = 0;
+      lastRenderedPage = 0;
       totalEntries = 0;
       totalPages = 0;
       currentDataSource = null;

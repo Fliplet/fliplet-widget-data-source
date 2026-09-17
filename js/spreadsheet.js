@@ -11,6 +11,10 @@ function spreadsheet(options) {
   var columns = options.columns || [];
   var dataLoaded = false;
   var dataHasChanges = false;
+  // Real signal for "did the user drag-reorder a row this save" (PS-2072) —
+  // set from Handsontable's own afterRowMove hook, not inferred from
+  // comparing order values, which is blind exactly where those values tie.
+  var rowsMoved = false;
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is destroyed
@@ -579,6 +583,7 @@ function spreadsheet(options) {
     },
     afterRowMove: function() {
       onChange();
+      rowsMoved = true;
     },
     afterCreateRow: function() {
       onChange();
@@ -984,9 +989,18 @@ function spreadsheet(options) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
   }
 
+  function hasRowsMoved() {
+    return rowsMoved;
+  }
+
+  function clearRowsMoved() {
+    rowsMoved = false;
+  }
+
   function reset(resetHistory) {
     search('clear');
     setChanges(false);
+    clearRowsMoved();
 
     $('.save-btn').addClass('hidden');
     $('.data-save-status').addClass('hidden');
@@ -1027,7 +1041,9 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
-    onChange: onChange
+    onChange: onChange,
+    hasRowsMoved: hasRowsMoved,
+    clearRowsMoved: clearRowsMoved
   };
 }
 
