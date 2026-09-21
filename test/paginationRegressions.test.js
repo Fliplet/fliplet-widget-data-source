@@ -1,0 +1,225 @@
+/* eslint-env jest */
+var fs = require('fs');
+var path = require('path');
+
+var interfaceSource = fs.readFileSync(path.join(__dirname, '../js/interface.js'), 'utf8');
+
+// SCOPE NOTE (per code review on PS-2072): these checks only confirm that
+// interface.js *wires* the right Pagination.* function at the right call
+// site, in the right order — they do not and cannot prove the decision logic
+// itself is correct, because interface.js needs jQuery/Fliplet globals at
+// load time and can't be required under Jest. The actual decision logic
+// (order resolution, fetch-error recovery) has been extracted into pure
+// functions in pagination.js specifically so it CAN be executed and unit
+// tested — see the "Pagination.resolveEntryOrder" and
+// "Pagination.resolveFetchErrorRecovery" describe blocks in
+// pagination.test.js for the real behavioural coverage. This file only
+// proves those tested functions are actually reached.
+
+// Extracts the body of `function name(...) { ... }` by brace-counting from the
+// source text.
+function extractFunctionBody(source, functionName) {
+  var startMarker = 'function ' + functionName + '(';
+  var startIndex = source.indexOf(startMarker);
+
+  if (startIndex === -1) {
+    throw new Error('Could not find function ' + functionName + ' in source');
+  }
+
+  var openBraceIndex = source.indexOf('{', startIndex);
+  var depth = 0;
+  var i;
+
+  for (i = openBraceIndex; i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+    } else if (source[i] === '}') {
+      depth--;
+
+      if (depth === 0) {
+        return source.slice(openBraceIndex, i + 1);
+      }
+    }
+  }
+
+  throw new Error('Could not find matching closing brace for function ' + functionName);
+}
+
+// Extracts the body of the `.catch(function onFetchError(error) { ... })` block
+// inside fetchCurrentDataSourceEntries — it's a named function expression, not a
+// top-level `function name(...)` declaration, so it needs its own start marker.
+function extractOnFetchErrorBody(source) {
+  var startMarker = 'function onFetchError(error) {';
+  var startIndex = source.indexOf(startMarker);
+
+  if (startIndex === -1) {
+    throw new Error('Could not find onFetchError in source');
+  }
+
+  var openBraceIndex = source.indexOf('{', startIndex);
+  var depth = 0;
+  var i;
+
+  for (i = openBraceIndex; i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+    } else if (source[i] === '}') {
+      depth--;
+
+      if (depth === 0) {
+        return source.slice(openBraceIndex, i + 1);
+      }
+    }
+  }
+
+  throw new Error('Could not find matching closing brace for onFetchError');
+}
+
+describe('saveCurrentData wiring (PS-2072)', function() {
+  it('captures the real Handsontable reorder signal before getData() and passes it to resolveEntryOrder', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var captureIndex = body.indexOf('table.hasRowsMoved()');
+    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder)');
+    var commitPayloadIndex = body.indexOf('getCommitPayload(entries)');
+
+    expect(captureIndex).toBeGreaterThan(-1);
+    expect(resolveCallIndex).toBeGreaterThan(-1);
+    expect(commitPayloadIndex).toBeGreaterThan(-1);
+    expect(captureIndex).toBeLessThan(resolveCallIndex);
+    // Order matters: order must be resolved before the commit payload is
+    // computed from entries, otherwise the fix is a no-op.
+    expect(resolveCallIndex).toBeLessThan(commitPayloadIndex);
+  });
+
+  it('resolves order before the commit() call reads entries off the payload', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(');
+    var commitCallIndex = body.indexOf('currentDataSource.commit(');
+
+    expect(resolveCallIndex).toBeGreaterThan(-1);
+    expect(commitCallIndex).toBeGreaterThan(-1);
+    expect(resolveCallIndex).toBeLessThan(commitCallIndex);
+  });
+
+  it('clears the reorder signal only after a successful commit, not before', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var commitCallIndex = body.indexOf('currentDataSource.commit(');
+    var clearIndex = body.indexOf('table.clearRowsMoved()');
+
+    expect(commitCallIndex).toBeGreaterThan(-1);
+    expect(clearIndex).toBeGreaterThan(-1);
+    // Must be inside the commit's success handler, not before commit() is
+    // even called — a failed save must leave the signal set for a retry.
+    expect(clearIndex).toBeGreaterThan(commitCallIndex);
+  });
+
+  it('no longer calls the old, unsafe rank-only offset function', function() {
+    expect(interfaceSource.indexOf('applyPageOrderOffset')).toBe(-1);
+  });
+});
+
+describe('spreadsheet.js — real reorder signal wiring (PS-2072 follow-up)', function() {
+  var spreadsheetSource = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
+
+  it('sets rowsMoved from the real Handsontable afterRowMove hook, not inferred from values', function() {
+    var afterRowMoveIndex = spreadsheetSource.indexOf('afterRowMove: function()');
+    var setIndex = spreadsheetSource.indexOf('rowsMoved = true;');
+
+    expect(afterRowMoveIndex).toBeGreaterThan(-1);
+    expect(setIndex).toBeGreaterThan(-1);
+    expect(setIndex).toBeGreaterThan(afterRowMoveIndex);
+  });
+
+  it('exposes hasRowsMoved/clearRowsMoved and clears the flag on reset', function() {
+    expect(spreadsheetSource.indexOf('hasRowsMoved: hasRowsMoved')).toBeGreaterThan(-1);
+    expect(spreadsheetSource.indexOf('clearRowsMoved: clearRowsMoved')).toBeGreaterThan(-1);
+
+    var resetBody = extractFunctionBody(spreadsheetSource.slice(spreadsheetSource.indexOf('function reset(')), 'reset');
+
+    expect(resetBody.indexOf('clearRowsMoved()')).toBeGreaterThan(-1);
+  });
+});
+
+describe('currentDataSourceRowsCount wiring (PS-2072)', function() {
+  it('assigns the true data-source-wide total, not the current page size', function() {
+    expect(interfaceSource.indexOf('currentDataSourceRowsCount = totalEntries;')).toBeGreaterThan(-1);
+    expect(interfaceSource.indexOf('currentDataSourceRowsCount = rows.length;')).toBe(-1);
+  });
+});
+
+describe('renderSpreadsheet wiring — lastRenderedPage timing (PS-2072)', function() {
+  it('sets lastRenderedPage inside the waitUntilSized callback, after the stale-generation guard', function() {
+    var body = extractFunctionBody(interfaceSource, 'renderSpreadsheet');
+    var guardIndex = body.indexOf('fetchId !== fetchGeneration');
+    var assignIndex = body.indexOf('lastRenderedPage = currentPage;');
+
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(assignIndex).toBeGreaterThan(-1);
+    // Must be past the guard: a render can still be discarded here (stale
+    // generation), so setting it before this point would name a page that
+    // was never actually painted as the fetch-error rollback target.
+    expect(assignIndex).toBeGreaterThan(guardIndex);
+  });
+
+  it('does NOT set lastRenderedPage in the outer fetch .then() handler anymore', function() {
+    // Regression guard for the exact bug the review caught: the render can
+    // still be discarded (sizing wait, newer navigation) between the fetch
+    // resolving and anything actually being painted, so this assignment
+    // belongs only inside renderSpreadsheet's callback, not here.
+    var thenIndex = interfaceSource.indexOf('}).then(function(rows) {');
+    var nextFunctionIndex = interfaceSource.indexOf('function ', thenIndex);
+    var thenHandlerSlice = interfaceSource.slice(thenIndex, nextFunctionIndex);
+
+    expect(thenIndex).toBeGreaterThan(-1);
+    expect(thenHandlerSlice.indexOf('lastRenderedPage = currentPage;')).toBe(-1);
+  });
+});
+
+describe('onFetchError wiring (PS-2072)', function() {
+  it('routes recovery through Pagination.resolveFetchErrorRecovery, applying its result', function() {
+    var body = extractOnFetchErrorBody(interfaceSource);
+
+    var resolveIndex = body.indexOf('Pagination.resolveFetchErrorRecovery(');
+    var applyCurrentPageIndex = body.indexOf('currentPage = recovery.currentPage;');
+    var applyControlsIndex = body.indexOf('updatePaginationControls();');
+
+    expect(resolveIndex).toBeGreaterThan(-1);
+    expect(applyCurrentPageIndex).toBeGreaterThan(-1);
+    expect(applyControlsIndex).toBeGreaterThan(-1);
+    expect(resolveIndex).toBeLessThan(applyCurrentPageIndex);
+    expect(applyCurrentPageIndex).toBeLessThan(applyControlsIndex);
+  });
+
+  it('still returns early for stale responses, before the recovery decision runs at all', function() {
+    var body = extractOnFetchErrorBody(interfaceSource);
+    var staleGuardIndex = body.indexOf('if (error && error.stale)');
+    var resolveIndex = body.indexOf('Pagination.resolveFetchErrorRecovery(');
+
+    expect(staleGuardIndex).toBeGreaterThan(-1);
+    expect(resolveIndex).toBeGreaterThan(-1);
+    expect(staleGuardIndex).toBeLessThan(resolveIndex);
+  });
+
+  it('no longer contains the old unconditional rollback (superseded by the tested pure function)', function() {
+    var body = extractOnFetchErrorBody(interfaceSource);
+
+    // The old fix wrote `currentPage = lastRenderedPage;` directly. It's now
+    // sourced from the tested Pagination.resolveFetchErrorRecovery result.
+    expect(body.indexOf('currentPage = lastRenderedPage;')).toBe(-1);
+    expect(body.indexOf('currentPage = recovery.currentPage;')).toBeGreaterThan(-1);
+    expect(body.indexOf('lastRenderedPage = recovery.lastRenderedPage;')).toBeGreaterThan(-1);
+  });
+});
+
+describe('resetAndGoBack wiring (PS-2072)', function() {
+  it('resets lastRenderedPage alongside currentPage when leaving a data source', function() {
+    var resetBlockIndex = interfaceSource.indexOf('function resetAndGoBack()');
+    var body = extractFunctionBody(interfaceSource.slice(resetBlockIndex), 'resetAndGoBack');
+
+    expect(body.indexOf('currentPage = 0;')).toBeGreaterThan(-1);
+    expect(body.indexOf('lastRenderedPage = 0;')).toBeGreaterThan(-1);
+  });
+});
