@@ -310,22 +310,36 @@ function fetchCurrentDataSourceUsers() {
  * Cache a list of entries as original entries for comparison when committing changes
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
+ * @param {Object} [orders] - Optional orders the data source settled on, keyed by entry id and by clientId for rows that did not have one. Pass it after a commit: the entries come from getData(), which carries no order.
  * @returns {undefined}
  */
-function cacheOriginalEntries(entries, clientIdMap) {
+function cacheOriginalEntries(entries, clientIdMap, orders) {
   entryMap.original = {};
 
   _.forEach(entries, function(entry) {
+    var clientId = entry.clientId;
+
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
     // `order` is the value the server stores, not a visual index. It is only used
     // when the user reorders, to work out which rows genuinely need renumbering.
+    //
+    // After a commit the caller passes `orders`, because the rows come from
+    // getData(), which deliberately carries no order. Caching them as they are
+    // would leave every untouched row order-less until the reload re-caches, and
+    // a save made in that window predicts a mirrored sequence (PS-1781, #281).
+    var order = entry.order;
+
+    if (orders) {
+      order = _.has(orders, entry.id) ? orders[entry.id] : orders[clientId];
+    }
+
     entryMap.original[entry.id] = {
       id: entry.id,
       data: entry.data,
-      order: entry.order
+      order: order
     };
   });
 }
@@ -736,7 +750,7 @@ function saveCurrentData() {
 
     var clientIdMap = _.zipObject(clientIds, ids);
 
-    cacheOriginalEntries(entries, clientIdMap);
+    cacheOriginalEntries(entries, clientIdMap, payload.orders);
     table.setData({ columns: columns, rows: entries });
 
     // After the reload, not before: loading the entries clears this element,

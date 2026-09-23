@@ -42,12 +42,13 @@ var CommitNotice = (function() {
         : rows + ' new rows cannot be positioned while a column is sorted, so they have reloaded in the data source\'s own order. Clear the sort to place rows.';
     }
 
-    // All that is left: the row order column has reached the end of its range.
-    // Row order is stored as a 32-bit integer, so there is no value left to
-    // give the row, and writing one anyway would fail the save outright.
+    // More than one thing reaches here - the row order column running out of
+    // 32-bit range is the common one, but it is not the only one, and the
+    // reasons are not told apart yet. Name the outcome, not a cause we cannot
+    // prove, so the message is never actively wrong (#281 review).
     return rows === 1
-      ? 'A new row could not be given a position because this data source has run out of row order values, so it has reloaded at the end.'
-      : rows + ' new rows could not be given a position because this data source has run out of row order values, so they have reloaded at the end.';
+      ? 'A new row could not be positioned, so it has reloaded at the end.'
+      : rows + ' new rows could not be positioned, so they have reloaded at the end.';
   }
 
   return {

@@ -34,15 +34,19 @@ describe('CommitNotice.forDeclined', function() {
     expect(CommitNotice.forDeclined({ sorted: true, rows: 3 }).indexOf('3 new rows') === 0).toBe(true);
   });
 
-  it('speaks for a row the order column had no value left for', function() {
-    // The only decline left that is not a sort: `order` is a 32-bit integer, so
-    // a data source parked against the end of the column has no number left to
-    // give a new row. Writing one anyway would fail the save outright, and a
-    // decline nobody is told about is how a user thinks the save worked.
+  it('speaks for a row that could not be positioned, without naming a cause', function() {
+    // A decline nobody is told about is how a user thinks the save worked, so
+    // this still has to speak. What it must NOT do is name a cause: the order
+    // column running out of 32-bit range is the common one, not the only one,
+    // and the reasons are not told apart yet (#281 review). Claiming the wrong
+    // cause is worse than naming none - it sends the user after a fix that is
+    // not their problem.
     var message = CommitNotice.forDeclined({ sorted: false, rows: 1 });
 
     expect(message.indexOf('A new row') === 0).toBe(true);
-    expect(message.indexOf('run out of row order values') > -1).toBe(true);
+    expect(message.indexOf('could not be positioned') > -1).toBe(true);
+    expect(message.indexOf('reloaded at the end') > -1).toBe(true);
+    expect(message.indexOf('run out of row order values') > -1).toBe(false);
     expect(CommitNotice.forDeclined({ sorted: false, rows: 4 }).indexOf('4 new rows') === 0).toBe(true);
   });
 

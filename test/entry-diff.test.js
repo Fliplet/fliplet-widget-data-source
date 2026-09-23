@@ -1733,3 +1733,149 @@ describe('PS-1781 — the renumber the API is asked for', function() {
     expect(sharedOrders(rows, payload)).toHaveLength(0);
   });
 });
+
+/**
+ * The cache interface.js holds between a commit and the reload that follows it.
+ *
+ * It is built from the rows the grid just sent, which carry no order at all -
+ * getData() deliberately does not stamp one - with the orders the payload
+ * settled on written over the top. Mirrors
+ * cacheOriginalEntries(entries, clientIdMap, payload.orders).
+ *
+ * @param {Array} entries - The grid rows that were sent
+ * @param {Object} payload - Result of computeCommitPayload
+ * @param {Object} clientIdMap - clientId -> new server id, as the commit returns
+ * @returns {Object} Cached originals keyed by entry id
+ */
+function cacheAfterCommit(entries, payload, clientIdMap) {
+  var cache = {};
+
+  entries.forEach(function(entry) {
+    var id = entry.id || (clientIdMap || {})[entry.clientId];
+    var order = Object.prototype.hasOwnProperty.call(payload.orders, id)
+      ? payload.orders[id]
+      : payload.orders[entry.clientId];
+
+    cache[id] = { id: id, data: entry.data, order: order };
+  });
+
+  return cache;
+}
+
+/**
+ * The data source as the server holds it once a payload lands.
+ * @param {Array} rows - Stored rows before the save
+ * @param {Object} payload - Result of computeCommitPayload
+ * @returns {Array} Stored rows after it
+ */
+function storedAfter(rows, payload) {
+  var stored = applyPayload(rows, payload);
+
+  return Object.keys(stored).map(function(key) {
+    return stored[key];
+  });
+}
+
+describe('PS-1781 - a second save made before the reload lands', function() {
+  // The window is real: interface.js re-caches from the reload inside a
+  // setTimeout(.., 0), so a save issued between the commit resolving and that
+  // timer firing diffs against the post-commit cache. Every other spec here
+  // starts from a freshly loaded originalMap, which is exactly why this class
+  // of defect survived 4,000 generated scenarios (#281 review).
+  var rows = [
+    { id: 1, name: 'r1', order: 100 },
+    { id: 2, name: 'r2', order: 200 },
+    { id: 3, name: 'r3', order: 300 },
+    { id: 4, name: 'r4', order: 400 },
+    { id: 5, name: 'r5', order: 500 },
+    { id: 6, name: 'r6', order: 600 }
+  ];
+
+  /**
+   * Save once (a cell edit, which changes no order), then save again from the
+   * cache that first save left behind.
+   * @param {Number} at - Visual index the second save inserts at
+   * @returns {String} What the data source reads back as
+   */
+  function insertInsideTheWindow(at) {
+    var first = build(rows);
+
+    first.entries[0].data.Name = 'r1 edited';
+
+    var firstPayload = commit(first.entries, first.originals);
+    var afterFirst = storedAfter(rows, firstPayload);
+    var cache = cacheAfterCommit(first.entries, firstPayload, {});
+    var second = afterFirst.slice().sort(readComparator(-1)).map(function(row) {
+      return { id: row.id, data: { Name: row.name } };
+    });
+
+    second.splice(at, 0, { data: { Name: 'NEW' } });
+
+    return applyAndRead(afterFirst, commit(second, cache));
+  }
+
+  it('carries the settled orders, so the cache is never order-less', function() {
+    var d = build(rows);
+
+    d.entries[0].data.Name = 'r1 edited';
+
+    var payload = commit(d.entries, d.originals);
+    var cache = cacheAfterCommit(d.entries, payload, {});
+
+    // The defect this guards: caching the grid rows as they are leaves every
+    // untouched row on order: undefined, byReadOrder then ties every row and
+    // falls back to id DESC, and the next save predicts a mirrored sequence.
+    Object.keys(cache).forEach(function(id) {
+      expect(typeof cache[id].order === 'number').toBe(true);
+    });
+
+    expect(cache[1].order).toBe(100);
+    expect(cache[6].order).toBe(600);
+  });
+
+  it('places a row added at the top where it was dropped', function() {
+    expect(insertInsideTheWindow(0)).toBe('NEW,r1 edited,r2,r3,r4,r5,r6');
+  });
+
+  it('places a row appended at the bottom where it was dropped', function() {
+    expect(insertInsideTheWindow(6)).toBe('r1 edited,r2,r3,r4,r5,r6,NEW');
+  });
+
+  it('places a row added in the middle where it was dropped', function() {
+    expect(insertInsideTheWindow(3)).toBe('r1 edited,r2,r3,NEW,r4,r5,r6');
+  });
+
+  it('keeps the orders a renumbering save settled on', function() {
+    // A save that normalizes predicts orders the server has but the grid has
+    // never read back, so those are the ones that have to reach the cache.
+    var dense = [
+      { id: 1, name: 'a', order: 0 },
+      { id: 2, name: 'b', order: 1 },
+      { id: 3, name: 'c', order: 2 }
+    ];
+    var d = build(dense);
+
+    d.entries.splice(1, 0, { data: { Name: 'INS' } });
+
+    var payload = commit(d.entries, d.originals);
+
+    expect(payload.normalizeOrder).toBeDefined();
+
+    var clientIdMap = {};
+
+    payload.entries.forEach(function(entry) {
+      if (entry.clientId) {
+        clientIdMap[entry.clientId] = 99;
+      }
+    });
+
+    var cache = cacheAfterCommit(d.entries, payload, clientIdMap);
+    var gap = payload.normalizeOrder.gap;
+
+    // Renumbered to (index + 1) * gap in read order, with the inserted row
+    // sitting on the value the payload asked for.
+    expect(cache[1].order).toBe(gap);
+    expect(cache[3].order).toBe(3 * gap);
+    expect(typeof cache[99].order === 'number').toBe(true);
+  });
+});

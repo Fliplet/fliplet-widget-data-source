@@ -675,9 +675,47 @@ var EntryDiff = (function() {
       normalizeOrder = null;
     }
 
+    // The orders the data source holds once this payload is applied: the
+    // renumbered values when a renumber was asked for, the stored ones when it
+    // was not, with this save's own moves and inserts written over the top.
+    // Keyed by entry id, and by clientId for rows that do not have one yet.
+    //
+    // The caller caches this after a commit. It cannot cache the grid rows
+    // instead: getData() deliberately carries no order, so every row the save
+    // did not touch would cache order-less, and a save made before the reload
+    // lands would then see nothing numbered at all - byReadOrder ties every row
+    // and falls back to id DESC, so the predicted sequence comes out mirrored
+    // against what the server wrote (PS-1781, #281 review).
+    var settledBase = normalizeOrder ? orders : originalMap;
+    var settledOrders = {};
+
+    Object.keys(settledBase).forEach(function(id) {
+      var original = settledBase[id];
+
+      // Rows this save deletes are not part of the state it settles on.
+      if (!seen[original.id]) {
+        return;
+      }
+
+      settledOrders[original.id] = positions
+        && Object.prototype.hasOwnProperty.call(positions, original.id)
+        ? positions[original.id]
+        : original.order;
+    });
+
+    inserted.forEach(function(entry) {
+      // undefined where the row was not placeable - the API stores null, which
+      // is exactly what the next save should predict for it.
+      settledOrders[entry.clientId] = entry.order;
+    });
+
     return {
       entries: committed,
       delete: deleted,
+
+      // What the rows above are worth once this payload lands, for the caller to
+      // cache in place of the order-less grid rows.
+      orders: settledOrders,
 
       // Renumber every live entry before applying the payload above. Null on a
       // data source whose own orders can already hold the arrangement.
