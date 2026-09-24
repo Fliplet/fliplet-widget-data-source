@@ -1,3 +1,4 @@
+/* global GridSort */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
@@ -14,6 +15,10 @@ function spreadsheet(options) {
   var columnNameCounter = 1; // Counter to anonymous columns names
   var rendered = 0;
   var isDestroyed = false; // Flag to prevent actions after instance is destroyed
+  var noticeTimeout = null; // Handle for the transient message under the grid
+  // Set once the user drags a row. Row order is only worth committing when they
+  // actually reordered something - see getData().
+  var rowsMoved = false;
 
   /**
    * Given an array of data source entries it does return an array
@@ -576,8 +581,20 @@ function spreadsheet(options) {
 
         return false;
       }
+
+      // A drag inside a sorted view is not an arrangement anything can store:
+      // the visible sequence is the sort, not the data source's own order, so
+      // persisting it would write the sort over every row. Refuse the move
+      // rather than accept it and then quietly drop it on save - and say so,
+      // because a drag that simply does nothing looks like the bug.
+      if (isColumnSorted()) {
+        showGridNotice('Rows cannot be moved while a column is sorted. Clear the sort to reorder rows.');
+
+        return false;
+      }
     },
     afterRowMove: function() {
+      rowsMoved = true;
       onChange();
     },
     afterCreateRow: function() {
@@ -850,7 +867,7 @@ function spreadsheet(options) {
     }
 
     // And finally we pick the IDs to visual from source
-    visual.forEach(function findSourceEntry(visualRow, order) {
+    visual.forEach(function findSourceEntry(visualRow) {
       // We need to sort both visual and source rows because
       // moving columns doesn't keep the source data in order
       var sortedVisual = _.clone(visualRow).sort();
@@ -882,7 +899,11 @@ function spreadsheet(options) {
             entry.data[header] = visualRow[index];
           }
 
-          entry.order = order;
+          // Position is deliberately not stamped here. A dense visual index is
+          // incompatible with stored orders that are sparse or null, so writing it
+          // on a data-only edit or an insert would silently move the row. When the
+          // user does reorder, getCommitPayload() assigns the positions, because
+          // that is where the stored values are known.
 
           // Only parse the column value when required
           if (options.parseJSON && typeof entry.data[header] === 'string') {
@@ -984,9 +1005,48 @@ function spreadsheet(options) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
   }
 
+  /**
+   * Whether a column sort is currently applied to the grid.
+   * @returns {Boolean} True when the visible sequence is a sort, not the stored order
+   */
+  function isColumnSorted() {
+    if (isDestroyed) {
+      return false;
+    }
+
+    return GridSort.isSortApplied(hot);
+  }
+
+  /**
+   * Put a short message under the grid. Used where an action is refused and the
+   * user would otherwise see nothing happen.
+   * @param {String} message - Text to show
+   * @returns {undefined}
+   */
+  function showGridNotice(message) {
+    var html = '<br>' + message;
+
+    $('.entries-message').html(html);
+
+    if (noticeTimeout) {
+      clearTimeout(noticeTimeout);
+    }
+
+    noticeTimeout = setTimeout(function() {
+      noticeTimeout = null;
+
+      // The element is shared - the data-source load error writes to it too,
+      // and afterLoadData clears it - so only take back what is still ours
+      if ($('.entries-message').html() === html) {
+        $('.entries-message').html('');
+      }
+    }, 5000);
+  }
+
   function reset(resetHistory) {
     search('clear');
     setChanges(false);
+    rowsMoved = false;
 
     $('.save-btn').addClass('hidden');
     $('.data-save-status').addClass('hidden');
@@ -1016,6 +1076,13 @@ function spreadsheet(options) {
       // Mark as destroyed to stop any deferred work
       isDestroyed = true;
 
+      // ...including a pending notice, which would otherwise outlive this grid
+      // and clear a message belonging to the next one
+      if (noticeTimeout) {
+        clearTimeout(noticeTimeout);
+        noticeTimeout = null;
+      }
+
       // Nullify reference so external callers can guard with `if (!hot)`
       hot = null;
 
@@ -1027,6 +1094,15 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
+    hasRowsMoved: function() {
+      return rowsMoved;
+    },
+    // True while the grid is showing a column sort instead of the stored
+    // sequence. Nothing about a row's position can be read off the grid then.
+    isColumnSorted: isColumnSorted,
+    // Put a message under the grid. Used by the save to report a change it
+    // could not persist, the same way a refused row move reports itself.
+    showNotice: showGridNotice,
     onChange: onChange
   };
 }
