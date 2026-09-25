@@ -246,14 +246,20 @@ var EntryDiff = (function() {
   /**
    * The runs of consecutive new rows in a save, each with the position of the
    * stored row above it. A run between two stored rows needs room between their
-   * orders; one at either end of the grid does not.
+   * orders; one at either end of the grid does not - unless the grid is one page
+   * of a larger data source and a row sits just past that end (PS-2204), which
+   * makes it a neighbour like any other.
+   *
+   * `above` indexes the pool placementFits reads: the stored orders ascending,
+   * with the edge row above the page first when there is one.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @param {Object} [edges] - { before, after }: whether a row bounds the page on that side
    * @returns {Array} [{ count, above, interior }]
    */
-  function insertRuns(entries, originalMap) {
+  function insertRuns(entries, originalMap, edges) {
     var runs = [];
-    var above = -1;
+    var above = edges && edges.before ? 0 : -1;
     var index = 0;
     var count;
 
@@ -275,7 +281,7 @@ var EntryDiff = (function() {
       runs.push({
         count: count,
         above: above,
-        interior: above >= 0 && index < entries.length
+        interior: above >= 0 && (index < entries.length || !!(edges && edges.after))
       });
     }
 
@@ -345,12 +351,20 @@ var EntryDiff = (function() {
    * The orders the data source will hold once the API has renumbered it. The
    * renumber walks the platform's read order, which is the sequence the manager
    * is already showing, so this is predicted here rather than read back.
+   *
+   * The renumber covers every live entry, so a row's new order comes from its
+   * position in the whole data source, not in the grid. When the grid is one
+   * page, that position is the page's offset plus the row's place on the page
+   * (PS-2204): numbering the page from 1 predicts values the server never
+   * writes, and every row placed against them lands near the top instead.
    * @param {Object} originalMap - Cached originals, keyed by entry id
    * @param {Number} gap - Spacing the renumber will use
+   * @param {Number} [offset] - Rows in the data source before the first cached one
    * @returns {Object} Originals carrying their post-renumber orders
    */
-  function normalizedOrders(originalMap, gap) {
+  function normalizedOrders(originalMap, gap, offset) {
     var normalized = {};
+    var start = offset || 0;
 
     Object.keys(originalMap).map(function(key) {
       return originalMap[key];
@@ -358,7 +372,7 @@ var EntryDiff = (function() {
       normalized[original.id] = {
         id: original.id,
         data: original.data,
-        order: (index + 1) * gap
+        order: (start + index + 1) * gap
       };
     });
 
@@ -377,12 +391,20 @@ var EntryDiff = (function() {
    * asking the API to renumber where there was not; what is left here is the
    * arithmetic, and the one thing it still declines - a value the column cannot
    * hold, which is a rejected write rather than a worse position.
+   * On one page of a larger data source the rows either side of the page are
+   * neighbours too (PS-2204): a run at the top of the page is seated after the
+   * last row of the page above, and one at the bottom before the first row of
+   * the page below, so neither can land on another page.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
    * @param {Object} positions - Positions already decided for existing rows
+   * @param {Object} [edgeOrders] - { before, after }: settled orders of the rows
+   *   just outside the page, null where there is none or it bounds nothing
    * @returns {Object} { inserts: Map index to order, unplaced: Number }
    */
-  function computeInsertPositions(entries, originalMap, positions) {
+  function computeInsertPositions(entries, originalMap, positions, edgeOrders) {
+    var edgeBefore = edgeOrders && typeof edgeOrders.before === 'number' ? edgeOrders.before : null;
+    var edgeAfter = edgeOrders && typeof edgeOrders.after === 'number' ? edgeOrders.after : null;
     var inserts = {};
     // New rows whose position could not be honoured. They still save - they
     // just reload somewhere other than where the user dropped them, which is
@@ -430,8 +452,8 @@ var EntryDiff = (function() {
       }
 
       var count = index - start;
-      var before = start > 0 ? settledOrderAt(start - 1) : null;
-      var after = settledOrderAt(index);
+      var before = start > 0 ? settledOrderAt(start - 1) : edgeBefore;
+      var after = index < entries.length ? settledOrderAt(index) : edgeAfter;
       var step = 1;
       var base;
       var i;
@@ -526,10 +548,17 @@ var EntryDiff = (function() {
    * Build the commit payload by comparing current entries against the originals.
    * NOTE: mutates entries in place - adds clientId to new entries, deletes id from
    * recovered ones, and stamps order on rows that a reorder has moved.
+   *
+   * `options.page` describes the grid when it is one page of a larger data
+   * source (PS-2204): { offset, liveCount, before, after }, where `offset` is
+   * how many rows the data source holds above the page, `liveCount` how many it
+   * holds in all, and `before` / `after` the { id, order } of the rows just
+   * outside the page (null at either end of the data source). Without it the
+   * grid is taken to be the whole data source.
    * @param {Array} entries - Current entries from the table, in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @param {Object} options - { rowsMoved, viewMatchesStoredOrder, isEqual, guid }
-   * @returns {Object} { entries, delete, normalizeOrder, declined }
+   * @param {Object} options - { rowsMoved, viewMatchesStoredOrder, isEqual, guid, page }
+   * @returns {Object} { entries, delete, normalizeOrder, declined, orders, pageEdges }
    */
   function computeCommitPayload(entries, originalMap, options) {
     entries = entries || [];
@@ -537,6 +566,19 @@ var EntryDiff = (function() {
 
     var isEqualFn = options.isEqual;
     var guidFn = options.guid;
+
+    var page = options.page || null;
+    var offset = page && page.offset > 0 ? page.offset : 0;
+    var pageRowCount = Object.keys(originalMap).length;
+    var edgeBefore = page && page.before ? page.before : null;
+    var edgeAfter = page && page.after ? page.after : null;
+
+    // The row below the page only bounds a position when it is numbered: an
+    // unnumbered row reads after every numbered one, so anything placed above
+    // it already reloads before it. The row above the page always bounds one -
+    // if it is unnumbered, so is every row on the page, and the page can only
+    // be placed after a renumber.
+    var afterBounds = !!edgeAfter && typeof edgeAfter.order === 'number';
 
     // The grid can be showing a column sort rather than the stored sequence.
     // Nothing about a position can be read off it then: the row above a new one
@@ -553,8 +595,17 @@ var EntryDiff = (function() {
     var stored = positioned.map(function(entry) {
       return originalMap[entry.id].order;
     });
-    var runs = insertRuns(entries, originalMap);
+    var runs = insertRuns(entries, originalMap, { before: !!edgeBefore, after: afterBounds });
     var newRows = countNewRows(entries, originalMap);
+
+    // The stored orders a placement has to fit between, edge rows included, in
+    // the ascending order placementFits indexes runs against
+    var bounded = (edgeBefore ? [edgeBefore.order] : [])
+      .concat(stored)
+      .concat(afterBounds ? [edgeAfter.order] : []);
+    var pool = (edgeBefore ? [edgeBefore.order] : [])
+      .concat(stored.slice().sort(ascending))
+      .concat(afterBounds ? [edgeAfter.order] : []);
     var moved = !!options.rowsMoved
       && viewMatchesStoredOrder
       && sequenceMoved(positioned, originalMap);
@@ -568,20 +619,34 @@ var EntryDiff = (function() {
     var orders = originalMap;
     var gap;
 
+    // Orders of the rows just outside the page as they stand now. An
+    // unnumbered row below the page bounds nothing, so it reads as null here.
+    var edgeOrders = {
+      before: edgeBefore ? edgeBefore.order : null,
+      after: afterBounds ? edgeAfter.order : null
+    };
+
     if (viewMatchesStoredOrder && (newRows || moved)
-      && !(ordersAreUsable(stored) && placementFits(stored.slice().sort(ascending), runs))) {
-      // MERGE HAZARD (#275, pagination). Both the row count and the predicted
-      // numbering below take `originalMap` to be the whole data source, because
-      // that is what the API renumbers - every live entry, not a page of them.
-      // Cache one page here instead and the client predicts a numbering the
-      // server never writes, and every insert lands in the wrong place. If this
-      // file gains pagination, the renumber has to be asked for against the
-      // real live count and the placement recomputed from what comes back.
-      gap = gapForNormalize(Object.keys(originalMap).length, runs);
+      && !(ordersAreUsable(bounded) && placementFits(pool, runs))) {
+      // The API renumbers every live entry, not the page, so both the size of
+      // the renumber and the numbering it produces are taken from the whole
+      // data source. The page's rows get the values their place in it earns:
+      // offset + position on the page (PS-2204). Once renumbered, the row below
+      // the page is numbered too, so it bounds a run at the bottom after all.
+      var liveCount = Math.max(
+        page && typeof page.liveCount === 'number' ? page.liveCount : 0,
+        offset + pageRowCount + (edgeAfter ? 1 : 0)
+      );
+
+      gap = gapForNormalize(liveCount, insertRuns(entries, originalMap, { before: !!edgeBefore, after: !!edgeAfter }));
 
       if (gap) {
         normalizeOrder = { gap: gap };
-        orders = normalizedOrders(originalMap, gap);
+        orders = normalizedOrders(originalMap, gap, offset);
+        edgeOrders = {
+          before: edgeBefore ? offset * gap : null,
+          after: edgeAfter ? (offset + pageRowCount + 1) * gap : null
+        };
       }
     }
 
@@ -595,7 +660,7 @@ var EntryDiff = (function() {
     // save: each one keeps the position the API gives an unordered row rather
     // than the one the user dropped it on, so it is reported rather than silent.
     var placed = viewMatchesStoredOrder
-      ? computeInsertPositions(entries, orders, positions)
+      ? computeInsertPositions(entries, orders, positions, edgeOrders)
       : { inserts: {}, unplaced: newRows };
 
     var inserted = [];
@@ -709,6 +774,24 @@ var EntryDiff = (function() {
       settledOrders[entry.clientId] = entry.order;
     });
 
+    // The rows just outside the page, as they stand once this payload lands. A
+    // renumber moves them too, and a save made before the reload has to place
+    // against the values they will hold, not the ones they held.
+    var pageEdges = null;
+
+    if (page) {
+      pageEdges = {
+        before: edgeBefore ? {
+          id: edgeBefore.id,
+          order: normalizeOrder ? offset * gap : edgeBefore.order
+        } : null,
+        after: edgeAfter ? {
+          id: edgeAfter.id,
+          order: normalizeOrder ? (offset + pageRowCount + 1) * gap : edgeAfter.order
+        } : null
+      };
+    }
+
     return {
       entries: committed,
       delete: deleted,
@@ -716,6 +799,10 @@ var EntryDiff = (function() {
       // What the rows above are worth once this payload lands, for the caller to
       // cache in place of the order-less grid rows.
       orders: settledOrders,
+
+      // The rows bounding the page once this payload lands, for the caller to
+      // cache alongside `orders`. Null when the grid is the whole data source.
+      pageEdges: pageEdges,
 
       // Renumber every live entry before applying the payload above. Null on a
       // data source whose own orders can already hold the arrangement.

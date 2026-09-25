@@ -64,6 +64,12 @@ var fetchGeneration = 0;
 // starts — on a failed fetch we roll currentPage back to this so pagination
 // controls (and the next navigation request) stay aligned with what's on screen.
 var lastRenderedPage = 0;
+// Where the cached page sits in the data source (PS-2204), cached with its rows:
+// { offset, before, after }, where before/after are the { id, order } of the
+// rows just above and below the page - the neighbours a row added at the top or
+// bottom of it is placed between (null at either end of the data source). Null
+// when no page is cached, and EntryDiff then treats the grid as the whole thing.
+var pageEdges = null;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -467,6 +473,8 @@ function navigateToPage(targetPage) {
 
 function fetchCurrentDataSourceEntries(entries) {
   var thisFetch = ++fetchGeneration;
+  // Edges of the page this fetch returns, cached together with its rows below
+  var fetchedEdges = null;
 
   // Reuse existing connection if available, otherwise connect
   var connectionPromise = currentDataSource
@@ -511,12 +519,18 @@ function fetchCurrentDataSourceEntries(entries) {
       // way the rest of the platform does. Asking for id ASC here made rows with a
       // null or shared order appear in one sequence in the manager and the reverse
       // of it in apps, with nothing written down to reconcile them.
+      //
+      // The window is one row wider on each side than the page (PS-2204): the
+      // row above and the row below are what a row added at the top or bottom of
+      // the page is placed between. They are not shown.
+      var fetchWindow = Pagination.computeFetchWindow(currentPage, PAGE_SIZE);
+
       return Fliplet.API.request({
         url: 'v1/data-sources/' + currentDataSourceId + '/data/query',
         method: 'POST',
         data: {
-          limit: PAGE_SIZE,
-          offset: currentPage * PAGE_SIZE,
+          limit: fetchWindow.limit,
+          offset: fetchWindow.offset,
           order: [['order', 'ASC'], ['id', 'DESC']]
         }
       }).then(function(queryResponse) {
@@ -525,7 +539,15 @@ function fetchCurrentDataSourceEntries(entries) {
           return Promise.reject({ stale: true });
         }
 
-        return queryResponse.entries;
+        var split = Pagination.splitFetchWindow(queryResponse.entries, currentPage, PAGE_SIZE);
+
+        fetchedEdges = {
+          offset: currentPage * PAGE_SIZE,
+          before: split.before,
+          after: split.after
+        };
+
+        return split.rows;
       }).catch(function(err) {
         if (err && err.stale) {
           return Promise.reject(err);
@@ -546,6 +568,7 @@ function fetchCurrentDataSourceEntries(entries) {
     // Cache entries in a new thread
     setTimeout(function() {
       cacheOriginalEntries(rows);
+      pageEdges = fetchedEdges;
     }, 0);
 
     $('#show-versions').show();
@@ -816,6 +839,17 @@ function getCommitPayload(entries) {
     // ...and only when the grid is showing the stored sequence. Under a column
     // sort the visible order is not an arrangement anyone asked to persist.
     viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
+    // The grid is one page of the data source (PS-2204). Without this, EntryDiff
+    // takes the page to be the whole data source and numbers a new row from the
+    // top of it, so the row reloads on the first page instead of where it was put.
+    // Offset and edges come from the same fetch as the cached rows, so they
+    // always describe the page the save is comparing against.
+    page: pageEdges ? {
+      offset: pageEdges.offset,
+      liveCount: totalEntries,
+      before: pageEdges.before,
+      after: pageEdges.after
+    } : null,
     isEqual: _.isEqual,
     guid: Fliplet.guid
   });
@@ -910,6 +944,14 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap, payload.orders);
+
+    if (pageEdges && payload.pageEdges) {
+      pageEdges = {
+        offset: pageEdges.offset,
+        before: payload.pageEdges.before,
+        after: payload.pageEdges.after
+      };
+    }
 
     if (table) {
       table.setData({ columns: columns, rows: entries });
@@ -1416,6 +1458,7 @@ $('#app')
       lastRenderedPage = 0;
       totalEntries = 0;
       totalPages = 0;
+      pageEdges = null;
       currentDataSource = null;
 
       $('#save-rules').addClass('hidden');
