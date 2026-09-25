@@ -1,4 +1,4 @@
-/* global Pagination, WaitUntilSized */
+/* global Pagination, WaitUntilSized, EntryDiff, CommitNotice */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -134,7 +134,7 @@ function getDataSources() {
 
         $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
-        $('[data-back]').text('See all my app\'s data sources');
+        $('[data-back]').text('See all my project\'s data sources');
         $helpIcon.addClass('hidden');
 
         // Filters data sources
@@ -343,17 +343,37 @@ function fetchCurrentDataSourceUsers() {
  * Cache a list of entries as original entries for comparison when committing changes
  * @param {Array} entries - Entries to be cached as original entries
  * @param {Object} [clientIdMap] - Optional map of client IDs to new entry IDs to map add the missing entry IDs. This mutates the entries provided.
+ * @param {Object} [orders] - Optional orders the data source settled on, keyed by entry id and by clientId for rows that did not have one. Pass it after a commit: the entries come from getData(), which carries no order.
  * @returns {undefined}
  */
-function cacheOriginalEntries(entries, clientIdMap) {
+function cacheOriginalEntries(entries, clientIdMap, orders) {
   entryMap.original = {};
 
   _.forEach(entries, function(entry) {
+    var clientId = entry.clientId;
+
     if (!entry.id && typeof clientIdMap === 'object') {
       entry.id = clientIdMap[entry.clientId];
     }
 
-    entryMap.original[entry.id] = _.pick(entry, ['id', 'data', 'order']);
+    // `order` is the value the server stores, not a visual index. It is only used
+    // when the user reorders, to work out which rows genuinely need renumbering.
+    //
+    // After a commit the caller passes `orders`, because the rows come from
+    // getData(), which deliberately carries no order. Caching them as they are
+    // would leave every untouched row order-less until the reload re-caches, and
+    // a save made in that window predicts a mirrored sequence (PS-1781, #281).
+    var order = entry.order;
+
+    if (orders) {
+      order = _.has(orders, entry.id) ? orders[entry.id] : orders[clientId];
+    }
+
+    entryMap.original[entry.id] = {
+      id: entry.id,
+      data: entry.data,
+      order: order
+    };
   });
 }
 
@@ -485,14 +505,19 @@ function fetchCurrentDataSourceEntries(entries) {
         return Promise.resolve(entries);
       }
 
-      // Fetch only the current page of entries using the query endpoint
+      // Fetch only the current page of entries using the query endpoint.
+      // The sort is the platform's own read order - the API's default, and the
+      // sequence its renumber walks - so the manager reads a data source the same
+      // way the rest of the platform does. Asking for id ASC here made rows with a
+      // null or shared order appear in one sequence in the manager and the reverse
+      // of it in apps, with nothing written down to reconcile them.
       return Fliplet.API.request({
         url: 'v1/data-sources/' + currentDataSourceId + '/data/query',
         method: 'POST',
         data: {
           limit: PAGE_SIZE,
           offset: currentPage * PAGE_SIZE,
-          order: [['order', 'ASC'], ['id', 'ASC']]
+          order: [['order', 'ASC'], ['id', 'DESC']]
         }
       }).then(function(queryResponse) {
         // Discard stale response if a newer fetch was started
@@ -566,8 +591,6 @@ function fetchCurrentDataSourceEntries(entries) {
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
     if (initialLoad) {
-      $('.table-entries').css('visibility', 'hidden').attr('aria-busy', 'true');
-
       if (table) {
         table.destroy();
       }
@@ -780,8 +803,22 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @param {Array} entries - Latest entries to be committed
  * @returns {Object} List of new/updated entries and deleted IDs
  */
+/**
+ * Build the list of new/updated entries and deleted IDs for a commit.
+ * The comparison itself lives in js/entry-diff.js so it can be unit tested.
+ * @param {Array} entries - List of entries from the table, in visual order
+ * @returns {Object} List of new/updated entries and deleted IDs
+ */
 function getCommitPayload(entries) {
-  return Pagination.computeCommitPayload(entries, entryMap.original, _.isEqual, Fliplet.guid);
+  return EntryDiff.computeCommitPayload(entries, entryMap.original, {
+    // Position is only worth writing when the user dragged a row during this save
+    rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
+    // ...and only when the grid is showing the stored sequence. Under a column
+    // sort the visible order is not an arrangement anyone asked to persist.
+    viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
+    isEqual: _.isEqual,
+    guid: Fliplet.guid
+  });
 }
 
 function saveCurrentData() {
@@ -794,38 +831,10 @@ function saveCurrentData() {
   table.onSave();
   fetchCurrentDataSourceEntries();
 
-  // Captured before getData() reads the grid, but nothing async happens
-  // between here and resolveEntryOrder() using it, so the value can't change.
-  var didReorder = table.hasRowsMoved();
-
   var entries = table.getData({
     parseJSON: true,
     removeEmptyRows: true
   });
-
-  // See Pagination.resolveEntryOrder (PS-2072) — getData() has no notion of
-  // pagination or of this data source's real order values, and always assigns
-  // order from plain visual rank. didReorder is the real signal for whether the
-  // user actually dragged a row this save (not inferred from comparing order
-  // values, which is blind where those values tie). Without a real reorder
-  // every row keeps its true order untouched, whatever shape it has; with one,
-  // the new arrangement is written using orders this page already occupied, so
-  // the page can't move relative to pages the user never touched. Rank is never
-  // used as an order on a paginated page — that's what the function exists to
-  // prevent. See its doc comment for the full decision.
-  var orderResult = Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder);
-
-  if (orderResult.refused) {
-    // The rows on this page hold no positions a new arrangement can be written
-    // into (see resolveEntryOrder's doc comment), so the drag is dropped rather
-    // than applied in a way that would move rows the user never touched on
-    // other pages. Everything else in this save still commits, and the refetch
-    // below puts the grid back to the stored arrangement.
-    Fliplet.Modal.alert({
-      title: 'Row order not saved',
-      message: 'These rows don\'t have saved positions yet, so their new order couldn\'t be saved. Any other changes you made were saved, and the rows have been put back where they were.'
-    });
-  }
 
   // If we don't have data we might also have no columns
   // Check if all columns are empty and clear them on the data source
@@ -873,13 +882,22 @@ function saveCurrentData() {
   currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
 
   var payload = getCommitPayload(entries);
-
-  return currentDataSource.commit({
+  var commitData = {
     entries: payload.entries,
     delete: payload.delete,
     columns: columns,
     returnEntries: false
-  }).then(function(response) {
+  };
+
+  // Only when the stored orders cannot seat the rows this save is placing. The
+  // API renumbers every live entry over its own read order before applying the
+  // payload, which is what lets the payload be the rows the user touched rather
+  // than the whole data source (PS-1781).
+  if (payload.normalizeOrder) {
+    commitData.normalizeOrder = payload.normalizeOrder;
+  }
+
+  return currentDataSource.commit(commitData).then(function(response) {
     var clientIds = [];
     var ids = [];
 
@@ -891,7 +909,7 @@ function saveCurrentData() {
 
     var clientIdMap = _.zipObject(clientIds, ids);
 
-    cacheOriginalEntries(entries, clientIdMap);
+    cacheOriginalEntries(entries, clientIdMap, payload.orders);
 
     if (table) {
       table.setData({ columns: columns, rows: entries });
@@ -905,7 +923,19 @@ function saveCurrentData() {
       table.clearRowsMoved();
     }
 
-    return fetchCurrentDataSourceEntries();
+    // After the reload, not before: loading the entries clears this element,
+    // so a notice written any earlier is wiped by the refresh that proves it.
+    return fetchCurrentDataSourceEntries().then(function(result) {
+      var notice = CommitNotice.forDeclined(payload.declined);
+
+      if (notice && table && typeof table.showNotice === 'function') {
+        table.showNotice(notice);
+      }
+
+      // Hand back what the reload resolved with - onSaveRequest passes it
+      // straight to Fliplet.Widget.complete
+      return result;
+    });
   });
 }
 
@@ -1594,7 +1624,7 @@ $('#app')
     });
 
     if (currentDS && currentDS.apps && currentDS.apps.length) {
-      var appPrefix = currentDS.apps.length > 1 ? 'apps: ' : 'app: ';
+      var appPrefix = currentDS.apps.length > 1 ? 'projects: ' : 'project: ';
       var appUsedIn = currentDS.apps.map(function(elem) {
         return elem.name;
       });
@@ -2592,7 +2622,7 @@ $('#show-access-rules').click(function() {
 
             return app && app.name;
           })).join(', ')
-          : 'All apps',
+          : 'All projects',
         require: rule.require
           ? rule.require.map(function(require) {
             if (typeof require === 'string') {
@@ -2940,7 +2970,7 @@ function updateDataSourceRules() {
     $saveButton.html(buttonLabel).removeClass('disabled').addClass('hidden');
 
     Fliplet.Modal.alert({
-      message: 'Your changes have been applied to all affected apps.'
+      message: 'Your changes have been applied to all affected projects.'
     });
   }).catch(function(error) {
     $saveButton.html(buttonLabel).removeClass('disabled');
