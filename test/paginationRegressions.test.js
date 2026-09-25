@@ -1,19 +1,21 @@
-/* eslint-env jest */
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var expect = require('./expect');
+
 var fs = require('fs');
 var path = require('path');
 
 var interfaceSource = fs.readFileSync(path.join(__dirname, '../js/interface.js'), 'utf8');
 
 // SCOPE NOTE (per code review on PS-2072): these checks only confirm that
-// interface.js *wires* the right Pagination.* function at the right call
-// site, in the right order — they do not and cannot prove the decision logic
-// itself is correct, because interface.js needs jQuery/Fliplet globals at
-// load time and can't be required under Jest. The actual decision logic
-// (order resolution, fetch-error recovery) has been extracted into pure
-// functions in pagination.js specifically so it CAN be executed and unit
-// tested — see the "Pagination.resolveEntryOrder" and
-// "Pagination.resolveFetchErrorRecovery" describe blocks in
-// pagination.test.js for the real behavioural coverage. This file only
+// interface.js *wires* the right function at the right call site, in the right
+// order — they do not and cannot prove the decision logic itself is correct,
+// because interface.js needs jQuery/Fliplet globals at load time and can't be
+// required in a unit test. The actual decision logic has been extracted into
+// pure functions so it CAN be executed and unit tested — the commit payload in
+// entry-diff.js (entry-diff.test.js, ordering-properties.test.js) and the
+// fetch-error recovery in pagination.js (pagination.test.js). This file only
 // proves those tested functions are actually reached.
 
 // Extracts the body of `function name(...) { ... }` by brace-counting from the
@@ -76,31 +78,47 @@ function extractOnFetchErrorBody(source) {
 }
 
 describe('saveCurrentData wiring (PS-2072)', function() {
-  it('captures the real Handsontable reorder signal before getData() and passes it to resolveEntryOrder', function() {
+  it('builds the commit payload with EntryDiff, from the grid, before commit(), passing the real reorder and sort signals', function() {
     var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+    var payloadBody = extractFunctionBody(interfaceSource, 'getCommitPayload');
 
-    var captureIndex = body.indexOf('table.hasRowsMoved()');
-    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(entries, entryMap.original, currentPage, PAGE_SIZE, didReorder)');
+    var getDataIndex = body.indexOf('table.getData(');
     var commitPayloadIndex = body.indexOf('getCommitPayload(entries)');
-
-    expect(captureIndex).toBeGreaterThan(-1);
-    expect(resolveCallIndex).toBeGreaterThan(-1);
-    expect(commitPayloadIndex).toBeGreaterThan(-1);
-    expect(captureIndex).toBeLessThan(resolveCallIndex);
-    // Order matters: order must be resolved before the commit payload is
-    // computed from entries, otherwise the fix is a no-op.
-    expect(resolveCallIndex).toBeLessThan(commitPayloadIndex);
-  });
-
-  it('resolves order before the commit() call reads entries off the payload', function() {
-    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
-
-    var resolveCallIndex = body.indexOf('Pagination.resolveEntryOrder(');
     var commitCallIndex = body.indexOf('currentDataSource.commit(');
 
-    expect(resolveCallIndex).toBeGreaterThan(-1);
+    expect(getDataIndex).toBeGreaterThan(-1);
+    expect(commitPayloadIndex).toBeGreaterThan(-1);
     expect(commitCallIndex).toBeGreaterThan(-1);
-    expect(resolveCallIndex).toBeLessThan(commitCallIndex);
+    // Order matters: the payload is computed from the grid as it is now, and
+    // before commit() sends it, otherwise the save is a no-op.
+    expect(getDataIndex).toBeLessThan(commitPayloadIndex);
+    expect(commitPayloadIndex).toBeLessThan(commitCallIndex);
+
+    // EntryDiff is the only save engine. Position is only written when the
+    // user really dragged a row (Handsontable's own afterRowMove signal) and
+    // the grid is not showing a column sort.
+    expect(payloadBody.indexOf('EntryDiff.computeCommitPayload(entries, entryMap.original')).toBeGreaterThan(-1);
+    expect(payloadBody.indexOf('table.hasRowsMoved()')).toBeGreaterThan(-1);
+    expect(payloadBody.indexOf('table.isColumnSorted()')).toBeGreaterThan(-1);
+    expect(interfaceSource.indexOf('Pagination.computeCommitPayload')).toBe(-1);
+    expect(interfaceSource.indexOf('Pagination.resolveEntryOrder')).toBe(-1);
+  });
+
+  it('sends the renumber only when EntryDiff asks for it, and caches the orders the commit settled on', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var normalizeGuardIndex = body.indexOf('if (payload.normalizeOrder)');
+    var normalizeAssignIndex = body.indexOf('commitData.normalizeOrder = payload.normalizeOrder;');
+    var commitCallIndex = body.indexOf('currentDataSource.commit(commitData)');
+    var cacheIndex = body.indexOf('cacheOriginalEntries(entries, clientIdMap, payload.orders)');
+
+    expect(normalizeGuardIndex).toBeGreaterThan(-1);
+    expect(normalizeAssignIndex).toBeGreaterThan(normalizeGuardIndex);
+    expect(commitCallIndex).toBeGreaterThan(normalizeAssignIndex);
+    // The grid rows carry no order (getData() deliberately stamps none), so the
+    // cache after a commit must take its orders from the payload, in the
+    // commit's success handler.
+    expect(cacheIndex).toBeGreaterThan(commitCallIndex);
   });
 
   it('clears the reorder signal only after a successful commit, not before', function() {

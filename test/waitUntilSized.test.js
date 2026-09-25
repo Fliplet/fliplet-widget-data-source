@@ -1,4 +1,11 @@
-/* eslint-env jest */
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var beforeEach = test.beforeEach;
+var afterEach = test.afterEach;
+var mock = test.mock;
+var expect = require('./expect');
+
 var WaitUntilSized = require('../js/waitUntilSized');
 
 describe('WaitUntilSized.waitUntilSized', function() {
@@ -21,7 +28,7 @@ describe('WaitUntilSized.waitUntilSized', function() {
   afterEach(function() {
     global.document = originalDocument;
     global.requestAnimationFrame = originalRAF;
-    jest.restoreAllMocks();
+    mock.restoreAll();
   });
 
   function flushRAF() {
@@ -45,19 +52,19 @@ describe('WaitUntilSized.waitUntilSized', function() {
   }
 
   it('invokes the callback immediately when the element is already sized', function() {
-    var callback = jest.fn();
+    var callback = mock.fn();
     var el = { getBoundingClientRect: function() { return { width: 100, height: 50 }; } };
 
     global.document = makeDocument(el);
 
     WaitUntilSized.waitUntilSized('.table-entries', callback);
 
-    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback.mock.callCount()).toBe(1);
     expect(rafCallbacks.length).toBe(0);
   });
 
   it('polls via requestAnimationFrame until the element becomes sized', function() {
-    var callback = jest.fn();
+    var callback = mock.fn();
     var width = 0;
     var el = { getBoundingClientRect: function() { return { width: width, height: width }; } };
 
@@ -65,20 +72,20 @@ describe('WaitUntilSized.waitUntilSized', function() {
 
     WaitUntilSized.waitUntilSized('.table-entries', callback);
 
-    expect(callback).not.toHaveBeenCalled();
+    expect(callback.mock.callCount()).toBe(0);
     expect(rafCallbacks.length).toBe(1);
 
     flushRAF();
-    expect(callback).not.toHaveBeenCalled();
+    expect(callback.mock.callCount()).toBe(0);
 
     width = 200;
     flushRAF();
 
-    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback.mock.callCount()).toBe(1);
   });
 
   it('stops polling and returns without calling back if the element is removed from the DOM', function() {
-    var callback = jest.fn();
+    var callback = mock.fn();
     var el = { getBoundingClientRect: function() { return { width: 0, height: 0 }; } };
     var doc = makeDocument(el);
 
@@ -94,27 +101,27 @@ describe('WaitUntilSized.waitUntilSized', function() {
 
     flushRAF();
 
-    expect(callback).not.toHaveBeenCalled();
+    expect(callback.mock.callCount()).toBe(0);
     expect(rafCallbacks.length).toBe(0);
   });
 
   it('falls open and calls back once the timeout elapses, even if never sized', function() {
-    var callback = jest.fn();
+    var callback = mock.fn();
     var el = { getBoundingClientRect: function() { return { width: 0, height: 0 }; } };
     var now = 1000;
 
     global.document = makeDocument(el);
-    jest.spyOn(Date, 'now').mockImplementation(function() {
+    mock.method(Date, 'now', function() {
       return now;
     });
 
     WaitUntilSized.waitUntilSized('.table-entries', callback, 50);
 
-    expect(callback).not.toHaveBeenCalled();
+    expect(callback.mock.callCount()).toBe(0);
 
     now += 60;
     flushRAF();
 
-    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback.mock.callCount()).toBe(1);
   });
 });

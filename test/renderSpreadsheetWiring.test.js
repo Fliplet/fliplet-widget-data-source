@@ -1,4 +1,8 @@
-/* eslint-env jest */
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var expect = require('./expect');
+
 var fs = require('fs');
 var path = require('path');
 
@@ -45,7 +49,8 @@ describe('renderSpreadsheet wiring (regression for the render-race fix)', functi
           && line.indexOf('function renderSpreadsheet(') === -1;
       });
 
-    expect(callSites.length).toBeGreaterThanOrEqual(2);
+    // At least two: the initial-load branch and the subsequent-load branch
+    expect(callSites.length).toBeGreaterThan(1);
   });
 
   it('has renderSpreadsheet call WaitUntilSized.waitUntilSized', function() {
