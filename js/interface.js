@@ -371,7 +371,21 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
-function fetchCurrentDataSourceEntries(entries) {
+/**
+ * Load the data source and rebuild the grid from it
+ * @param {Array} [entries] - Entries to show instead of reading them
+ * @param {Object} [options] - Settings, all optional
+ * @param {Boolean} [options.rejectOnError] - Reject when loading fails. By
+ *   default the error is shown under the grid and the promise resolves.
+ * @returns {Promise} Settles once the grid has been rebuilt, or loading failed
+ */
+function fetchCurrentDataSourceEntries(entries, options) {
+  // Only a load that starts now can show the server state a pending reload
+  // is waiting for (PS-2251)
+  var reloadToken = saveLock.beginReload();
+
+  options = options || {};
+
   return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
     clearLiveDataTimer();
 
@@ -453,26 +467,28 @@ function fetchCurrentDataSourceEntries(entries) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isSaving: isSaveInFlight });
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isLocked: isGridLocked });
 
       setTimeout(function() {
         table.destroy();
         initialLoad = false;
 
-        table = spreadsheet({ columns: columns, rows: rows, isSaving: isSaveInFlight });
+        table = spreadsheet({ columns: columns, rows: rows, isLocked: isGridLocked });
         $('.table-entries').css('visibility', 'visible');
 
         $('#versions').removeClass('hidden');
+        onGridReloaded(reloadToken);
       }, 0);
     } else {
       if (table) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: rows, isSaving: isSaveInFlight });
+      table = spreadsheet({ columns: columns, rows: rows, isLocked: isGridLocked });
       $('.table-entries').css('visibility', 'visible');
 
       $('#versions').removeClass('hidden');
+      onGridReloaded(reloadToken);
     }
   })
     .catch(function onFetchError(error) {
@@ -499,6 +515,10 @@ function fetchCurrentDataSourceEntries(entries) {
       }
 
       $('.entries-message').html('<br>' + _.escape(message));
+
+      if (options.rejectOnError) {
+        return Promise.reject(error);
+      }
     });
 }
 
@@ -590,15 +610,19 @@ function fetchCurrentDataSourceVersions() {
 Fliplet.Widget.onSaveRequest(function() {
   saveCurrentData().then(function(result) {
     // Cancelled from the duplicate rows prompt: stay open with the edits.
-    // Already saving: the save in flight finishes on its own.
-    if (result === SAVE_CANCELLED || result === SAVE_BUSY) {
+    // Already saving, a reload needed, or nothing open: nothing was sent.
+    if (result === SAVE_CANCELLED || result === SAVE_BUSY || result === SAVE_SKIPPED) {
       return;
     }
 
-    return Fliplet.Widget.complete(result);
-  }, function(error) {
+    return Fliplet.Widget.complete(result === SAVED_NOT_REFRESHED ? undefined : result);
+  }).catch(function(error) {
     // Not saved, or not known to be: stay open
-    onSaveFailed(error);
+    try {
+      onSaveFailed(error);
+    } catch (e) {
+      console.error(e);
+    }
   });
 });
 
@@ -692,60 +716,129 @@ function getCommitPayload(entries) {
 // What saveCurrentData() resolves with when the user declines to save
 var SAVE_CANCELLED = { cancelled: true };
 
-// ...and when a save is already running, so nothing new was started
+// ...and when nothing new was started: a save is running or a reload is needed
 var SAVE_BUSY = { busy: true };
+
+// ...and when no data source is open, so there is nothing to save
+var SAVE_SKIPPED = { skipped: true };
+
+// ...and when the commit was confirmed but the grid could not be reloaded
+var SAVED_NOT_REFRESHED = { saved: true, refreshed: false };
 
 var FETCH_ERROR_MESSAGE = 'Error loading data source.';
 var SAVE_ERROR_MESSAGE = 'Error saving data source.';
 
-// Set from the moment a save starts until it settles, so a slow or hung
-// commit cannot be sent again while it may still land (PS-2251)
-var saveInFlight = false;
+// Whether a save is in flight, or a save that may have landed left the grid
+// out of step with the server. Either way nothing may be saved (PS-2251).
+var saveLock = SaveState.createSaveLock();
 
 // Bumped when a commit is given up on at the hard ceiling, so its late
 // answer cannot write ids, cache or status for a save that has moved on
 var commitGeneration = 0;
 
 /**
- * Whether a save is running. Handed to the grid so an edit made meanwhile
- * does not bring Save back.
- * @returns {Boolean} True while a save is in flight
+ * Whether the grid must not change. Handed to the grid, which is read-only
+ * while this is true.
+ * @returns {Boolean} True while saving or until a needed reload
  */
-function isSaveInFlight() {
-  return saveInFlight;
+function isGridLocked() {
+  return saveLock.isLocked();
 }
 
 /**
  * Show a message in the save status next to the data source name
  * @param {String} message - Text to show
+ * @param {Boolean} [withReload] - Add a link that reloads the data source
  * @returns {undefined}
  */
-function showSaveStatus(message) {
-  $('.data-save-status').removeClass('hidden').text(message);
+function showSaveStatus(message, withReload) {
+  var $status = $('.data-save-status').removeClass('hidden').text(message);
+
+  if (withReload) {
+    $status.append(' ', $('<a href="#" data-source-reload></a>').text('Reload'));
+  }
 }
 
 /**
- * Show Save when there is something to save and no save is running
+ * Show Save when there is something to save, nothing blocks it and the
+ * entries are on screen (the other tabs hide it)
  * @returns {undefined}
  */
 function refreshSaveButton() {
-  if (!saveInFlight && table && table.hasChanges()) {
+  if (!saveLock.isLocked() && table && table.hasChanges() && $('#entries').hasClass('active')) {
     $('.save-btn').removeClass('hidden');
   }
 }
 
-function lockSave() {
-  saveInFlight = true;
+/**
+ * Bring the grid, Save and the status in line with the save lock
+ * @returns {undefined}
+ */
+function renderSaveLock() {
+  if (table && typeof table.applyLock === 'function') {
+    table.applyLock();
+  }
 
-  $('.save-btn').addClass('hidden');
-  $('[data-save]').prop('disabled', true);
+  $('[data-save]').prop('disabled', saveLock.isLocked());
+
+  if (saveLock.isLocked()) {
+    $('.save-btn').addClass('hidden');
+  } else {
+    refreshSaveButton();
+  }
+
+  if (saveLock.needsReload()) {
+    showSaveStatus(saveLock.reason(), true);
+  }
 }
 
-function unlockSave() {
-  saveInFlight = false;
+/**
+ * Block saving until the data source is reloaded
+ * @param {String} message - Why, shown with a Reload link
+ * @returns {undefined}
+ */
+function requireReload(message) {
+  saveLock.requireReload(message);
+  renderSaveLock();
+}
 
-  $('[data-save]').prop('disabled', false);
-  refreshSaveButton();
+/**
+ * The grid was rebuilt from the server by a load that started with this token
+ * @param {Number} reloadToken - From saveLock.beginReload()
+ * @returns {undefined}
+ */
+function onGridReloaded(reloadToken) {
+  saveLock.reloaded(reloadToken);
+  renderSaveLock();
+}
+
+/**
+ * Reload the grid from the server, giving up at the hard ceiling
+ * @returns {Promise} Rejects when loading failed or took too long
+ */
+function reloadGrid() {
+  return SaveState.withTimeouts(fetchCurrentDataSourceEntries(undefined, { rejectOnError: true }), {
+    hardMs: SaveState.HARD_TIMEOUT_MS
+  });
+}
+
+/**
+ * A save that may have been applied: show what the server has rather than
+ * keep rows a retry would insert a second time. If the grid cannot be
+ * reloaded, block saving until it is.
+ * @param {Object} failure - From SaveState.classifyError()
+ * @returns {Promise} Rejects with the failure, marked unconfirmed
+ */
+function recoverUnconfirmedSave(failure) {
+  failure.unconfirmed = true;
+
+  return reloadGrid().then(function() {
+    showSaveStatus(SaveState.unconfirmedMessage(failure));
+  }, function() {
+    requireReload(SaveState.RELOAD_FAILED_MESSAGE);
+  }).then(function() {
+    return Promise.reject(failure);
+  });
 }
 
 /**
@@ -774,47 +867,58 @@ function onSaveFailed(error) {
     table.onSaveError();
   }
 
-  refreshSaveButton();
+  renderSaveLock();
 }
 
 /**
- * Late answer to a commit given up on at the hard ceiling. If it landed,
- * show the rows it wrote so they are not re-entered, but only when that
- * loses nothing: no save running and no unsaved edits. The status the
- * ceiling left is kept.
+ * Late answer from a commit given up on at the hard ceiling: it landed, so
+ * the grid no longer shows what the server has and rows re-entered since
+ * would be saved twice. Block saving until a reload. When that loses
+ * nothing (no save running, no unsaved edits), reload now and keep the
+ * status the ceiling left.
  * @returns {undefined}
  */
-function refreshAfterAbandonedCommit() {
-  if (saveInFlight || !table || table.hasChanges()) {
-    return;
-  }
-
+function onAbandonedCommitLanded() {
+  var quiet = !saveLock.isInFlight() && !(table && table.hasChanges());
+  var hadReason = saveLock.needsReload();
   var $status = $('.data-save-status');
   var statusText = $status.text();
   var statusHidden = $status.hasClass('hidden');
 
-  lockSave();
+  requireReload(SaveState.LATE_SAVE_MESSAGE);
 
-  fetchCurrentDataSourceEntries().then(function() {
-    $status.text(statusText).toggleClass('hidden', statusHidden);
-    unlockSave();
+  if (!quiet) {
+    return;
+  }
+
+  reloadGrid().then(function() {
+    if (!saveLock.needsReload() && !hadReason) {
+      $status.text(statusText).toggleClass('hidden', statusHidden);
+    }
+  }, function() {
+    // Still blocked, with the Reload link showing
   });
 }
 
 /**
- * Save the grid. Only one save runs at a time: while one is in flight, this
- * resolves with SAVE_BUSY and sends nothing.
+ * Save the grid. Only one save runs at a time: while one is in flight, or a
+ * reload is needed, this resolves with SAVE_BUSY and sends nothing.
  * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels, or
  *   rejects once the save has failed (see commitCurrentData)
  */
 function saveCurrentData() {
-  if (saveInFlight) {
+  // Nothing is open, so there is nothing to save
+  if (!table) {
+    return Promise.resolve(SAVE_SKIPPED);
+  }
+
+  if (!saveLock.start()) {
     return Promise.resolve(SAVE_BUSY);
   }
 
   var saving;
 
-  lockSave();
+  renderSaveLock();
 
   try {
     saving = Promise.resolve(confirmAndCommit());
@@ -823,11 +927,13 @@ function saveCurrentData() {
   }
 
   return saving.then(function(result) {
-    unlockSave();
+    saveLock.finish();
+    renderSaveLock();
 
     return result;
   }, function(error) {
-    unlockSave();
+    saveLock.finish();
+    renderSaveLock();
 
     return Promise.reject(error);
   });
@@ -952,11 +1058,11 @@ function commitCurrentData(entries) {
   var generation = commitGeneration;
   var commit = currentDataSource.commit(commitData);
 
-  // The API takes no timeout. A commit given up on can still land, so once
-  // it has been, only let its answer refresh the grid.
+  // The API takes no timeout. A commit given up on can still land, and then
+  // all it may do is ask for a reload.
   commit.then(function() {
     if (generation !== commitGeneration) {
-      refreshAfterAbandonedCommit();
+      onAbandonedCommitLanded();
     }
   }, function() {
     // Reported through the race below, or ignored once given up on
@@ -971,23 +1077,28 @@ function commitCurrentData(entries) {
       }
     }
   }).then(function(response) {
-    var clientIds = [];
-    var ids = [];
+    try {
+      var clientIds = [];
+      var ids = [];
 
-    // Generate an object mapping client IDs to new entry IDs
-    _.forEach(response.clientIds, function(entry) {
-      clientIds.push(entry.clientId);
-      ids.push(entry.id);
-    });
+      // Generate an object mapping client IDs to new entry IDs
+      _.forEach(response.clientIds, function(entry) {
+        clientIds.push(entry.clientId);
+        ids.push(entry.id);
+      });
 
-    var clientIdMap = _.zipObject(clientIds, ids);
+      var clientIdMap = _.zipObject(clientIds, ids);
 
-    cacheOriginalEntries(entries, clientIdMap, payload.orders);
-    table.setData({ columns: columns, rows: entries });
+      cacheOriginalEntries(entries, clientIdMap, payload.orders);
+      table.setData({ columns: columns, rows: entries });
+    } catch (error) {
+      // Saved, but the new ids were not recorded: a retry would insert again
+      return recoverUnconfirmedSave({ kind: 'ambiguous', error: error });
+    }
 
     // After the reload, not before: loading the entries clears this element,
     // so a notice written any earlier is wiped by the refresh that proves it.
-    return fetchCurrentDataSourceEntries().then(function(result) {
+    return reloadGrid().then(function(result) {
       var notice = CommitNotice.forDeclined(payload.declined);
 
       if (notice && table && typeof table.showNotice === 'function') {
@@ -997,9 +1108,17 @@ function commitCurrentData(entries) {
       // Hand back what the reload resolved with - onSaveRequest passes it
       // straight to Fliplet.Widget.complete
       return result;
+    }, function() {
+      // The ids are known, so saving again is safe
+      showSaveStatus(SaveState.SAVED_NOT_REFRESHED_MESSAGE);
+
+      return SAVED_NOT_REFRESHED;
     });
   }, function(error) {
-    var failure = SaveState.classifyError(error, { defaultMessage: SAVE_ERROR_MESSAGE });
+    var failure = SaveState.classifyError(error, {
+      defaultMessage: SAVE_ERROR_MESSAGE,
+      operation: 'commit'
+    });
 
     if (failure.timedOut) {
       commitGeneration++;
@@ -1010,14 +1129,8 @@ function commitCurrentData(entries) {
       return Promise.reject(failure);
     }
 
-    // It may have been written. Show what the server has rather than keep rows
-    // a retry would insert a second time.
-    return fetchCurrentDataSourceEntries().then(function() {
-      showSaveStatus(SaveState.UNCONFIRMED_MESSAGE);
-      failure.unconfirmed = true;
-
-      return Promise.reject(failure);
-    });
+    // It may have been written
+    return recoverUnconfirmedSave(failure);
   });
 }
 
@@ -1473,6 +1586,12 @@ $('#app')
   .on('click', '[data-source-reload]', function(event) {
     event.preventDefault();
 
+    // Rebuilding the grid mid-save wipes the rows being saved (PS-2251). When
+    // a reload is needed, this is how the user gets one.
+    if (saveLock.isInFlight()) {
+      return;
+    }
+
     $('.save-btn').addClass('hidden');
 
     fetchCurrentDataSourceEntries();
@@ -1484,6 +1603,11 @@ $('#app')
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
+
+    // Leaving destroys the grid the save is working from
+    if (saveLock.isInFlight()) {
+      return;
+    }
 
     $('[href="#entries"]').click();
 
@@ -1608,8 +1732,8 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      // Already saving: leave that save to finish
-      if (saveInFlight) {
+      // Already saving, or a reload is needed first
+      if (saveLock.isLocked()) {
         return SAVE_BUSY;
       }
 
@@ -1619,7 +1743,7 @@ $('#app')
         return saveCurrentData();
       }
     }).then(function(result) {
-      if (result === SAVE_BUSY) {
+      if (result === SAVE_BUSY || result === SAVE_SKIPPED) {
         return;
       }
 
@@ -1627,6 +1751,13 @@ $('#app')
       if (result === SAVE_CANCELLED) {
         table.setChanges(true);
         refreshSaveButton();
+
+        return;
+      }
+
+      // Saved, and the status already says the table could not be refreshed
+      if (result === SAVED_NOT_REFRESHED) {
+        $('#show-versions').show();
 
         return;
       }
@@ -1640,6 +1771,9 @@ $('#app')
 
       $('#show-versions').show();
       table.onSaveComplete();
+
+      // An earlier save that landed meanwhile needs a reload: say so instead
+      renderSaveLock();
     }).catch(function(err) {
       onSaveFailed(err);
     });
@@ -1701,6 +1835,13 @@ $('#app')
     var $input = $(this);
     var file = $input[0].files[0];
     var formData = new FormData();
+
+    // An import reloads the grid, which must not happen mid-save
+    if (saveLock.isInFlight()) {
+      $input.val('');
+
+      return;
+    }
 
     formData.append('file', file);
 
@@ -2018,7 +2159,8 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table.hasChanges()) {
+      // Discarding reloads the grid, which must not happen mid-save
+      if (table.hasChanges() && !saveLock.isInFlight()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -2046,6 +2188,11 @@ $('#app')
         table.onChange();
       } else {
         table.reset();
+      }
+
+      // reset() hides the status, which may be saying a reload is needed
+      if (saveLock.isLocked()) {
+        renderSaveLock();
       }
 
       $('.back-name-holder').removeClass('hide-date');
