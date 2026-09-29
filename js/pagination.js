@@ -64,9 +64,56 @@ var Pagination = (function() {
     };
   }
 
+  /**
+   * The rows to ask for to show a page: the page itself, plus the row just
+   * above it and the row just below it (PS-2204). Those two are never shown -
+   * they are the neighbours a row added at the top or bottom of the page is
+   * placed between, so it cannot land on another page.
+   * @param {Number} currentPage - Page index (0-based)
+   * @param {Number} pageSize - Rows per page
+   * @returns {Object} { offset, limit } for the query endpoint
+   */
+  function computeFetchWindow(currentPage, pageSize) {
+    var hasBefore = currentPage > 0;
+
+    return {
+      offset: hasBefore ? (currentPage * pageSize) - 1 : 0,
+      limit: pageSize + (hasBefore ? 2 : 1)
+    };
+  }
+
+  /**
+   * Split what computeFetchWindow asked for into the page and its edge rows.
+   * @param {Array} rows - Rows returned for the fetch window, in read order
+   * @param {Number} currentPage - Page index (0-based)
+   * @param {Number} pageSize - Rows per page
+   * @returns {Object} { rows, before, after } - the page, and the { id, order }
+   *   of the row above and below it (null at either end of the data source)
+   */
+  function splitFetchWindow(rows, currentPage, pageSize) {
+    rows = rows || [];
+
+    var first = currentPage > 0 && rows.length ? 1 : 0;
+    var pageRows = rows.slice(first, first + pageSize);
+    var beforeRow = first ? rows[0] : null;
+    var afterRow = rows[first + pageSize] || null;
+
+    function edge(row) {
+      return row ? { id: row.id, order: typeof row.order === 'number' ? row.order : null } : null;
+    }
+
+    return {
+      rows: pageRows,
+      before: edge(beforeRow),
+      after: edge(afterRow)
+    };
+  }
+
   return {
     computePageInfo: computePageInfo,
-    resolveFetchErrorRecovery: resolveFetchErrorRecovery
+    resolveFetchErrorRecovery: resolveFetchErrorRecovery,
+    computeFetchWindow: computeFetchWindow,
+    splitFetchWindow: splitFetchWindow
   };
 })();
 

@@ -73,8 +73,12 @@ Fliplet.Registry.set('history-stack', (function() {
       return;
     }
 
-    // Use _.cloneDeep to drop the ID in each row to ensure data is loaded correctly
-    hot.loadData(_.cloneDeep(state.getData()));
+    // Load the rows with their IDs (PS-2204). getData() already returns a fresh
+    // copy, so edits after this don't reach the stored state. Dropping the IDs
+    // here made the next change record a state without them, and the save that
+    // followed sent every row on the grid as new: each one re-inserted with a
+    // new ID and the originals deleted - hard-deleted once the save held 500+.
+    hot.loadData(state.getData());
     hot.updateSettings({ colWidths: state.getColWidths() });
 
     table.onChange();

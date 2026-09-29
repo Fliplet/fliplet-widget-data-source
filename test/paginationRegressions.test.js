@@ -139,6 +139,57 @@ describe('saveCurrentData wiring (PS-2072)', function() {
   });
 });
 
+describe('page context wiring (PS-2204)', function() {
+  it('fetches the page with the row either side of it, in the platform read order, and caches the edges with the rows', function() {
+    var body = extractFunctionBody(interfaceSource, 'fetchCurrentDataSourceEntries');
+
+    var windowIndex = body.indexOf('Pagination.computeFetchWindow(currentPage, PAGE_SIZE)');
+    var limitIndex = body.indexOf('limit: fetchWindow.limit');
+    var offsetIndex = body.indexOf('offset: fetchWindow.offset');
+    var splitIndex = body.indexOf('Pagination.splitFetchWindow(queryResponse.entries, currentPage, PAGE_SIZE)');
+    var cacheIndex = body.indexOf('cacheOriginalEntries(rows);');
+    var edgesIndex = body.indexOf('pageEdges = fetchedEdges;');
+
+    expect(windowIndex).toBeGreaterThan(-1);
+    expect(limitIndex).toBeGreaterThan(windowIndex);
+    expect(offsetIndex).toBeGreaterThan(windowIndex);
+    expect(body.indexOf("order: [['order', 'ASC'], ['id', 'DESC']]")).toBeGreaterThan(-1);
+    expect(splitIndex).toBeGreaterThan(offsetIndex);
+    // The edges are cached in the same step as the rows, so a save never pairs
+    // one page's rows with another page's edges
+    expect(cacheIndex).toBeGreaterThan(-1);
+    expect(edgesIndex).toBeGreaterThan(cacheIndex);
+    expect(edgesIndex - cacheIndex).toBeLessThan(80);
+  });
+
+  it('gives EntryDiff the page offset, live count and edges', function() {
+    var payloadBody = extractFunctionBody(interfaceSource, 'getCommitPayload');
+
+    expect(payloadBody.indexOf('offset: pageEdges.offset')).toBeGreaterThan(-1);
+    expect(payloadBody.indexOf('liveCount: totalEntries')).toBeGreaterThan(-1);
+    expect(payloadBody.indexOf('before: pageEdges.before')).toBeGreaterThan(-1);
+    expect(payloadBody.indexOf('after: pageEdges.after')).toBeGreaterThan(-1);
+  });
+
+  it('caches the settled edges after a commit, alongside the settled orders', function() {
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
+
+    var commitIndex = body.indexOf('currentDataSource.commit(commitData)');
+    var cacheIndex = body.indexOf('cacheOriginalEntries(entries, clientIdMap, payload.orders)');
+    var edgesIndex = body.indexOf('before: payload.pageEdges.before');
+
+    expect(cacheIndex).toBeGreaterThan(commitIndex);
+    expect(edgesIndex).toBeGreaterThan(cacheIndex);
+  });
+
+  it('clears the edges when leaving a data source', function() {
+    var resetBlockIndex = interfaceSource.indexOf('function resetAndGoBack()');
+    var body = extractFunctionBody(interfaceSource.slice(resetBlockIndex), 'resetAndGoBack');
+
+    expect(body.indexOf('pageEdges = null;')).toBeGreaterThan(-1);
+  });
+});
+
 describe('spreadsheet.js — real reorder signal wiring (PS-2072 follow-up)', function() {
   var spreadsheetSource = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
 
