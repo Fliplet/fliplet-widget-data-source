@@ -67,6 +67,12 @@ function spreadsheet(options) {
 
     setChanges(true);
 
+    // A save is still running: keep Save hidden and its status on screen. The
+    // change is recorded, and Save comes back once the save settles (PS-2251).
+    if (typeof options.isSaving === 'function' && options.isSaving()) {
+      return;
+    }
+
     $('.save-btn').removeClass('hidden');
     $('.data-save-status').addClass('hidden');
   }
@@ -988,8 +994,9 @@ function spreadsheet(options) {
   }
 
   function onSaveComplete() {
-    // Update save status
-    $('.data-save-status').html('All changes saved!');
+    // Update save status. The reload after a commit rebuilds the grid, which
+    // hides this element, so show it again.
+    $('.data-save-status').removeClass('hidden').html('All changes saved!');
   }
 
   function onSaveError() {

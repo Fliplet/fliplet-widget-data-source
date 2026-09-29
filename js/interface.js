@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice, DuplicateRows */
+/* global EntryDiff, CommitNotice, DuplicateRows, SaveState */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -394,8 +394,10 @@ function fetchCurrentDataSourceEntries(entries) {
       // same way the rest of the platform does. Asking for id ASC here made rows
       // with a null or shared order appear in one sequence in the manager and
       // the reverse of it in apps, with nothing written down to reconcile them.
-      return source.find({}).catch(function() {
-        return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
+      return source.find({}).catch(function(error) {
+        // Say what went wrong: a 500 or a dropped connection is not a
+        // security rule refusing access (PS-2251)
+        return Promise.reject(SaveState.classifyError(error, { defaultMessage: FETCH_ERROR_MESSAGE }));
       });
     });
   }).then(function(rows) {
@@ -451,13 +453,13 @@ function fetchCurrentDataSourceEntries(entries) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isSaving: isSaveInFlight });
 
       setTimeout(function() {
         table.destroy();
         initialLoad = false;
 
-        table = spreadsheet({ columns: columns, rows: rows });
+        table = spreadsheet({ columns: columns, rows: rows, isSaving: isSaveInFlight });
         $('.table-entries').css('visibility', 'visible');
 
         $('#versions').removeClass('hidden');
@@ -467,26 +469,36 @@ function fetchCurrentDataSourceEntries(entries) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
+      table = spreadsheet({ columns: columns, rows: rows, isSaving: isSaveInFlight });
       $('.table-entries').css('visibility', 'visible');
 
       $('#versions').removeClass('hidden');
     }
   })
     .catch(function onFetchError(error) {
-      var message = error;
+      var message;
 
       if (error instanceof Error) {
-        message = 'Error loading data source.';
+        message = FETCH_ERROR_MESSAGE;
 
         if (typeof Raven !== 'undefined') {
           Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
         }
-      } else if (typeof Raven !== 'undefined') {
-        Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, error: error } });
+      } else {
+        // A jqXHR from any of the requests above, or one find() already sorted.
+        // Written as it was, a jqXHR showed as "[object Object]".
+        var failure = error && error.kind
+          ? error
+          : SaveState.classifyError(error, { defaultMessage: FETCH_ERROR_MESSAGE });
+
+        message = failure.message;
+
+        if (typeof Raven !== 'undefined') {
+          Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, status: failure.status, error: message } });
+        }
       }
 
-      $('.entries-message').html('<br>' + message);
+      $('.entries-message').html('<br>' + _.escape(message));
     });
 }
 
@@ -577,12 +589,16 @@ function fetchCurrentDataSourceVersions() {
 
 Fliplet.Widget.onSaveRequest(function() {
   saveCurrentData().then(function(result) {
-    // Cancelled from the duplicate rows prompt: stay open with the edits
-    if (result === SAVE_CANCELLED) {
+    // Cancelled from the duplicate rows prompt: stay open with the edits.
+    // Already saving: the save in flight finishes on its own.
+    if (result === SAVE_CANCELLED || result === SAVE_BUSY) {
       return;
     }
 
     return Fliplet.Widget.complete(result);
+  }, function(error) {
+    // Not saved, or not known to be: stay open
+    onSaveFailed(error);
   });
 });
 
@@ -676,13 +692,154 @@ function getCommitPayload(entries) {
 // What saveCurrentData() resolves with when the user declines to save
 var SAVE_CANCELLED = { cancelled: true };
 
+// ...and when a save is already running, so nothing new was started
+var SAVE_BUSY = { busy: true };
+
+var FETCH_ERROR_MESSAGE = 'Error loading data source.';
+var SAVE_ERROR_MESSAGE = 'Error saving data source.';
+
+// Set from the moment a save starts until it settles, so a slow or hung
+// commit cannot be sent again while it may still land (PS-2251)
+var saveInFlight = false;
+
+// Bumped when a commit is given up on at the hard ceiling, so its late
+// answer cannot write ids, cache or status for a save that has moved on
+var commitGeneration = 0;
+
 /**
- * Save the grid, first asking whether new rows that are exact copies of other
- * rows should be saved. A fill-handle drag or paste into the spare rows makes
- * such copies, and without asking they were inserted silently (PS-2251).
- * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels
+ * Whether a save is running. Handed to the grid so an edit made meanwhile
+ * does not bring Save back.
+ * @returns {Boolean} True while a save is in flight
+ */
+function isSaveInFlight() {
+  return saveInFlight;
+}
+
+/**
+ * Show a message in the save status next to the data source name
+ * @param {String} message - Text to show
+ * @returns {undefined}
+ */
+function showSaveStatus(message) {
+  $('.data-save-status').removeClass('hidden').text(message);
+}
+
+/**
+ * Show Save when there is something to save and no save is running
+ * @returns {undefined}
+ */
+function refreshSaveButton() {
+  if (!saveInFlight && table && table.hasChanges()) {
+    $('.save-btn').removeClass('hidden');
+  }
+}
+
+function lockSave() {
+  saveInFlight = true;
+
+  $('.save-btn').addClass('hidden');
+  $('[data-save]').prop('disabled', true);
+}
+
+function unlockSave() {
+  saveInFlight = false;
+
+  $('[data-save]').prop('disabled', false);
+  refreshSaveButton();
+}
+
+/**
+ * Report a save that failed. A save that may have landed has already
+ * reloaded the grid and said so; anything else was not applied, so the rows
+ * stay and Save comes back for a retry.
+ * @param {*} error - Rejection from saveCurrentData()
+ * @returns {undefined}
+ */
+function onSaveFailed(error) {
+  if (error && error.unconfirmed) {
+    return;
+  }
+
+  var original = error && error.kind ? error.error : error;
+
+  if (!Fliplet.Error.isHandled(original)) {
+    Fliplet.Modal.alert({
+      title: 'Error saving data source',
+      message: error && error.kind ? error.message : Fliplet.parseError(error)
+    });
+  }
+
+  if (table) {
+    table.setChanges(true);
+    table.onSaveError();
+  }
+
+  refreshSaveButton();
+}
+
+/**
+ * Late answer to a commit given up on at the hard ceiling. If it landed,
+ * show the rows it wrote so they are not re-entered, but only when that
+ * loses nothing: no save running and no unsaved edits. The status the
+ * ceiling left is kept.
+ * @returns {undefined}
+ */
+function refreshAfterAbandonedCommit() {
+  if (saveInFlight || !table || table.hasChanges()) {
+    return;
+  }
+
+  var $status = $('.data-save-status');
+  var statusText = $status.text();
+  var statusHidden = $status.hasClass('hidden');
+
+  lockSave();
+
+  fetchCurrentDataSourceEntries().then(function() {
+    $status.text(statusText).toggleClass('hidden', statusHidden);
+    unlockSave();
+  });
+}
+
+/**
+ * Save the grid. Only one save runs at a time: while one is in flight, this
+ * resolves with SAVE_BUSY and sends nothing.
+ * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels, or
+ *   rejects once the save has failed (see commitCurrentData)
  */
 function saveCurrentData() {
+  if (saveInFlight) {
+    return Promise.resolve(SAVE_BUSY);
+  }
+
+  var saving;
+
+  lockSave();
+
+  try {
+    saving = Promise.resolve(confirmAndCommit());
+  } catch (error) {
+    saving = Promise.reject(error);
+  }
+
+  return saving.then(function(result) {
+    unlockSave();
+
+    return result;
+  }, function(error) {
+    unlockSave();
+
+    return Promise.reject(error);
+  });
+}
+
+/**
+ * Commit the grid, first asking whether new rows that are exact copies of
+ * other rows should be saved. A fill-handle drag or paste into the spare rows
+ * makes such copies, and without asking they were inserted silently (PS-2251).
+ * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels
+ */
+function confirmAndCommit() {
   if (!table) {
     return commitCurrentData();
   }
@@ -721,8 +878,10 @@ function saveCurrentData() {
 function commitCurrentData(entries) {
   var columns;
 
+  // No reload here: the payload is built from the cached originals, and a
+  // reload mid-save rebuilt the grid from the server, wiping the rows being
+  // saved and bringing Save back while the commit was still running (PS-2251)
   table.onSave();
-  fetchCurrentDataSourceEntries();
 
   entries = entries || table.getData({
     parseJSON: true,
@@ -790,7 +949,28 @@ function commitCurrentData(entries) {
     commitData.normalizeOrder = payload.normalizeOrder;
   }
 
-  return currentDataSource.commit(commitData).then(function(response) {
+  var generation = commitGeneration;
+  var commit = currentDataSource.commit(commitData);
+
+  // The API takes no timeout. A commit given up on can still land, so once
+  // it has been, only let its answer refresh the grid.
+  commit.then(function() {
+    if (generation !== commitGeneration) {
+      refreshAfterAbandonedCommit();
+    }
+  }, function() {
+    // Reported through the race below, or ignored once given up on
+  });
+
+  return SaveState.withTimeouts(commit, {
+    softMs: SaveState.SOFT_TIMEOUT_MS,
+    hardMs: SaveState.HARD_TIMEOUT_MS,
+    onSoft: function() {
+      if (generation === commitGeneration) {
+        showSaveStatus(SaveState.SLOW_MESSAGE);
+      }
+    }
+  }).then(function(response) {
     var clientIds = [];
     var ids = [];
 
@@ -817,6 +997,26 @@ function commitCurrentData(entries) {
       // Hand back what the reload resolved with - onSaveRequest passes it
       // straight to Fliplet.Widget.complete
       return result;
+    });
+  }, function(error) {
+    var failure = SaveState.classifyError(error, { defaultMessage: SAVE_ERROR_MESSAGE });
+
+    if (failure.timedOut) {
+      commitGeneration++;
+    }
+
+    // The server refused it, so nothing was written: keep the rows for a retry
+    if (failure.kind === 'definitive') {
+      return Promise.reject(failure);
+    }
+
+    // It may have been written. Show what the server has rather than keep rows
+    // a retry would insert a second time.
+    return fetchCurrentDataSourceEntries().then(function() {
+      showSaveStatus(SaveState.UNCONFIRMED_MESSAGE);
+      failure.unconfirmed = true;
+
+      return Promise.reject(failure);
     });
   });
 }
@@ -1408,15 +1608,25 @@ $('#app')
     return new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
+      // Already saving: leave that save to finish
+      if (saveInFlight) {
+        return SAVE_BUSY;
+      }
+
       if (table.hasChanges()) {
         table.setChanges(false);
 
         return saveCurrentData();
       }
     }).then(function(result) {
+      if (result === SAVE_BUSY) {
+        return;
+      }
+
       // Cancelled from the duplicate rows prompt: nothing was saved
       if (result === SAVE_CANCELLED) {
         table.setChanges(true);
+        refreshSaveButton();
 
         return;
       }
@@ -1431,17 +1641,7 @@ $('#app')
       $('#show-versions').show();
       table.onSaveComplete();
     }).catch(function(err) {
-      if (Fliplet.Error.isHandled(err)) {
-        return;
-      }
-
-      Fliplet.Modal.alert({
-        title: 'Error saving data source',
-        message: Fliplet.parseError(err)
-      });
-
-      table.setChanges(true);
-      table.onSaveError();
+      onSaveFailed(err);
     });
   })
   .on('click', '[save-settings]', function() {
