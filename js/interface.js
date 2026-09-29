@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice */
+/* global EntryDiff, CommitNotice, DuplicateRows */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -576,7 +576,14 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  saveCurrentData().then(Fliplet.Widget.complete);
+  saveCurrentData().then(function(result) {
+    // Cancelled from the duplicate rows prompt: stay open with the edits
+    if (result === SAVE_CANCELLED) {
+      return;
+    }
+
+    return Fliplet.Widget.complete(result);
+  });
 });
 
 /**
@@ -666,7 +673,44 @@ function getCommitPayload(entries) {
   });
 }
 
+// What saveCurrentData() resolves with when the user declines to save
+var SAVE_CANCELLED = { cancelled: true };
+
+/**
+ * Save the grid, first asking whether new rows that are exact copies of other
+ * rows should be saved. A fill-handle drag or paste into the spare rows makes
+ * such copies, and without asking they were inserted silently (PS-2251).
+ * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels
+ */
 function saveCurrentData() {
+  var duplicates = DuplicateRows.find(table.getData({
+    parseJSON: true,
+    removeEmptyRows: true
+  }));
+
+  if (!duplicates.count) {
+    return commitCurrentData();
+  }
+
+  var rowList = duplicates.rows.slice(0, 10).join(', ') + (duplicates.count > 10 ? ', …' : '');
+
+  return Fliplet.Modal.confirm({
+    message: duplicates.count + ' new ' + (duplicates.count === 1 ? 'row is an exact copy' : 'rows are exact copies')
+      + ' of other rows (' + (duplicates.count === 1 ? 'row ' : 'rows ') + rowList + '). Save them anyway?',
+    buttons: {
+      cancel: {
+        label: 'Cancel'
+      },
+      confirm: {
+        label: 'Save anyway'
+      }
+    }
+  }).then(function(confirmed) {
+    return confirmed ? commitCurrentData() : SAVE_CANCELLED;
+  });
+}
+
+function commitCurrentData() {
   var columns;
 
   table.onSave();
@@ -1361,7 +1405,14 @@ $('#app')
 
         return saveCurrentData();
       }
-    }).then(function() {
+    }).then(function(result) {
+      // Cancelled from the duplicate rows prompt: nothing was saved
+      if (result === SAVE_CANCELLED) {
+        table.setChanges(true);
+
+        return;
+      }
+
       // Return to parent widget if in overlay
       if (widgetData.context === 'overlay') {
         Fliplet.Studio.emit('close-overlay');
