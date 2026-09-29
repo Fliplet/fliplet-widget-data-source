@@ -130,7 +130,8 @@ function save(loaded, withPage) {
   var guidCounter = 0;
 
   return EntryDiff.computeCommitPayload(loaded.grid, loaded.originalMap, {
-    rowsMoved: false,
+    // Set by moveRow, as a drag sets the spreadsheet's hasRowsMoved()
+    rowsMoved: !!loaded.rowsMoved,
     viewMatchesStoredOrder: true,
     isEqual: isEqual,
     guid: function() {
@@ -138,6 +139,14 @@ function save(loaded, withPage) {
     },
     page: withPage === false ? null : loaded.page
   });
+}
+
+// Drag the row at `from` so it ends up at `to` on the page
+function moveRow(loaded, from, to) {
+  var row = loaded.grid.splice(from, 1)[0];
+
+  loaded.grid.splice(to, 0, row);
+  loaded.rowsMoved = true;
 }
 
 // The whole data source as the user left it: the pages they did not touch as
@@ -343,7 +352,183 @@ describe('PS-2204 Problem C - where a new row lands, for every stored shape', fu
   });
 });
 
-describe('PS-2204 Problem C - random pages, shapes and inserts', function() {
+describe('PS-2204 - a drag on a paginated page, for every stored shape', function() {
+  var PAGE_SIZE = 10;
+  var ROWS = 47;
+
+  // [label, page index, drags as [from, to], rows added as [position, name]]
+  var CASES = [
+    ['drag down within page 3', 2, [[2, 7]], []],
+    ['drag up within page 3', 2, [[7, 2]], []],
+    ['drag the top row of page 3 down', 2, [[0, 5]], []],
+    ['drag a row to the top of page 3', 2, [[6, 0]], []],
+    ['drag a row to the bottom of page 3', 2, [[3, 9]], []],
+    ['drag the bottom row of page 3 up', 2, [[9, 4]], []],
+    ['drag a row to the top of page 1', 0, [[5, 0]], []],
+    ['drag a row to the bottom of the last page', 4, [[1, 6]], []],
+    ['drag, plus a row added in the middle', 2, [[1, 8]], [[4, 'added']]],
+    ['drag to the top, plus a row added at the bottom', 2, [[5, 0]], [[10, 'added']]],
+    ['drag to the bottom, plus a row added at the top', 2, [[2, 9]], [[0, 'added']]]
+  ];
+
+  Object.keys(SHAPES).forEach(function(shape) {
+    CASES.forEach(function(testCase) {
+      it(shape + ': ' + testCase[0], function() {
+        var ds = makeDataSource(SHAPES[shape](ROWS));
+        var loaded = loadPage(ds, testCase[1], PAGE_SIZE);
+
+        testCase[2].forEach(function(drag) {
+          moveRow(loaded, drag[0], drag[1]);
+        });
+        testCase[3].forEach(function(insert) {
+          insertRow(loaded, insert[0], insert[1]);
+        });
+
+        var payload = save(loaded);
+
+        expect(payload.declined.rows).toBe(0);
+
+        commit(ds, payload);
+
+        expect(names(readOrder(ds.rows))).toEqual(expectedNames(loaded));
+      });
+    });
+  });
+
+  it('without page context (the bug) a drag on an unnumbered page 3 lands on page 2', function() {
+    var ds = makeDataSource(SHAPES['all NULL (SSO / API-created rows)'](ROWS));
+    var loaded = loadPage(ds, 2, PAGE_SIZE);
+    var dragged = loaded.grid[1].data.name;
+
+    moveRow(loaded, 1, 6);
+    commit(ds, save(loaded, false));
+
+    expect(positionOf(ds, dragged) < 20).toBe(true);
+  });
+});
+
+describe('PS-2204 - a row just outside the page forces a renumber only when the save touches it', function() {
+  // Page 2 of a 12-row data source, page size 4, stored orders 10, 20, 30, 40
+  function pageWith(before, after) {
+    var originalMap = {};
+    var grid = [];
+
+    [10, 20, 30, 40].forEach(function(order, index) {
+      var id = index + 1;
+
+      originalMap[id] = { id: id, data: { name: 'row ' + id }, order: order };
+      grid.push({ id: id, data: { name: 'row ' + id } });
+    });
+
+    return {
+      grid: grid,
+      originalMap: originalMap,
+      page: {
+        offset: 4,
+        liveCount: 12,
+        before: { id: 100, order: before },
+        after: { id: 101, order: after }
+      }
+    };
+  }
+
+  // The cases from the review: a tie with an edge row must not renumber a save
+  // that writes nothing next to it
+  var CASES = [
+    ['row added mid-page, row above the page tied', 10, 50, 'insert', null],
+    ['row added mid-page, row above the page not tied', 5, 50, 'insert', null],
+    ['drag in the middle, row below the page tied', 5, 40, 'drag', null],
+    ['drag in the middle, row below the page not tied', 5, 50, 'drag', null],
+    ['row added at the top, row above the page tied', 10, 50, 'top', { gap: 1000 }],
+    ['row added at the bottom, row below the page tied', 5, 40, 'bottom', { gap: 1000 }],
+    ['row added at the top, row above the page not tied', 5, 50, 'top', null],
+    ['row added at the bottom, row below the page not tied', 5, 50, 'bottom', null]
+  ];
+
+  CASES.forEach(function(testCase) {
+    it(testCase[0], function() {
+      var loaded = pageWith(testCase[1], testCase[2]);
+
+      if (testCase[3] === 'insert') {
+        insertRow(loaded, 2, 'added');
+      } else if (testCase[3] === 'drag') {
+        moveRow(loaded, 1, 2);
+      } else if (testCase[3] === 'top') {
+        insertRow(loaded, 0, 'added');
+      } else {
+        insertRow(loaded, 4, 'added');
+      }
+
+      expect(save(loaded).normalizeOrder).toEqual(testCase[4]);
+    });
+  });
+
+  // A drag that hands the page's first order to another row does touch the row
+  // above the page: on a tie, the platform reads the higher id first, so the
+  // dragged row would reload on the previous page unless the data source is
+  // renumbered.
+  function tiedDataSource() {
+    var rows = [];
+    var i;
+
+    // Page 1: ids 1-9 (orders 10-90), then id 20 (order 100), the edge row
+    for (i = 1; i <= 9; i++) {
+      rows.push({ id: i, order: i * 10, data: { name: 'row ' + i } });
+    }
+
+    rows.push({ id: 20, order: 100, data: { name: 'row 20' } });
+
+    // Page 2: id 11 ties with the edge row (order 100, lower id, so read after
+    // it), then ids 21-29 (orders 110-190)
+    rows.push({ id: 11, order: 100, data: { name: 'row 11' } });
+
+    for (i = 21; i <= 29; i++) {
+      rows.push({ id: i, order: (i - 10) * 10, data: { name: 'row ' + i } });
+    }
+
+    // Page 3: ids 30-39
+    for (i = 30; i <= 39; i++) {
+      rows.push({ id: i, order: (i - 10) * 10, data: { name: 'row ' + i } });
+    }
+
+    return { maxId: 39, rows: rows };
+  }
+
+  it('a drag to the top of a page whose first row ties with the row above keeps the dragged row on the page', function() {
+    var ds = tiedDataSource();
+    var loaded = loadPage(ds, 1, 10);
+
+    expect(names(loaded.grid)[0]).toBe('row 11');
+
+    // row 25 has a higher id than the edge row (20), so on a tie it reads first
+    moveRow(loaded, 5, 0);
+
+    var payload = save(loaded);
+
+    expect(payload.normalizeOrder).toEqual({ gap: 1000 });
+
+    commit(ds, payload);
+
+    expect(names(readOrder(ds.rows))).toEqual(expectedNames(loaded));
+  });
+
+  it('a drag in the middle of that page sends no renumber and keeps every row in place', function() {
+    var ds = tiedDataSource();
+    var loaded = loadPage(ds, 1, 10);
+
+    moveRow(loaded, 3, 7);
+
+    var payload = save(loaded);
+
+    expect(payload.normalizeOrder).toBe(null);
+
+    commit(ds, payload);
+
+    expect(names(readOrder(ds.rows))).toEqual(expectedNames(loaded));
+  });
+});
+
+describe('PS-2204 Problem C - random pages, shapes, drags and inserts', function() {
   // Small deterministic PRNG, so a failure reproduces
   function prng(seed) {
     var state = seed;
@@ -373,6 +558,15 @@ describe('PS-2204 Problem C - random pages, shapes and inserts', function() {
       // Sometimes delete a row in the same save
       if (loaded.grid.length > 1 && random() < 0.3) {
         loaded.grid.splice(Math.floor(random() * loaded.grid.length), 1);
+      }
+
+      // Sometimes drag a row in the same save
+      if (loaded.grid.length > 1 && random() < 0.4) {
+        moveRow(
+          loaded,
+          Math.floor(random() * loaded.grid.length),
+          Math.floor(random() * loaded.grid.length)
+        );
       }
 
       for (i = 0; i < inserts; i++) {

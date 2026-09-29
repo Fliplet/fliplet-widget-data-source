@@ -244,6 +244,30 @@ var EntryDiff = (function() {
   }
 
   /**
+   * Whether a reorder changed which stored row sits at the top or the bottom
+   * of the grid. That row is handed the lowest (or highest) stored order, so it
+   * is the only one a row just outside the page can collide with.
+   * @param {Array} positioned - Stored entries in visual order
+   * @param {Object} originalMap - Cached originals, keyed by entry id
+   * @returns {Object} { top, bottom }
+   */
+  function endsReordered(positioned, originalMap) {
+    var baseline = positioned.map(function(entry) {
+      return { id: entry.id, order: originalMap[entry.id].order };
+    }).sort(byReadOrder);
+    var last = positioned.length - 1;
+
+    if (last < 0) {
+      return { top: false, bottom: false };
+    }
+
+    return {
+      top: baseline[0].id !== positioned[0].id,
+      bottom: baseline[last].id !== positioned[last].id
+    };
+  }
+
+  /**
    * The runs of consecutive new rows in a save, each with the position of the
    * stored row above it. A run between two stored rows needs room between their
    * orders; one at either end of the grid does not - unless the grid is one page
@@ -251,10 +275,10 @@ var EntryDiff = (function() {
    * makes it a neighbour like any other.
    *
    * `above` indexes the pool placementFits reads: the stored orders ascending,
-   * with the edge row above the page first when there is one.
+   * with the edge row above the page first when this save places against it.
    * @param {Array} entries - Current entries in visual order
    * @param {Object} originalMap - Cached originals, keyed by entry id
-   * @param {Object} [edges] - { before, after }: whether a row bounds the page on that side
+   * @param {Object} [edges] - { before, after }: whether a row just outside the page bounds this save on that side
    * @returns {Array} [{ count, above, interior }]
    */
   function insertRuns(entries, originalMap, edges) {
@@ -595,20 +619,33 @@ var EntryDiff = (function() {
     var stored = positioned.map(function(entry) {
       return originalMap[entry.id].order;
     });
-    var runs = insertRuns(entries, originalMap, { before: !!edgeBefore, after: afterBounds });
     var newRows = countNewRows(entries, originalMap);
-
-    // The stored orders a placement has to fit between, edge rows included, in
-    // the ascending order placementFits indexes runs against
-    var bounded = (edgeBefore ? [edgeBefore.order] : [])
-      .concat(stored)
-      .concat(afterBounds ? [edgeAfter.order] : []);
-    var pool = (edgeBefore ? [edgeBefore.order] : [])
-      .concat(stored.slice().sort(ascending))
-      .concat(afterBounds ? [edgeAfter.order] : []);
     var moved = !!options.rowsMoved
       && viewMatchesStoredOrder
       && sequenceMoved(positioned, originalMap);
+
+    // An edge row only matters to this save when something is written next to
+    // it: a new row at that end of the page, or a reorder that hands that end's
+    // order to a different row (a tie with the edge row is then settled by id,
+    // which can put the row on the next page). Otherwise its order is left out,
+    // so a tie with it cannot force a renumber of every row for nothing.
+    var endsMoved = moved ? endsReordered(positioned, originalMap) : { top: false, bottom: false };
+    var usesBefore = !!edgeBefore && (
+      (entries.length > 0 && isNewEntry(entries[0], originalMap)) || endsMoved.top
+    );
+    var usesAfter = afterBounds && (
+      (entries.length > 0 && isNewEntry(entries[entries.length - 1], originalMap)) || endsMoved.bottom
+    );
+    var runs = insertRuns(entries, originalMap, { before: usesBefore, after: usesAfter });
+
+    // The stored orders a placement has to fit between, edge rows included, in
+    // the ascending order placementFits indexes runs against
+    var bounded = (usesBefore ? [edgeBefore.order] : [])
+      .concat(stored)
+      .concat(usesAfter ? [edgeAfter.order] : []);
+    var pool = (usesBefore ? [edgeBefore.order] : [])
+      .concat(stored.slice().sort(ascending))
+      .concat(usesAfter ? [edgeAfter.order] : []);
 
     // Only a save with somewhere to put a row asks for a renumber, and only when
     // the orders the data source holds cannot seat it. One that can takes the
