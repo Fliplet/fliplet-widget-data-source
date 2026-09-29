@@ -21,40 +21,79 @@ var DuplicateRows = (function() {
   // Grid row of the first data row (row 1 is the column headers)
   var FIRST_DATA_ROW = 2;
 
+  // Most row numbers listed in the confirmation message
+  var MAX_LISTED_ROWS = 10;
+
   /**
-   * Serialise a value with object keys sorted, so key order does not matter
-   * @param {*} value - Value to serialise
-   * @returns {String} Stable string representation
+   * Comparable key for an entry's data. normalizeData() already returns a
+   * flat map of strings (objects stable-stringified), so sorting the keys is
+   * enough to make key order irrelevant.
+   * @param {Object} data - Entry data
+   * @returns {String|null} Key, or null when the data is empty
    */
-  function stableStringify(value) {
-    if (Array.isArray(value)) {
-      return '[' + value.map(stableStringify).join(',') + ']';
+  function dataKey(data) {
+    var normalized = entryDiff.normalizeData(data);
+    var keys = Object.keys(normalized);
+
+    if (!keys.length) {
+      return null;
     }
 
-    if (value && typeof value === 'object') {
-      return '{' + Object.keys(value).sort().map(function(key) {
-        return JSON.stringify(key) + ':' + stableStringify(value[key]);
-      }).join(',') + '}';
-    }
+    return JSON.stringify(keys.sort().map(function(key) {
+      return [key, normalized[key]];
+    }));
+  }
 
-    var serialized = JSON.stringify(value);
+  /**
+   * Whether a grid row has a value. Same rule the spreadsheet uses to drop
+   * empty rows from getData({ removeEmptyRows: true }).
+   * @param {Array} row - Grid row
+   * @returns {Boolean} True when at least one cell has a value
+   */
+  function isNotEmpty(row) {
+    return (row || []).some(function(field) {
+      return [null, undefined, ''].indexOf(field) === -1;
+    });
+  }
 
-    return typeof serialized === 'undefined' ? 'null' : serialized;
+  /**
+   * Grid row numbers of the non-empty data rows, in visual order. These line
+   * up one-to-one with getData({ removeEmptyRows: true }).
+   * @param {Array} visualRows - Visual grid data rows, without the header row
+   * @returns {Array} 1-based grid row numbers
+   */
+  function gridRowNumbers(visualRows) {
+    var rows = [];
+
+    (visualRows || []).forEach(function(row, index) {
+      if (isNotEmpty(row)) {
+        rows.push(index + FIRST_DATA_ROW);
+      }
+    });
+
+    return rows;
   }
 
   /**
    * Find new rows whose data exactly matches another row in the same save
    * @param {Array} entries - Entries in visual order ([{ id, data }])
+   * @param {Array} [gridRows] - Grid row number of each entry. When omitted,
+   *   entries are taken to be every data row (index + 2). When given but not
+   *   one per entry, the positions are unknown and no rows are reported.
    * @returns {Object} { count, rows } where rows are 1-based grid row numbers
    */
-  function find(entries) {
+  function find(entries, gridRows) {
     var counts = {};
     var keys = [];
     var rows = [];
+    var count = 0;
 
-    (entries || []).forEach(function(entry, index) {
-      var normalized = entryDiff.normalizeData(entry && entry.data);
-      var key = Object.keys(normalized).length ? stableStringify(normalized) : null;
+    entries = entries || [];
+
+    var rowsKnown = !gridRows || gridRows.length === entries.length;
+
+    entries.forEach(function(entry, index) {
+      var key = dataKey(entry && entry.data);
 
       keys[index] = key;
 
@@ -63,24 +102,49 @@ var DuplicateRows = (function() {
       }
     });
 
-    (entries || []).forEach(function(entry, index) {
+    entries.forEach(function(entry, index) {
       var key = keys[index];
 
       if (key === null || (entry && entry.id) || counts[key] < 2) {
         return;
       }
 
-      rows.push(index + FIRST_DATA_ROW);
+      count++;
+
+      if (rowsKnown) {
+        rows.push(gridRows ? gridRows[index] : index + FIRST_DATA_ROW);
+      }
     });
 
     return {
-      count: rows.length,
+      count: count,
       rows: rows
     };
   }
 
+  /**
+   * Confirmation message for a find() result
+   * @param {Object} result - { count, rows } from find()
+   * @returns {String} Message asking whether to save the copies
+   */
+  function message(result) {
+    var single = result.count === 1;
+    var rows = result.rows || [];
+    var text = result.count + ' new ' + (single ? 'row is an exact copy' : 'rows are exact copies') + ' of other rows';
+
+    if (rows.length) {
+      text += ' (' + (rows.length === 1 ? 'row ' : 'rows ')
+        + rows.slice(0, MAX_LISTED_ROWS).join(', ')
+        + (rows.length > MAX_LISTED_ROWS ? ', …' : '') + ')';
+    }
+
+    return text + '. Save ' + (single ? 'it' : 'them') + ' anyway?';
+  }
+
   return {
-    find: find
+    find: find,
+    gridRowNumbers: gridRowNumbers,
+    message: message
   };
 })();
 

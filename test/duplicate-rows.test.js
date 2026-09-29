@@ -102,6 +102,29 @@ describe('DuplicateRows.find', function() {
     expect(result.rows).toEqual([2, 3]);
   });
 
+  it('maps flagged entries to the grid rows they came from', function() {
+    // Grid: row 2 Alice, row 3 blank, row 4 Bob, row 5 blank, row 6 Alice copy
+    var visual = [['Alice'], [null], ['Bob'], [''], ['Alice'], [null], [null]];
+    var gridRows = DuplicateRows.gridRowNumbers(visual);
+    var result = DuplicateRows.find([
+      { id: 1, data: { Name: 'Alice' } },
+      { id: 2, data: { Name: 'Bob' } },
+      { data: { Name: 'Alice' } }
+    ], gridRows);
+
+    expect(gridRows).toEqual([2, 4, 6]);
+    expect(result).toEqual({ count: 1, rows: [6] });
+  });
+
+  it('reports no row numbers when the grid rows do not line up', function() {
+    var result = DuplicateRows.find([
+      { id: 1, data: { Name: 'Alice' } },
+      { data: { Name: 'Alice' } }
+    ], [2, 3, 4]);
+
+    expect(result).toEqual({ count: 1, rows: [] });
+  });
+
   it('handles missing or empty input', function() {
     expect(DuplicateRows.find([])).toEqual({ count: 0, rows: [] });
     expect(DuplicateRows.find()).toEqual({ count: 0, rows: [] });
@@ -126,5 +149,38 @@ describe('DuplicateRows.find', function() {
     expect(result.count).toBe(10000);
     expect(result.rows[0]).toBe(10002);
     expect(elapsed).toBeLessThan(500);
+  });
+});
+
+describe('DuplicateRows.gridRowNumbers', function() {
+  it('treats null, undefined and empty strings as blank, like the grid', function() {
+    expect(DuplicateRows.gridRowNumbers([
+      [null, undefined, ''],
+      [0],
+      [false],
+      ['', 'x'],
+      []
+    ])).toEqual([3, 4, 5]);
+  });
+
+  it('handles missing input', function() {
+    expect(DuplicateRows.gridRowNumbers()).toEqual([]);
+  });
+});
+
+describe('DuplicateRows.message', function() {
+  it('describes a single copy', function() {
+    expect(DuplicateRows.message({ count: 1, rows: [7] }))
+      .toBe('1 new row is an exact copy of other rows (row 7). Save it anyway?');
+  });
+
+  it('lists at most 10 rows', function() {
+    expect(DuplicateRows.message({ count: 12, rows: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] }))
+      .toBe('12 new rows are exact copies of other rows (rows 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, …). Save them anyway?');
+  });
+
+  it('leaves out the row list when positions are unknown', function() {
+    expect(DuplicateRows.message({ count: 2, rows: [] }))
+      .toBe('2 new rows are exact copies of other rows. Save them anyway?');
   });
 });
