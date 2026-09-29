@@ -19,6 +19,9 @@ var SaveState = (function() {
   var CONNECTION_MESSAGE = 'Couldn\'t connect to the server. Please check your connection and try again.';
   var SLOW_MESSAGE = 'Saving is taking longer than usual. Your changes are kept, please don\'t re-enter them.';
   var UNCONFIRMED_MESSAGE = 'We couldn\'t confirm your last save. The table has been refreshed from the server; check it and re-enter anything missing.';
+  var RELOAD_FAILED_MESSAGE = 'Couldn\'t refresh the table after an unconfirmed save. Reload the data source before editing.';
+  var LATE_SAVE_MESSAGE = 'Your earlier save has now completed. Reload the data source before saving again.';
+  var SAVED_NOT_REFRESHED_MESSAGE = 'Saved. Couldn\'t refresh the table.';
   var DEFAULT_MESSAGE = 'Something went wrong. Please try again.';
 
   /**
@@ -43,8 +46,13 @@ var SaveState = (function() {
    * @param {Function} [options.parseError] - (error, defaultMessage) → String.
    *   Defaults to Fliplet.parseError in the browser.
    * @param {String} [options.defaultMessage] - Used when nothing better is found
-   * @returns {Object} { kind: 'definitive' | 'ambiguous', status, message, timedOut, error }
-   *   'definitive' means the server answered and did not apply the request.
+   * @param {String} [options.operation] - 'commit' for a save. The commit
+   *   endpoint answers 400 for failures after it has inserted rows, so a 400
+   *   there does not mean nothing was written.
+   * @returns {Object} { kind: 'definitive' | 'ambiguous', status, message,
+   *   detail, timedOut, error }. 'definitive' means the server answered and
+   *   did not apply the request. detail is the error's own message, when it
+   *   has one worth showing.
    */
   function classifyError(error, options) {
     options = options || {};
@@ -53,13 +61,12 @@ var SaveState = (function() {
       || (typeof Fliplet !== 'undefined' && Fliplet.parseError) // eslint-disable-line no-undef
       || fallbackParseError;
     var defaultMessage = options.defaultMessage || DEFAULT_MESSAGE;
-    var status = error && typeof error === 'object' && typeof error.status === 'number'
-      ? error.status
-      : undefined;
+    var status = readStatus(error);
     var result = {
       kind: 'ambiguous',
       status: status,
       message: undefined,
+      detail: undefined,
       timedOut: false,
       error: error
     };
@@ -80,23 +87,151 @@ var SaveState = (function() {
 
     if (status === 0) {
       result.message = CONNECTION_MESSAGE;
+      result.detail = CONNECTION_MESSAGE;
 
       return result;
     }
 
     // Any other 4xx is the server refusing the request. A 408 is a timeout,
-    // which says nothing about whether the work was done.
-    if (status >= 400 && status < 500 && status !== 408) {
+    // which says nothing about whether the work was done, and a commit 400
+    // may follow rows already inserted.
+    if (status >= 400 && status < 500 && status !== 408
+      && !(status === 400 && options.operation === 'commit')) {
       result.kind = 'definitive';
     }
 
-    result.message = parseError(error, defaultMessage) || defaultMessage;
+    var parsed = parseError(error, defaultMessage);
 
-    if (typeof result.message !== 'string') {
-      result.message = defaultMessage;
+    if (typeof parsed === 'string' && parsed && parsed !== defaultMessage) {
+      result.detail = parsed;
     }
 
+    result.message = result.detail || defaultMessage;
+
     return result;
+  }
+
+  /**
+   * HTTP status of a jqXHR. A numeric string is read as a number; anything
+   * else is unknown.
+   * @param {*} error - Error to read
+   * @returns {Number|undefined} Status
+   */
+  function readStatus(error) {
+    if (!error || typeof error !== 'object') {
+      return undefined;
+    }
+
+    var status = typeof error.status === 'string' && error.status.trim() !== ''
+      ? Number(error.status)
+      : error.status;
+
+    return typeof status === 'number' && !isNaN(status) ? status : undefined;
+  }
+
+  /**
+   * Message for a save that may or may not have been applied, after the
+   * table has been refreshed from the server
+   * @param {Object} failure - Result of classifyError()
+   * @returns {String} Message, led by the error's own message when it has one
+   */
+  function unconfirmedMessage(failure) {
+    var detail = failure && !failure.timedOut && failure.detail;
+
+    if (!detail) {
+      return UNCONFIRMED_MESSAGE;
+    }
+
+    return detail.replace(/[\s.]*$/, '') + '. ' + UNCONFIRMED_MESSAGE;
+  }
+
+  /**
+   * Whether a save may start. A save is in flight from the moment it starts
+   * until it settles. A save that may have been applied, and could not be
+   * followed by a refresh, needs a reload: saving again from a grid that
+   * does not show what the server has would insert its new rows twice.
+   * Only a reload that started after the last reason to reload clears it.
+   * @returns {Object} The lock
+   */
+  function createSaveLock() {
+    var inFlight = false;
+    var needsReload = false;
+    var reason = null;
+    var epoch = 0;
+
+    return {
+      /**
+       * @returns {String} 'inFlight', 'needsReload' or 'idle'
+       */
+      state: function() {
+        if (inFlight) {
+          return 'inFlight';
+        }
+
+        return needsReload ? 'needsReload' : 'idle';
+      },
+      isInFlight: function() {
+        return inFlight;
+      },
+      needsReload: function() {
+        return needsReload;
+      },
+      // Nothing may change the grid or save it
+      isLocked: function() {
+        return inFlight || needsReload;
+      },
+      reason: function() {
+        return reason;
+      },
+      /**
+       * Start a save
+       * @returns {Boolean} False when a save is running or a reload is needed
+       */
+      start: function() {
+        if (inFlight || needsReload) {
+          return false;
+        }
+
+        inFlight = true;
+
+        return true;
+      },
+      finish: function() {
+        inFlight = false;
+      },
+      /**
+       * Block saving until the grid has been reloaded from the server
+       * @param {String} message - What to tell the user
+       * @returns {undefined}
+       */
+      requireReload: function(message) {
+        needsReload = true;
+        reason = message;
+        epoch++;
+      },
+      /**
+       * Note a reload starting
+       * @returns {Number} Token to hand to reloaded()
+       */
+      beginReload: function() {
+        return epoch;
+      },
+      /**
+       * A reload rebuilt the grid from the server
+       * @param {Number} token - From beginReload() when the reload started
+       * @returns {Boolean} True when this cleared the need to reload
+       */
+      reloaded: function(token) {
+        if (!needsReload || token !== epoch) {
+          return false;
+        }
+
+        needsReload = false;
+        reason = null;
+
+        return true;
+      }
+    };
   }
 
   /**
@@ -184,7 +319,12 @@ var SaveState = (function() {
     CONNECTION_MESSAGE: CONNECTION_MESSAGE,
     SLOW_MESSAGE: SLOW_MESSAGE,
     UNCONFIRMED_MESSAGE: UNCONFIRMED_MESSAGE,
+    RELOAD_FAILED_MESSAGE: RELOAD_FAILED_MESSAGE,
+    LATE_SAVE_MESSAGE: LATE_SAVE_MESSAGE,
+    SAVED_NOT_REFRESHED_MESSAGE: SAVED_NOT_REFRESHED_MESSAGE,
     classifyError: classifyError,
+    unconfirmedMessage: unconfirmedMessage,
+    createSaveLock: createSaveLock,
     withTimeouts: withTimeouts
   };
 

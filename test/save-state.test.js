@@ -183,9 +183,155 @@ describe('SaveState.classifyError', function() {
     expect(result.message).toBe('Error loading data source.');
   });
 
+  it('uses the default message when the parser returns an empty string', function() {
+    var result = SaveState.classifyError(xhr(500, 'ignored'), {
+      parseError: function() {
+        return '';
+      },
+      defaultMessage: 'Error saving data source.'
+    });
+
+    expect(result.message).toBe('Error saving data source.');
+    expect(result.detail).toBeUndefined();
+  });
+
+  it('reads a numeric string status as a number', function() {
+    var result = classify({ status: '500', responseJSON: { message: 'Down' } });
+
+    expect(result.status).toBe(500);
+    expect(result.kind).toBe('ambiguous');
+    expect(classify({ status: '422' }).kind).toBe('definitive');
+  });
+
+  it('treats a non-numeric status as unknown and ambiguous', function() {
+    var result = classify({ status: 'error' });
+
+    expect(result.status).toBeUndefined();
+    expect(result.kind).toBe('ambiguous');
+  });
+
   it('works without an injected parser outside the browser', function() {
     expect(SaveState.classifyError(new Error('Nope')).message).toBe('Nope');
     expect(SaveState.classifyError('Plain text').message).toBe('Plain text');
+  });
+});
+
+describe('SaveState.classifyError for a commit', function() {
+  function classifyCommit(error) {
+    return SaveState.classifyError(error, {
+      parseError: parseError,
+      defaultMessage: 'Error saving data source.',
+      operation: 'commit'
+    });
+  }
+
+  it('treats 400 as ambiguous, keeping the server message', function() {
+    var result = classifyCommit(xhr(400, 'Hook failed'));
+
+    expect(result.kind).toBe('ambiguous');
+    expect(result.status).toBe(400);
+    expect(result.detail).toBe('Hook failed');
+  });
+
+  [401, 403, 404, 409, 413, 422, 429].forEach(function(status) {
+    it('keeps ' + status + ' definitive', function() {
+      expect(classifyCommit(xhr(status, 'No')).kind).toBe('definitive');
+    });
+  });
+
+  [0, 408, 500, 504].forEach(function(status) {
+    it('keeps ' + status + ' ambiguous', function() {
+      expect(classifyCommit(xhr(status)).kind).toBe('ambiguous');
+    });
+  });
+
+  it('leaves a fetch 400 definitive', function() {
+    expect(classify(xhr(400, 'Bad query')).kind).toBe('definitive');
+  });
+});
+
+describe('SaveState.unconfirmedMessage', function() {
+  it('leads with the server message', function() {
+    var failure = SaveState.classifyError(xhr(400, 'Hook failed.'), {
+      parseError: parseError,
+      operation: 'commit'
+    });
+
+    expect(SaveState.unconfirmedMessage(failure)).toBe('Hook failed. ' + SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('is the plain message when there is no server message', function() {
+    expect(SaveState.unconfirmedMessage(classify(xhr(504)))).toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('is the plain message after the hard ceiling', function() {
+    expect(SaveState.unconfirmedMessage(classify({ kind: 'ambiguous', timedOut: true })))
+      .toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('leads with the connection message for status 0', function() {
+    expect(SaveState.unconfirmedMessage(classify(xhr(0))))
+      .toBe(SaveState.CONNECTION_MESSAGE + ' ' + SaveState.UNCONFIRMED_MESSAGE);
+  });
+});
+
+describe('SaveState.createSaveLock', function() {
+  it('starts idle and lets one save start at a time', function() {
+    var lock = SaveState.createSaveLock();
+
+    expect(lock.state()).toBe('idle');
+    expect(lock.isLocked()).toBe(false);
+    expect(lock.start()).toBe(true);
+    expect(lock.state()).toBe('inFlight');
+    expect(lock.isLocked()).toBe(true);
+    expect(lock.start()).toBe(false);
+
+    lock.finish();
+
+    expect(lock.state()).toBe('idle');
+    expect(lock.start()).toBe(true);
+  });
+
+  it('blocks saving until a reload started after the reason succeeds', function() {
+    var lock = SaveState.createSaveLock();
+    var before = lock.beginReload();
+
+    lock.requireReload('Reload please');
+
+    expect(lock.state()).toBe('needsReload');
+    expect(lock.reason()).toBe('Reload please');
+    expect(lock.start()).toBe(false);
+
+    // A reload that was already running shows data from before the reason
+    expect(lock.reloaded(before)).toBe(false);
+    expect(lock.needsReload()).toBe(true);
+
+    expect(lock.reloaded(lock.beginReload())).toBe(true);
+    expect(lock.state()).toBe('idle');
+    expect(lock.reason()).toBe(null);
+    expect(lock.start()).toBe(true);
+  });
+
+  it('keeps a reload need raised during a save once the save finishes', function() {
+    var lock = SaveState.createSaveLock();
+
+    lock.start();
+
+    var reload = lock.beginReload();
+
+    lock.requireReload('Earlier save landed');
+    lock.finish();
+
+    expect(lock.state()).toBe('needsReload');
+    expect(lock.reloaded(reload)).toBe(false);
+    expect(lock.isLocked()).toBe(true);
+  });
+
+  it('ignores a reload when none is needed', function() {
+    var lock = SaveState.createSaveLock();
+
+    expect(lock.reloaded(lock.beginReload())).toBe(false);
+    expect(lock.state()).toBe('idle');
   });
 });
 
