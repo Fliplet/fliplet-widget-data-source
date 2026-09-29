@@ -683,20 +683,23 @@ var SAVE_CANCELLED = { cancelled: true };
  * @returns {Promise} Resolves with SAVE_CANCELLED when the user cancels
  */
 function saveCurrentData() {
-  var duplicates = DuplicateRows.find(table.getData({
-    parseJSON: true,
-    removeEmptyRows: true
-  }));
-
-  if (!duplicates.count) {
+  if (!table) {
     return commitCurrentData();
   }
 
-  var rowList = duplicates.rows.slice(0, 10).join(', ') + (duplicates.count > 10 ? ', …' : '');
+  // The same call the commit makes, so the entries can be handed on to it
+  var entries = table.getData({
+    parseJSON: true,
+    removeEmptyRows: true
+  });
+  var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []));
+
+  if (!duplicates.count) {
+    return commitCurrentData(entries);
+  }
 
   return Fliplet.Modal.confirm({
-    message: duplicates.count + ' new ' + (duplicates.count === 1 ? 'row is an exact copy' : 'rows are exact copies')
-      + ' of other rows (' + (duplicates.count === 1 ? 'row ' : 'rows ') + rowList + '). Save them anyway?',
+    message: DuplicateRows.message(duplicates),
     buttons: {
       cancel: {
         label: 'Cancel'
@@ -710,13 +713,18 @@ function saveCurrentData() {
   });
 }
 
-function commitCurrentData() {
+/**
+ * Commit the grid to the data source
+ * @param {Array} [entries] - Entries already read with the options below
+ * @returns {Promise} Resolves once the grid has been reloaded
+ */
+function commitCurrentData(entries) {
   var columns;
 
   table.onSave();
   fetchCurrentDataSourceEntries();
 
-  var entries = table.getData({
+  entries = entries || table.getData({
     parseJSON: true,
     removeEmptyRows: true
   });
