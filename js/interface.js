@@ -493,7 +493,7 @@ function fetchCurrentDataSourceEntries(entries, options) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isLocked: isGridLocked });
+      table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isLocked: isSaveLocked });
 
       setTimeout(function() {
         // The newer load builds the grid instead
@@ -504,7 +504,7 @@ function fetchCurrentDataSourceEntries(entries, options) {
         table.destroy();
         initialLoad = false;
 
-        table = spreadsheet({ columns: columns, rows: rows, isLocked: isGridLocked });
+        table = spreadsheet({ columns: columns, rows: rows, isLocked: isSaveLocked });
         $('.table-entries').css('visibility', 'visible');
 
         $('#versions').removeClass('hidden');
@@ -515,7 +515,7 @@ function fetchCurrentDataSourceEntries(entries, options) {
         table.destroy();
       }
 
-      table = spreadsheet({ columns: columns, rows: rows, isLocked: isGridLocked });
+      table = spreadsheet({ columns: columns, rows: rows, isLocked: isSaveLocked });
       $('.table-entries').css('visibility', 'visible');
 
       $('#versions').removeClass('hidden');
@@ -775,7 +775,7 @@ var saveLock = SaveState.createSaveLock();
  * while this is true.
  * @returns {Boolean} True while saving or until a needed reload
  */
-function isGridLocked() {
+function isSaveLocked() {
   return saveLock.isLocked();
 }
 
