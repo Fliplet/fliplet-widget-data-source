@@ -19,7 +19,7 @@ var SaveState = (function() {
   var ACCESS_MESSAGE = 'Access denied. Please review your security settings if you want to access this data source.';
   var CONNECTION_MESSAGE = 'Couldn\'t connect to the server. Please check your connection and try again.';
   var SLOW_MESSAGE = 'Saving is taking longer than usual. Your changes are kept, please don\'t re-enter them.';
-  var UNCONFIRMED_MESSAGE = 'We couldn\'t confirm whether your last save was applied. Copy anything you need, then Reload to see what was saved.';
+  var UNCONFIRMED_MESSAGE = 'We couldn\'t confirm whether your last save was applied. It may still complete in the next few minutes. Copy anything you need, then Reload to see what was saved; check again before re-entering rows.';
   var SAVED_NOT_REFRESHED_MESSAGE = 'Saved. Couldn\'t refresh the table. Reload before editing.';
   var DEFAULT_MESSAGE = 'Something went wrong. Please try again.';
 

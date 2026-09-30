@@ -268,8 +268,8 @@ describe('SaveState.unconfirmedMessage', function() {
     expect(SaveState.unconfirmedMessage(classify(xhr(0)))).toBe(SaveState.UNCONFIRMED_MESSAGE);
   });
 
-  it('asks the user to copy what they need, then reload', function() {
-    expect(SaveState.UNCONFIRMED_MESSAGE).toBe('We couldn\'t confirm whether your last save was applied. Copy anything you need, then Reload to see what was saved.');
+  it('warns the save may still land, then asks the user to copy, reload and re-check', function() {
+    expect(SaveState.UNCONFIRMED_MESSAGE).toBe('We couldn\'t confirm whether your last save was applied. It may still complete in the next few minutes. Copy anything you need, then Reload to see what was saved; check again before re-entering rows.');
   });
 });
 
