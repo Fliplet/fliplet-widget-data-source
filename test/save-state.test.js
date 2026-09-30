@@ -184,7 +184,8 @@ describe('SaveState.classifyError', function() {
     });
 
     expect(result.message).toBe('Error saving data source.');
-    expect(result.detail).toBeUndefined();
+    // detail reads the JSON body itself, not the parser
+    expect(result.detail).toBe('ignored');
   });
 
   it('reads a numeric string status as a number', function() {
@@ -266,6 +267,64 @@ describe('SaveState.unconfirmedMessage', function() {
 
   it('is the plain message for status 0, which has no server message', function() {
     expect(SaveState.unconfirmedMessage(classify(xhr(0)))).toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  function unconfirmedFor(error) {
+    // The real Fliplet.parseError falls back to responseText
+    return SaveState.unconfirmedMessage(SaveState.classifyError(error, {
+      parseError: function(err, defaultMessage) {
+        return parseError(err, '') || (err && err.responseText) || defaultMessage;
+      },
+      operation: 'commit'
+    }));
+  }
+
+  it('leads with responseJSON.message', function() {
+    expect(unconfirmedFor({ status: 504, responseJSON: { message: 'Gateway slow' } }))
+      .toBe('Gateway slow. ' + SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('has no prefix for an empty JSON body', function() {
+    expect(unconfirmedFor({ status: 504, responseJSON: {}, responseText: '{}' }))
+      .toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('has no prefix for an HTML error page with no JSON body', function() {
+    expect(unconfirmedFor({
+      status: 504,
+      responseText: '<html><head><title>504 Gateway Time-out</title></head><body><h1>504 Gateway Time-out</h1></body></html>'
+    })).toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('leads with responseJSON.error when it is a string', function() {
+    expect(unconfirmedFor({ status: 500, responseJSON: { error: 'Hook failed' } }))
+      .toBe('Hook failed. ' + SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('has no prefix when responseJSON.error is an object', function() {
+    expect(unconfirmedFor({ status: 500, responseJSON: { error: { code: 'E_HOOK' } } }))
+      .toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('has no prefix for a whitespace-only message', function() {
+    expect(unconfirmedFor({ status: 500, responseJSON: { message: '   ' } }))
+      .toBe(SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('falls back to responseJSON.description, trimmed', function() {
+    expect(unconfirmedFor({ status: 500, responseJSON: { message: ' ', description: '  Timed out  ' } }))
+      .toBe('Timed out. ' + SaveState.UNCONFIRMED_MESSAGE);
+  });
+
+  it('keeps the parsed message for the modal even when there is no prefix', function() {
+    var failure = SaveState.classifyError({ status: 504, responseText: '<html>504</html>' }, {
+      parseError: function(err) {
+        return err.responseText;
+      }
+    });
+
+    expect(failure.message).toBe('<html>504</html>');
+    expect(failure.detail).toBeUndefined();
   });
 
   it('warns the save may still land, then asks the user to copy, reload and re-check', function() {

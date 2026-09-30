@@ -49,8 +49,8 @@ var SaveState = (function() {
    *   there does not mean nothing was written.
    * @returns {Object} { kind: 'definitive' | 'ambiguous', status, message,
    *   detail, error }. 'definitive' means the server answered and
-   *   did not apply the request. detail is the error's own message, when it
-   *   has one worth showing.
+   *   did not apply the request. detail is the server's message from a JSON
+   *   error body, when it has one; never the raw response text.
    */
   function classifyError(error, options) {
     options = options || {};
@@ -92,13 +92,38 @@ var SaveState = (function() {
 
     var parsed = parseError(error, defaultMessage);
 
-    if (typeof parsed === 'string' && parsed && parsed !== defaultMessage) {
-      result.detail = parsed;
-    }
-
-    result.message = result.detail || defaultMessage;
+    result.message = typeof parsed === 'string' && parsed && parsed !== defaultMessage
+      ? parsed
+      : defaultMessage;
+    result.detail = readServerMessage(error);
 
     return result;
+  }
+
+  /**
+   * The server's own message from a JSON error body. Never responseText: a
+   * proxy's HTML error page or an empty '{}' body is not worth showing.
+   * @param {*} error - A jqXHR, or anything else
+   * @returns {String|undefined} Trimmed message, or undefined when there is none
+   */
+  function readServerMessage(error) {
+    var body = error && typeof error === 'object' ? error.responseJSON : undefined;
+
+    if (!body || typeof body !== 'object') {
+      return undefined;
+    }
+
+    var candidates = [body.message, body.error, body.description];
+
+    for (var i = 0; i < candidates.length; i++) {
+      var text = typeof candidates[i] === 'string' ? candidates[i].trim() : '';
+
+      if (text) {
+        return text;
+      }
+    }
+
+    return undefined;
   }
 
   /**
