@@ -1574,14 +1574,20 @@ $('#app')
       return;
     }
 
+    // This link is also the reload an unconfirmed save asks for; only the
+    // live-data warning's reload is tracked
+    var isLiveDataReload = !saveLock.needsReload();
+
     $('.save-btn').addClass('hidden');
 
     fetchCurrentDataSourceEntries();
 
-    Fliplet.Studio.emit('track-event', {
-      category: 'dsm_reload_warning',
-      action: 'reload'
-    });
+    if (isLiveDataReload) {
+      Fliplet.Studio.emit('track-event', {
+        category: 'dsm_reload_warning',
+        action: 'reload'
+      });
+    }
   })
   .on('click', '[data-back]', function(event) {
     event.preventDefault();
