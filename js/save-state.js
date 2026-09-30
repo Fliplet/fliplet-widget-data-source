@@ -1,11 +1,12 @@
 /**
  * Telling a slow, hung or failed save apart, and what to say about it.
  *
- * The commit API takes no timeout, and a commit that never settles used to
+ * The commit API takes no timeout, and a commit that never settled used to
  * leave the editor looking idle while the request was still running. A retry
  * then inserted the same rows again once every attempt landed (PS-2251). This
- * module races a commit against a soft and a hard timer and sorts its errors
- * into ones the server certainly did not apply and ones it may have applied.
+ * module times a save's steps, sorts its errors into ones the server certainly
+ * did not apply and ones it may have applied, and holds the lock that stops a
+ * second save until the first is resolved.
  *
  * In its own module so the timing and the classification are executed by the
  * specs.
@@ -18,10 +19,8 @@ var SaveState = (function() {
   var ACCESS_MESSAGE = 'Access denied. Please review your security settings if you want to access this data source.';
   var CONNECTION_MESSAGE = 'Couldn\'t connect to the server. Please check your connection and try again.';
   var SLOW_MESSAGE = 'Saving is taking longer than usual. Your changes are kept, please don\'t re-enter them.';
-  var UNCONFIRMED_MESSAGE = 'We couldn\'t confirm your last save. The table has been refreshed from the server; check it and re-enter anything missing.';
-  var RELOAD_FAILED_MESSAGE = 'Couldn\'t refresh the table after an unconfirmed save. Reload the data source before editing.';
-  var LATE_SAVE_MESSAGE = 'Your earlier save has now completed. Reload the data source before saving again.';
-  var SAVED_NOT_REFRESHED_MESSAGE = 'Saved. Couldn\'t refresh the table.';
+  var UNCONFIRMED_MESSAGE = 'We couldn\'t confirm whether your last save was applied. Copy anything you need, then Reload to see what was saved.';
+  var SAVED_NOT_REFRESHED_MESSAGE = 'Saved. Couldn\'t refresh the table. Reload before editing.';
   var DEFAULT_MESSAGE = 'Something went wrong. Please try again.';
 
   /**
@@ -40,8 +39,7 @@ var SaveState = (function() {
 
   /**
    * Sort a fetch or commit error by whether the server may have applied it
-   * @param {*} error - A jqXHR from Fliplet.API.request, an Error, or the
-   *   rejection withTimeouts() makes at the hard ceiling
+   * @param {*} error - A jqXHR from Fliplet.API.request, or an Error
    * @param {Object} [options] - Settings, all optional
    * @param {Function} [options.parseError] - (error, defaultMessage) → String.
    *   Defaults to Fliplet.parseError in the browser.
@@ -50,7 +48,7 @@ var SaveState = (function() {
    *   endpoint answers 400 for failures after it has inserted rows, so a 400
    *   there does not mean nothing was written.
    * @returns {Object} { kind: 'definitive' | 'ambiguous', status, message,
-   *   detail, timedOut, error }. 'definitive' means the server answered and
+   *   detail, error }. 'definitive' means the server answered and
    *   did not apply the request. detail is the error's own message, when it
    *   has one worth showing.
    */
@@ -67,16 +65,8 @@ var SaveState = (function() {
       status: status,
       message: undefined,
       detail: undefined,
-      timedOut: false,
       error: error
     };
-
-    if (error && error.timedOut) {
-      result.timedOut = true;
-      result.message = UNCONFIRMED_MESSAGE;
-
-      return result;
-    }
 
     if (status === 401 || status === 403) {
       result.kind = 'definitive';
@@ -85,9 +75,9 @@ var SaveState = (function() {
       return result;
     }
 
+    // No answer, so no server message to lead with
     if (status === 0) {
       result.message = CONNECTION_MESSAGE;
-      result.detail = CONNECTION_MESSAGE;
 
       return result;
     }
@@ -130,13 +120,13 @@ var SaveState = (function() {
   }
 
   /**
-   * Message for a save that may or may not have been applied, after the
-   * table has been refreshed from the server
+   * Message for a save that may or may not have been applied. The user's
+   * rows are still on screen, read-only, until they reload.
    * @param {Object} failure - Result of classifyError()
-   * @returns {String} Message, led by the error's own message when it has one
+   * @returns {String} Message, led by the server's message when it has one
    */
   function unconfirmedMessage(failure) {
-    var detail = failure && !failure.timedOut && failure.detail;
+    var detail = failure && failure.detail;
 
     if (!detail) {
       return UNCONFIRMED_MESSAGE;
@@ -147,10 +137,10 @@ var SaveState = (function() {
 
   /**
    * Whether a save may start. A save is in flight from the moment it starts
-   * until it settles. A save that may have been applied, and could not be
-   * followed by a refresh, needs a reload: saving again from a grid that
-   * does not show what the server has would insert its new rows twice.
-   * Only a reload that started after the last reason to reload clears it.
+   * until it settles. A save that may have been applied, or was applied but
+   * could not be followed by a refresh, needs a reload: saving again from a
+   * grid that does not show what the server has would insert its new rows
+   * twice. Only a reload that started after the last reason clears it.
    * @returns {Object} The lock
    */
   function createSaveLock() {
@@ -236,12 +226,13 @@ var SaveState = (function() {
 
   /**
    * Settle with a promise's result, calling onSoft once if it runs past
-   * softMs and rejecting if it runs past hardMs. A settle after the hard
-   * ceiling is ignored.
+   * softMs and, when hardMs is given, rejecting if it runs past hardMs. A
+   * settle after that is ignored. A commit is given no hardMs: it holds the
+   * lock until it settles. The reload after it is given RELOAD_TIMEOUT_MS.
    * @param {Promise} promise - Promise to watch
    * @param {Object} [options] - Settings, all optional
    * @param {Number} [options.softMs] - Defaults to SaveState.SOFT_TIMEOUT_MS
-   * @param {Number} [options.hardMs] - Defaults to SaveState.HARD_TIMEOUT_MS
+   * @param {Number} [options.hardMs] - No ceiling when left out
    * @param {Function} [options.onSoft] - Called once at softMs
    * @param {Function} [options.setTimeout] - Timer, for the specs
    * @param {Function} [options.clearTimeout] - Timer, for the specs
@@ -252,7 +243,6 @@ var SaveState = (function() {
     options = options || {};
 
     var softMs = typeof options.softMs === 'number' ? options.softMs : api.SOFT_TIMEOUT_MS;
-    var hardMs = typeof options.hardMs === 'number' ? options.hardMs : api.HARD_TIMEOUT_MS;
     var setTimer = options.setTimeout || function(fn, ms) {
       return setTimeout(fn, ms);
     };
@@ -293,15 +283,13 @@ var SaveState = (function() {
         }, softMs);
       }
 
-      hardTimer = setTimer(function() {
-        hardTimer = null;
+      if (typeof options.hardMs === 'number') {
+        hardTimer = setTimer(function() {
+          hardTimer = null;
 
-        finish(reject, {
-          kind: 'ambiguous',
-          timedOut: true,
-          message: UNCONFIRMED_MESSAGE
-        });
-      }, hardMs);
+          finish(reject, { kind: 'ambiguous', timedOut: true });
+        }, options.hardMs);
+      }
 
       Promise.resolve(promise).then(function(value) {
         finish(resolve, value);
@@ -314,13 +302,11 @@ var SaveState = (function() {
   var api = {
     // Read at call time, so the E2E harness can shorten them
     SOFT_TIMEOUT_MS: 30000,
-    HARD_TIMEOUT_MS: 120000,
+    RELOAD_TIMEOUT_MS: 60000,
     ACCESS_MESSAGE: ACCESS_MESSAGE,
     CONNECTION_MESSAGE: CONNECTION_MESSAGE,
     SLOW_MESSAGE: SLOW_MESSAGE,
     UNCONFIRMED_MESSAGE: UNCONFIRMED_MESSAGE,
-    RELOAD_FAILED_MESSAGE: RELOAD_FAILED_MESSAGE,
-    LATE_SAVE_MESSAGE: LATE_SAVE_MESSAGE,
     SAVED_NOT_REFRESHED_MESSAGE: SAVED_NOT_REFRESHED_MESSAGE,
     classifyError: classifyError,
     unconfirmedMessage: unconfirmedMessage,

@@ -113,7 +113,7 @@ function watch(promise) {
 }
 
 describe('SaveState.classifyError', function() {
-  [400, 404, 422].forEach(function(status) {
+  [400, 404, 409, 422].forEach(function(status) {
     it('treats ' + status + ' as definitive, with the server message', function() {
       var result = classify(xhr(status, 'Column "x" is invalid'));
 
@@ -164,14 +164,6 @@ describe('SaveState.classifyError', function() {
     expect(result.error).toBe(error);
   });
 
-  it('treats a hard-ceiling rejection as ambiguous and unconfirmed', function() {
-    var result = classify({ kind: 'ambiguous', timedOut: true });
-
-    expect(result.kind).toBe('ambiguous');
-    expect(result.timedOut).toBe(true);
-    expect(result.message).toBe(SaveState.UNCONFIRMED_MESSAGE);
-  });
-
   it('never returns "[object Object]" for an object without a message', function() {
     var result = SaveState.classifyError({ status: 500 }, {
       parseError: function() {
@@ -201,6 +193,14 @@ describe('SaveState.classifyError', function() {
     expect(result.status).toBe(500);
     expect(result.kind).toBe('ambiguous');
     expect(classify({ status: '422' }).kind).toBe('definitive');
+  });
+
+  it('treats an empty-string status as unknown and ambiguous, not as 0', function() {
+    var result = classify({ status: '' });
+
+    expect(result.status).toBeUndefined();
+    expect(result.kind).toBe('ambiguous');
+    expect(result.message).toBe('Error saving data source.');
   });
 
   it('treats a non-numeric status as unknown and ambiguous', function() {
@@ -264,14 +264,12 @@ describe('SaveState.unconfirmedMessage', function() {
     expect(SaveState.unconfirmedMessage(classify(xhr(504)))).toBe(SaveState.UNCONFIRMED_MESSAGE);
   });
 
-  it('is the plain message after the hard ceiling', function() {
-    expect(SaveState.unconfirmedMessage(classify({ kind: 'ambiguous', timedOut: true })))
-      .toBe(SaveState.UNCONFIRMED_MESSAGE);
+  it('is the plain message for status 0, which has no server message', function() {
+    expect(SaveState.unconfirmedMessage(classify(xhr(0)))).toBe(SaveState.UNCONFIRMED_MESSAGE);
   });
 
-  it('leads with the connection message for status 0', function() {
-    expect(SaveState.unconfirmedMessage(classify(xhr(0))))
-      .toBe(SaveState.CONNECTION_MESSAGE + ' ' + SaveState.UNCONFIRMED_MESSAGE);
+  it('asks the user to copy what they need, then reload', function() {
+    expect(SaveState.UNCONFIRMED_MESSAGE).toBe('We couldn\'t confirm whether your last save was applied. Copy anything you need, then Reload to see what was saved.');
   });
 });
 
@@ -319,7 +317,7 @@ describe('SaveState.createSaveLock', function() {
 
     var reload = lock.beginReload();
 
-    lock.requireReload('Earlier save landed');
+    lock.requireReload('Saved. Couldn\'t refresh the table.');
     lock.finish();
 
     expect(lock.state()).toBe('needsReload');
@@ -338,16 +336,46 @@ describe('SaveState.createSaveLock', function() {
 describe('SaveState.withTimeouts', function() {
   it('exposes writable timeout constants', function() {
     var soft = SaveState.SOFT_TIMEOUT_MS;
-    var hard = SaveState.HARD_TIMEOUT_MS;
+    var reload = SaveState.RELOAD_TIMEOUT_MS;
 
     expect(soft).toBe(30000);
-    expect(hard).toBe(120000);
+    expect(reload).toBe(60000);
+    expect(SaveState.HARD_TIMEOUT_MS).toBeUndefined();
 
     SaveState.SOFT_TIMEOUT_MS = 5;
+    SaveState.RELOAD_TIMEOUT_MS = 7;
     expect(SaveState.SOFT_TIMEOUT_MS).toBe(5);
+    expect(SaveState.RELOAD_TIMEOUT_MS).toBe(7);
 
     SaveState.SOFT_TIMEOUT_MS = soft;
-    SaveState.HARD_TIMEOUT_MS = hard;
+    SaveState.RELOAD_TIMEOUT_MS = reload;
+  });
+
+  it('has no ceiling without hardMs: waits for the commit however long it takes', async function() {
+    var timers = fakeTimers();
+    var softCalls = 0;
+    var commit = deferred();
+    var state = watch(SaveState.withTimeouts(commit.promise, {
+      softMs: 100,
+      onSoft: function() {
+        softCalls++;
+      },
+      setTimeout: timers.setTimeout,
+      clearTimeout: timers.clearTimeout
+    }));
+
+    timers.tick(100);
+    timers.tick(10 * 60 * 1000);
+    await flush();
+
+    expect(softCalls).toBe(1);
+    expect(state.settled).toBe(0);
+    expect(timers.pending()).toBe(0);
+
+    commit.resolve('saved');
+    await flush();
+
+    expect(state.value).toBe('saved');
   });
 
   it('resolves before the soft timeout without calling onSoft', async function() {
@@ -455,7 +483,6 @@ describe('SaveState.withTimeouts', function() {
     expect(state.settled).toBe(1);
     expect(state.error.kind).toBe('ambiguous');
     expect(state.error.timedOut).toBe(true);
-    expect(SaveState.classifyError(state.error).timedOut).toBe(true);
   });
 
   it('ignores a settle after the hard ceiling', async function() {
@@ -492,30 +519,27 @@ describe('SaveState.withTimeouts', function() {
     expect(softCalls).toBe(2);
   });
 
-  it('reads the default timeouts at call time', async function() {
+  it('reads the default soft timeout at call time', async function() {
     var soft = SaveState.SOFT_TIMEOUT_MS;
-    var hard = SaveState.HARD_TIMEOUT_MS;
     var softCalls = 0;
 
     SaveState.SOFT_TIMEOUT_MS = 5;
-    SaveState.HARD_TIMEOUT_MS = 20;
 
     try {
-      var error = await SaveState.withTimeouts(new Promise(function() {}), {
+      var value = await SaveState.withTimeouts(new Promise(function(resolve) {
+        setTimeout(function() {
+          resolve('saved');
+        }, 30);
+      }), {
         onSoft: function() {
           softCalls++;
         }
-      }).then(function() {
-        return null;
-      }, function(err) {
-        return err;
       });
 
       expect(softCalls).toBe(1);
-      expect(error.timedOut).toBe(true);
+      expect(value).toBe('saved');
     } finally {
       SaveState.SOFT_TIMEOUT_MS = soft;
-      SaveState.HARD_TIMEOUT_MS = hard;
     }
   });
 });
