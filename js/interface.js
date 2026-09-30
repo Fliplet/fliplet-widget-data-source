@@ -28,6 +28,14 @@ var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
+// Data of the two placeholder rows an empty data source opens with
+var DEMO_ROW_DATA = {
+  'Column 1': 'demo data',
+  'Column 2': 'demo data'
+};
+// Whether the grid was loaded with the demo rows, which the duplicate check
+// must not report as copies (PS-2251)
+var showingDemoData = false;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
@@ -453,19 +461,15 @@ function fetchCurrentDataSourceEntries(entries, options) {
     $('#show-versions').show();
 
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
+      showingDemoData = true;
       rows = [{
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
+        data: Object.assign({}, DEMO_ROW_DATA)
       }, {
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
+        data: Object.assign({}, DEMO_ROW_DATA)
       }];
       columns = ['Column 1', 'Column 2'];
     } else {
+      showingDemoData = false;
       var flattenedColumns = {};
 
       rows.map(function(row) {
@@ -954,7 +958,9 @@ function confirmAndCommit() {
     parseJSON: true,
     removeEmptyRows: true
   });
-  var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []));
+  var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []), {
+    placeholder: showingDemoData ? DEMO_ROW_DATA : undefined
+  });
 
   if (!duplicates.count) {
     return commitCurrentData(entries);

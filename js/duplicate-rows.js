@@ -80,9 +80,14 @@ var DuplicateRows = (function() {
    * @param {Array} [gridRows] - Grid row number of each entry. When omitted,
    *   entries are taken to be every data row (index + 2). When given but not
    *   one per entry, the positions are unknown and no rows are reported.
+   * @param {Object} [options] - Options
+   * @param {Object} [options.placeholder] - Data of placeholder rows, such as
+   *   the demo rows a new data source opens with. Rows with exactly this data
+   *   are left alone: they were not copied by the user.
    * @returns {Object} { count, rows } where rows are 1-based grid row numbers
    */
-  function find(entries, gridRows) {
+  function find(entries, gridRows, options) {
+    var placeholderKey = options && options.placeholder ? dataKey(options.placeholder) : null;
     var counts = {};
     var keys = [];
     var rows = [];
@@ -94,6 +99,10 @@ var DuplicateRows = (function() {
 
     entries.forEach(function(entry, index) {
       var key = dataKey(entry && entry.data);
+
+      if (key !== null && key === placeholderKey) {
+        key = null;
+      }
 
       keys[index] = key;
 
