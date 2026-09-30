@@ -371,18 +371,34 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
+// Only the newest fetchCurrentDataSourceEntries() call may show its result.
+// A minimal local version of #282's fetchGeneration: when rebasing onto #282,
+// keep #282's guard and drop this one (PS-2251).
+var fetchSequence = 0;
+
+// What a superseded fetch rejects with internally
+var STALE_FETCH = { stale: true };
+
 /**
  * Load the data source and rebuild the grid from it
  * @param {Array} [entries] - Entries to show instead of reading them
  * @param {Object} [options] - Settings, all optional
  * @param {Boolean} [options.rejectOnError] - Reject when loading fails. By
  *   default the error is shown under the grid and the promise resolves.
- * @returns {Promise} Settles once the grid has been rebuilt, or loading failed
+ * @returns {Promise} Settles once the grid has been rebuilt, or loading failed.
+ *   Resolves without doing anything once a newer load has started.
  */
 function fetchCurrentDataSourceEntries(entries, options) {
   // Only a load that starts now can show the server state a pending reload
   // is waiting for (PS-2251)
   var reloadToken = saveLock.beginReload();
+  var thisFetch = ++fetchSequence;
+
+  // A newer load has started: this one's answer may be older than the one
+  // on screen, so it must not rebuild the grid or the cached originals
+  function isStale() {
+    return thisFetch !== fetchSequence;
+  }
 
   options = options || {};
 
@@ -392,6 +408,10 @@ function fetchCurrentDataSourceEntries(entries, options) {
     currentDataSource = source;
 
     return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+      if (isStale()) {
+        return Promise.reject(STALE_FETCH);
+      }
+
       var sourceName = dataSource.name;
 
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
@@ -415,13 +435,19 @@ function fetchCurrentDataSourceEntries(entries, options) {
       });
     });
   }).then(function(rows) {
+    if (isStale()) {
+      return Promise.reject(STALE_FETCH);
+    }
+
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
 
     // Cache entries in a new thread
     setTimeout(function() {
-      cacheOriginalEntries(rows);
+      if (!isStale()) {
+        cacheOriginalEntries(rows);
+      }
     }, 0);
 
     $('#show-versions').show();
@@ -470,6 +496,11 @@ function fetchCurrentDataSourceEntries(entries, options) {
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true, isLocked: isGridLocked });
 
       setTimeout(function() {
+        // The newer load builds the grid instead
+        if (isStale()) {
+          return;
+        }
+
         table.destroy();
         initialLoad = false;
 
@@ -492,6 +523,11 @@ function fetchCurrentDataSourceEntries(entries, options) {
     }
   })
     .catch(function onFetchError(error) {
+      // Superseded by a newer load, which reports its own outcome
+      if (error === STALE_FETCH || isStale()) {
+        return;
+      }
+
       var message;
 
       if (error instanceof Error) {
@@ -621,6 +657,8 @@ Fliplet.Widget.onSaveRequest(function() {
     try {
       onSaveFailed(error);
     } catch (e) {
+      // Last resort: reporting the failure itself failed, and Studio shows nothing
+      // eslint-disable-next-line no-console
       console.error(e);
     }
   });
@@ -732,10 +770,6 @@ var SAVE_ERROR_MESSAGE = 'Error saving data source.';
 // out of step with the server. Either way nothing may be saved (PS-2251).
 var saveLock = SaveState.createSaveLock();
 
-// Bumped when a commit is given up on at the hard ceiling, so its late
-// answer cannot write ids, cache or status for a save that has moved on
-var commitGeneration = 0;
-
 /**
  * Whether the grid must not change. Handed to the grid, which is read-only
  * while this is true.
@@ -813,37 +847,32 @@ function onGridReloaded(reloadToken) {
 }
 
 /**
- * Reload the grid from the server, giving up at the hard ceiling
+ * Reload the grid from the server, giving up after RELOAD_TIMEOUT_MS
  * @returns {Promise} Rejects when loading failed or took too long
  */
 function reloadGrid() {
   return SaveState.withTimeouts(fetchCurrentDataSourceEntries(undefined, { rejectOnError: true }), {
-    hardMs: SaveState.HARD_TIMEOUT_MS
+    hardMs: SaveState.RELOAD_TIMEOUT_MS
   });
 }
 
 /**
- * A save that may have been applied: show what the server has rather than
- * keep rows a retry would insert a second time. If the grid cannot be
- * reloaded, block saving until it is.
+ * A save that may have been applied. Keep the user's rows on screen,
+ * read-only so they can be copied, and block saving until a reload shows
+ * what the server has: saving them again could insert them twice.
  * @param {Object} failure - From SaveState.classifyError()
  * @returns {Promise} Rejects with the failure, marked unconfirmed
  */
-function recoverUnconfirmedSave(failure) {
+function onUnconfirmedSave(failure) {
   failure.unconfirmed = true;
+  requireReload(SaveState.unconfirmedMessage(failure));
 
-  return reloadGrid().then(function() {
-    showSaveStatus(SaveState.unconfirmedMessage(failure));
-  }, function() {
-    requireReload(SaveState.RELOAD_FAILED_MESSAGE);
-  }).then(function() {
-    return Promise.reject(failure);
-  });
+  return Promise.reject(failure);
 }
 
 /**
- * Report a save that failed. A save that may have landed has already
- * reloaded the grid and said so; anything else was not applied, so the rows
+ * Report a save that failed. A save that may have landed has already said
+ * so and asked for a reload; anything else was not applied, so the rows
  * stay and Save comes back for a retry.
  * @param {*} error - Rejection from saveCurrentData()
  * @returns {undefined}
@@ -868,36 +897,6 @@ function onSaveFailed(error) {
   }
 
   renderSaveLock();
-}
-
-/**
- * Late answer from a commit given up on at the hard ceiling: it landed, so
- * the grid no longer shows what the server has and rows re-entered since
- * would be saved twice. Block saving until a reload. When that loses
- * nothing (no save running, no unsaved edits), reload now and keep the
- * status the ceiling left.
- * @returns {undefined}
- */
-function onAbandonedCommitLanded() {
-  var quiet = !saveLock.isInFlight() && !(table && table.hasChanges());
-  var hadReason = saveLock.needsReload();
-  var $status = $('.data-save-status');
-  var statusText = $status.text();
-  var statusHidden = $status.hasClass('hidden');
-
-  requireReload(SaveState.LATE_SAVE_MESSAGE);
-
-  if (!quiet) {
-    return;
-  }
-
-  reloadGrid().then(function() {
-    if (!saveLock.needsReload() && !hadReason) {
-      $status.text(statusText).toggleClass('hidden', statusHidden);
-    }
-  }, function() {
-    // Still blocked, with the Reload link showing
-  });
 }
 
 /**
@@ -1055,26 +1054,12 @@ function commitCurrentData(entries) {
     commitData.normalizeOrder = payload.normalizeOrder;
   }
 
-  var generation = commitGeneration;
-  var commit = currentDataSource.commit(commitData);
-
-  // The API takes no timeout. A commit given up on can still land, and then
-  // all it may do is ask for a reload.
-  commit.then(function() {
-    if (generation !== commitGeneration) {
-      onAbandonedCommitLanded();
-    }
-  }, function() {
-    // Reported through the race below, or ignored once given up on
-  });
-
-  return SaveState.withTimeouts(commit, {
+  // No client-side ceiling: the lock holds until the commit settles, which
+  // the server bounds. Giving up early let a late commit land unnoticed.
+  return SaveState.withTimeouts(currentDataSource.commit(commitData), {
     softMs: SaveState.SOFT_TIMEOUT_MS,
-    hardMs: SaveState.HARD_TIMEOUT_MS,
     onSoft: function() {
-      if (generation === commitGeneration) {
-        showSaveStatus(SaveState.SLOW_MESSAGE);
-      }
+      showSaveStatus(SaveState.SLOW_MESSAGE);
     }
   }).then(function(response) {
     try {
@@ -1093,7 +1078,7 @@ function commitCurrentData(entries) {
       table.setData({ columns: columns, rows: entries });
     } catch (error) {
       // Saved, but the new ids were not recorded: a retry would insert again
-      return recoverUnconfirmedSave({ kind: 'ambiguous', error: error });
+      return onUnconfirmedSave({ kind: 'ambiguous', error: error });
     }
 
     // After the reload, not before: loading the entries clears this element,
@@ -1109,8 +1094,9 @@ function commitCurrentData(entries) {
       // straight to Fliplet.Widget.complete
       return result;
     }, function() {
-      // The ids are known, so saving again is safe
-      showSaveStatus(SaveState.SAVED_NOT_REFRESHED_MESSAGE);
+      // Saved, but the grid's rows lack the new ids, so saving again from it
+      // would insert them twice
+      requireReload(SaveState.SAVED_NOT_REFRESHED_MESSAGE);
 
       return SAVED_NOT_REFRESHED;
     });
@@ -1120,17 +1106,13 @@ function commitCurrentData(entries) {
       operation: 'commit'
     });
 
-    if (failure.timedOut) {
-      commitGeneration++;
-    }
-
     // The server refused it, so nothing was written: keep the rows for a retry
     if (failure.kind === 'definitive') {
       return Promise.reject(failure);
     }
 
     // It may have been written
-    return recoverUnconfirmedSave(failure);
+    return onUnconfirmedSave(failure);
   });
 }
 
@@ -1755,7 +1737,7 @@ $('#app')
         return;
       }
 
-      // Saved, and the status already says the table could not be refreshed
+      // Saved, and the status already asks for a reload
       if (result === SAVED_NOT_REFRESHED) {
         $('#show-versions').show();
 
@@ -1771,9 +1753,6 @@ $('#app')
 
       $('#show-versions').show();
       table.onSaveComplete();
-
-      // An earlier save that landed meanwhile needs a reload: say so instead
-      renderSaveLock();
     }).catch(function(err) {
       onSaveFailed(err);
     });
