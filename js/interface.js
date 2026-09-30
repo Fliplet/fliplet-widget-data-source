@@ -2095,6 +2095,11 @@ $('#app')
   .on('click', '[data-version-restore]', function(e) {
     e.preventDefault();
 
+    // A restore replaces the rows the in-flight save is writing (PS-2251)
+    if (saveLock.isInFlight()) {
+      return;
+    }
+
     var id = $(this).data('version-restore');
 
     return Fliplet.Modal.confirm({
