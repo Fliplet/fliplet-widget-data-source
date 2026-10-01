@@ -627,6 +627,13 @@ function fetchCurrentDataSourceEntries(entries) {
         renderSpreadsheet(rows, thisFetch);
       });
     } else {
+      // From here until renderSpreadsheet's sizing wait builds the new grid (up
+      // to 2s), there is no table, so the `table && table.hasChanges()` guards
+      // skip their "unsaved changes" confirm. Nothing is lost by that: every
+      // caller of this fetch has either just saved, already confirmed with the
+      // user (page change, tab change), or is a reload the user asked for
+      // (Reload, import, version restore). Until the new grid shows there is
+      // nothing to edit, so there are no changes for a guard to protect.
       if (table) {
         table.destroy();
         table = null;
@@ -858,6 +865,10 @@ function getCommitPayload(entries) {
 function saveCurrentData() {
   var columns;
 
+  // No table means a fetch is replacing the grid (see fetchCurrentDataSourceEntries):
+  // nothing can have been edited since the last grid went, so there is nothing
+  // to save, and the fetch already running will show the data. Resolving lets
+  // Save & close (onSaveRequest) close; the Save button checks for a table first.
   if (!table) {
     return Promise.resolve();
   }
