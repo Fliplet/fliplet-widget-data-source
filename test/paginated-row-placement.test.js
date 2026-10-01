@@ -282,6 +282,45 @@ describe('PS-2204 Problem C - where a new row lands, for every stored shape', fu
     expect(payload.entries[0].order < 210).toBe(true);
   });
 
+  // Review on #284: taking the edge orders out of computeInsertPositions left the
+  // suite green, because any order between the neighbours reloads in the same
+  // place. The spacing is where they show: rows added at an end of the page are
+  // spread across the gap to the row just outside it, not packed against the
+  // row inside it.
+  it('rows added at the top of a page are spaced from the row above the page', function() {
+    var ds = makeDataSource(SHAPES['spaced, gap 10'](ROWS));
+    var loaded = loadPage(ds, 2, PAGE_SIZE);
+
+    insertRow(loaded, 0, 'added 0');
+    insertRow(loaded, 1, 'added 1');
+
+    var payload = save(loaded);
+
+    expect(payload.normalizeOrder).toBe(null);
+    // Row above the page: 200. First row of page 3: 210. Without the edge order
+    // the two rows were packed against 210, as 208 and 209.
+    expect(payload.entries.map(function(entry) {
+      return entry.order;
+    })).toEqual([203, 206]);
+  });
+
+  it('rows added at the bottom of a page are spaced up to the row below the page', function() {
+    var ds = makeDataSource(SHAPES['spaced, gap 10'](ROWS));
+    var loaded = loadPage(ds, 2, PAGE_SIZE);
+
+    insertRow(loaded, 10, 'added 0');
+    insertRow(loaded, 11, 'added 1');
+
+    var payload = save(loaded);
+
+    expect(payload.normalizeOrder).toBe(null);
+    // Last row of page 3: 300. Row below the page: 310. Without the edge order
+    // the two rows were packed against 300, as 301 and 302.
+    expect(payload.entries.map(function(entry) {
+      return entry.order;
+    })).toEqual([303, 306]);
+  });
+
   it('an unnumbered row below the page does not force a renumber for a row added at the bottom', function() {
     // Page 2 (rows 11-20) is the last numbered page; page 3 starts the NULLs
     var ds = makeDataSource(range(ROWS, function(i) { return i < 20 ? (i + 1) * 10 : null; }));
