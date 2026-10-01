@@ -45,7 +45,10 @@ function loadHistoryStack() {
       updateSettings: function() {}
     },
     table: {
-      onChange: function() {}
+      onChange: function() {},
+      restoreColumnIds: function(columnIds) {
+        grid.restoredColumnIds = columnIds;
+      }
     }
   };
 
@@ -126,5 +129,64 @@ describe('HistoryStack keeps row IDs through undo and redo (PS-2204)', function(
     h.grid.loaded[1][0] = 'Typed into the grid';
 
     expect(h.stack.getCurrent().getData()[1][0]).toBe('Row 1');
+  });
+});
+
+// PS-2204: column renames and deletions are saved by column id, so each state
+// records which saved column each of its columns came from, and undo/redo puts
+// those ids back with the header row.
+describe('HistoryStack keeps column ids with each state (PS-2204)', function() {
+  function withColumnIds(rows, columnIds) {
+    var recorded = state(rows);
+
+    recorded.columnIds = columnIds;
+
+    return recorded;
+  }
+
+  var rows = [{ id: 11, name: 'Row 1', seq: 1 }];
+
+  it('undo gives the grid back the column ids recorded with the earlier state', function() {
+    var h = loadHistoryStack();
+
+    h.stack.add(withColumnIds(rows, ['column-1', 'column-2']));
+    h.stack.add(withColumnIds(rows, ['column-2']));
+    h.stack.back();
+
+    expect(h.grid.restoredColumnIds).toEqual(['column-1', 'column-2']);
+  });
+
+  it('redo gives back the later state\'s column ids', function() {
+    var h = loadHistoryStack();
+
+    h.stack.add(withColumnIds(rows, ['column-1', 'column-2']));
+    h.stack.add(withColumnIds(rows, ['column-2']));
+    h.stack.back();
+    h.stack.forward();
+
+    expect(h.grid.restoredColumnIds).toEqual(['column-2']);
+  });
+
+  it('a state records a copy of the ids, not the caller\'s array', function() {
+    var h = loadHistoryStack();
+    var columnIds = ['column-1', 'column-2'];
+
+    h.stack.add(withColumnIds(rows, columnIds));
+    columnIds.push('column-3');
+
+    expect(h.stack.getCurrent().getColumnIds()).toEqual(['column-1', 'column-2']);
+  });
+
+  it('setData after a save replaces the ids when given, and keeps them otherwise', function() {
+    var h = loadHistoryStack();
+
+    h.stack.add(withColumnIds(rows, ['column-1', 'column-2']));
+    h.stack.getCurrent().setData(state(rows).data);
+
+    expect(h.stack.getCurrent().getColumnIds()).toEqual(['column-1', 'column-2']);
+
+    h.stack.getCurrent().setData(state(rows).data, ['column-2']);
+
+    expect(h.stack.getCurrent().getColumnIds()).toEqual(['column-2']);
   });
 });

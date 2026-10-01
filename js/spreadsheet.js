@@ -1,4 +1,4 @@
-/* global GridSort */
+/* global GridSort, ColumnChanges */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
@@ -354,6 +354,11 @@ function spreadsheet(options) {
   // Data as an array
   spreadsheetData = prepareData(rows, columns);
 
+  // Which saved column each grid column came from, so a save can send column
+  // renames and deletions for the API to apply to every page (PS-2204). Created
+  // before the grid, whose hooks keep it up to date from the first spare column.
+  var columnTracker = ColumnChanges.createTracker(spreadsheetData[0]);
+
   var hotSettings = {
     stretchH: 'all',
     manualColumnResize: true,
@@ -471,7 +476,8 @@ function spreadsheet(options) {
       // Add current change to stack
       HistoryStack.add({
         data: preparedData,
-        colWidths: colWidths
+        colWidths: colWidths,
+        columnIds: getColumnIdsInView()
       });
 
       // Re-execute search without changing cell selection
@@ -485,6 +491,9 @@ function spreadsheet(options) {
       onChange();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
+      // Handsontable passes the physical indexes of the removed columns
+      columnTracker.remove(Array.isArray(originalArr) ? originalArr : [index]);
+
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -601,6 +610,10 @@ function spreadsheet(options) {
       onChange();
     },
     afterCreateCol: function(index, amount, source) {
+      // Every new column, spare ones included: `index` is where Handsontable
+      // spliced them into the data arrays
+      columnTracker.insert(index, amount);
+
       // Source auto means that column was created by lib to add empty col at the end of the table
       if (source === 'auto') {
         return true;
@@ -699,13 +712,62 @@ function spreadsheet(options) {
 
   HistoryStack.add({
     data: spreadsheetData,
-    colWidths: colWidths
+    colWidths: colWidths,
+    columnIds: getColumnIdsInView()
   });
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
     return hot.getDataAtRow(0);
+  }
+
+  /**
+   * Column ids in the order the columns are shown, which is the order of the
+   * data an undo/redo state records - and so the physical order the grid has
+   * once that state is loaded back
+   * @returns {Array} Column ids
+   */
+  function getColumnIdsInView() {
+    var physicalIds = columnTracker.getIds(hot.countSourceCols());
+
+    return getColumns().map(function(header, visualIndex) {
+      return physicalIds[hot.toPhysicalColumn(visualIndex)];
+    });
+  }
+
+  /**
+   * Headers in physical order, the order the column ids are kept in
+   * @returns {Array} Column names, null for a column without one
+   */
+  function getPhysicalColumns() {
+    return (hot.getSourceDataAtRow(0) || []).slice();
+  }
+
+  /**
+   * Columns renamed or deleted since the grid was loaded or last saved
+   * @returns {Object} { renameColumns, deleteColumns, saved } - see ColumnChanges
+   */
+  function getColumnChanges() {
+    return columnTracker.getChanges(getPhysicalColumns());
+  }
+
+  /**
+   * The save carrying these column changes succeeded
+   * @param {Object} saved - The `saved` value from getColumnChanges()
+   * @returns {undefined}
+   */
+  function markColumnsSaved(saved) {
+    columnTracker.markSaved(saved);
+  }
+
+  /**
+   * Undo/redo loaded a recorded state: go back to the column ids recorded with it
+   * @param {Array} columnIds - Ids recorded with the state
+   * @returns {undefined}
+   */
+  function restoreColumnIds(columnIds) {
+    columnTracker.restore(columnIds);
   }
 
   /**
@@ -931,12 +993,16 @@ function spreadsheet(options) {
     var rows = options.rows || [];
     var columns = options.columns || [];
     var preparedData = prepareData(rows, columns);
+    var physicalColumns = getPhysicalColumns();
 
     if (!dataLoaded) {
       hot.loadData(preparedData);
     }
 
-    HistoryStack.getCurrent().setData(preparedData);
+    // The state now holds the saved columns only, so record their ids with it
+    HistoryStack.getCurrent().setData(preparedData, columns.map(function(column) {
+      return columnTracker.idOf(physicalColumns, column);
+    }));
   }
 
   /**
@@ -1069,6 +1135,9 @@ function spreadsheet(options) {
     setData: setData,
     getColumns: getColumns,
     getColWidths: getColWidths,
+    getColumnChanges: getColumnChanges,
+    markColumnsSaved: markColumnsSaved,
+    restoreColumnIds: restoreColumnIds,
     destroy: function() {
       reset(true);
 

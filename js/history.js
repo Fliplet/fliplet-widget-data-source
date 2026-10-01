@@ -34,7 +34,9 @@ Fliplet.Registry.set('history-stack', (function() {
     // Add current change to stack
     stack.push({
       data: cloneSpreadsheetData(state.data),
-      colWidths: state.colWidths
+      colWidths: state.colWidths,
+      // Which saved column each column of `data` came from (PS-2204)
+      columnIds: state.columnIds ? state.columnIds.slice() : undefined
     });
 
     // Don't increment current index for first insert
@@ -60,8 +62,15 @@ Fliplet.Registry.set('history-stack', (function() {
       getColWidths: function() {
         return currentState ? currentState.colWidths : undefined;
       },
-      setData: function(newData) {
+      getColumnIds: function() {
+        return currentState && currentState.columnIds ? currentState.columnIds.slice() : undefined;
+      },
+      setData: function(newData, columnIds) {
         currentState.data = cloneSpreadsheetData(newData);
+
+        if (columnIds) {
+          currentState.columnIds = columnIds.slice();
+        }
       }
     };
   }
@@ -80,6 +89,13 @@ Fliplet.Registry.set('history-stack', (function() {
     // new ID and the originals deleted - hard-deleted once the save held 500+.
     hot.loadData(state.getData());
     hot.updateSettings({ colWidths: state.getColWidths() });
+
+    // The header row is back to this state's, so the column ids have to be too.
+    // Otherwise, after undoing a column insert or delete, the ids would sit on
+    // the wrong columns and the save would rename them (PS-2204).
+    if (typeof table.restoreColumnIds === 'function') {
+      table.restoreColumnIds(state.getColumnIds());
+    }
 
     table.onChange();
   }

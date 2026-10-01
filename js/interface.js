@@ -885,8 +885,10 @@ function saveCurrentData() {
     columns = trimColumns(table.getColumns());
   }
 
-  // Get the empty columns from assessing all entries
-  var emptyColumns = getEmptyColumns(columns, entries);
+  // Get the empty columns from assessing all entries. A paginated grid holds one
+  // page, and a column that is empty here can hold data on another page, so it
+  // is left alone - removing it now deletes it from every page (PS-2204).
+  var emptyColumns = totalEntries > PAGE_SIZE ? [] : getEmptyColumns(columns, entries);
 
   // Remove empty columns from the table
   _.forEach(emptyColumns, function(column) {
@@ -923,6 +925,20 @@ function saveCurrentData() {
     returnEntries: false
   };
 
+  // The entries carry only this page's rows (PS-2204). Renamed and deleted
+  // columns are sent as such, so the API applies them to every row in the data
+  // source; otherwise the other pages keep the old column and it comes back.
+  var savedTable = table;
+  var columnChanges = table.getColumnChanges();
+
+  if (columnChanges.renameColumns.length) {
+    commitData.renameColumns = columnChanges.renameColumns;
+  }
+
+  if (columnChanges.deleteColumns.length) {
+    commitData.deleteColumns = columnChanges.deleteColumns;
+  }
+
   // Only when the stored orders cannot seat the rows this save is placing. The
   // API renumbers every live entry over its own read order before applying the
   // payload, which is what lets the payload be the rows the user touched rather
@@ -944,6 +960,12 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap, payload.orders);
+
+    // The columns this save renamed or deleted are now the saved ones. Only on
+    // the grid the save read them from: a reload since then has its own.
+    if (table && table === savedTable) {
+      table.markColumnsSaved(columnChanges.saved);
+    }
 
     if (pageEdges && payload.pageEdges) {
       pageEdges = {

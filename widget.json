@@ -40,6 +40,7 @@
       "js/pagination.js",
       "js/waitUntilSized.js",
       "js/grid-sort.js",
+      "js/column-changes.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/entry-diff.js",
