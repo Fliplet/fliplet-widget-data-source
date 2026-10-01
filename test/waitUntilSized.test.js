@@ -124,4 +124,55 @@ describe('WaitUntilSized.waitUntilSized', function() {
 
     expect(callback.mock.callCount()).toBe(1);
   });
+
+  // Review on #278/#284: an element missing at the first look used to end the
+  // wait with no callback and no error, leaving the grid blank
+  it('keeps looking for an element that is not in the page yet, and calls back once it is sized', function() {
+    var callback = mock.fn();
+    var el = null;
+    var sized = { getBoundingClientRect: function() { return { width: 100, height: 50 }; } };
+
+    global.document = {
+      querySelector: function() {
+        return el;
+      },
+      contains: function(node) {
+        return node === el;
+      }
+    };
+
+    WaitUntilSized.waitUntilSized('.table-entries', callback);
+
+    expect(callback.mock.callCount()).toBe(0);
+    expect(rafCallbacks.length).toBe(1);
+
+    flushRAF();
+    expect(callback.mock.callCount()).toBe(0);
+
+    el = sized;
+    flushRAF();
+
+    expect(callback.mock.callCount()).toBe(1);
+  });
+
+  it('falls open after the timeout when the element never appears', function() {
+    var callback = mock.fn();
+    var now = 1000;
+
+    global.document = makeDocument(null);
+    mock.method(Date, 'now', function() {
+      return now;
+    });
+
+    WaitUntilSized.waitUntilSized('.table-entries', callback, 50);
+    flushRAF();
+
+    expect(callback.mock.callCount()).toBe(0);
+
+    now += 60;
+    flushRAF();
+
+    expect(callback.mock.callCount()).toBe(1);
+    expect(rafCallbacks.length).toBe(0);
+  });
 });
