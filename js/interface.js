@@ -799,6 +799,17 @@ function showSaveNotice(message, withReload) {
 }
 
 /**
+ * Tell the user an action is blocked until they reload the data source
+ * @returns {Promise} Resolves once the alert is closed
+ */
+function alertReloadFirst() {
+  return Fliplet.Modal.alert({
+    title: 'Reload required',
+    message: 'Your last save couldn\'t be confirmed. Copy anything you need, then Reload the data source before doing this.'
+  });
+}
+
+/**
  * Hide the save notice
  * @returns {undefined}
  */
@@ -1614,6 +1625,13 @@ $('#app')
       return;
     }
 
+    // ...or the rows the user may still need to copy (PS-2251)
+    if (saveLock.needsReload()) {
+      alertReloadFirst();
+
+      return;
+    }
+
     $('[href="#entries"]').click();
 
     if (table.hasChanges()) {
@@ -1841,6 +1859,14 @@ $('#app')
     // An import reloads the grid, which must not happen mid-save
     if (saveLock.isInFlight()) {
       $input.val('');
+
+      return;
+    }
+
+    // ...or add rows while a save that may still land is unconfirmed
+    if (saveLock.needsReload()) {
+      $input.val('');
+      alertReloadFirst();
 
       return;
     }
@@ -2120,6 +2146,13 @@ $('#app')
 
     // A restore replaces the rows the in-flight save is writing (PS-2251)
     if (saveLock.isInFlight()) {
+      return;
+    }
+
+    // An unconfirmed save may still land on top of the restored version
+    if (saveLock.needsReload()) {
+      alertReloadFirst();
+
       return;
     }
 
