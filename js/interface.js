@@ -784,17 +784,26 @@ function isSaveLocked() {
 }
 
 /**
- * Show a message in the save status next to the data source name
+ * Show a save notice above the data source. It wraps at any width, unlike
+ * the status next to the name, which the toolbar overlaps (PS-2251).
  * @param {String} message - Text to show
  * @param {Boolean} [withReload] - Add a link that reloads the data source
  * @returns {undefined}
  */
-function showSaveStatus(message, withReload) {
-  var $status = $('.data-save-status').removeClass('hidden').text(message);
+function showSaveNotice(message, withReload) {
+  var $notice = $('#alert-save-notice').removeClass('hidden').text(message);
 
   if (withReload) {
-    $status.append(' ', $('<a href="#" data-source-reload></a>').text('Reload'));
+    $notice.append(' ', $('<a href="#" data-source-reload></a>').text('Reload'));
   }
+}
+
+/**
+ * Hide the save notice
+ * @returns {undefined}
+ */
+function hideSaveNotice() {
+  $('#alert-save-notice').addClass('hidden').empty();
 }
 
 /**
@@ -809,7 +818,7 @@ function refreshSaveButton() {
 }
 
 /**
- * Bring the grid, Save and the status in line with the save lock
+ * Bring the grid, Save and the save notice in line with the save lock
  * @returns {undefined}
  */
 function renderSaveLock() {
@@ -826,7 +835,9 @@ function renderSaveLock() {
   }
 
   if (saveLock.needsReload()) {
-    showSaveStatus(saveLock.reason(), true);
+    showSaveNotice(saveLock.reason(), true);
+  } else if (!saveLock.isInFlight()) {
+    hideSaveNotice();
   }
 }
 
@@ -1065,7 +1076,7 @@ function commitCurrentData(entries) {
   return SaveState.withTimeouts(currentDataSource.commit(commitData), {
     softMs: SaveState.SOFT_TIMEOUT_MS,
     onSoft: function() {
-      showSaveStatus(SaveState.SLOW_MESSAGE);
+      showSaveNotice(SaveState.SLOW_MESSAGE);
     }
   }).then(function(response) {
     try {
@@ -2186,7 +2197,7 @@ $('#app')
         table.reset();
       }
 
-      // reset() hides the status, which may be saying a reload is needed
+      // Keep the re-rendered grid and Save in line with the lock
       if (saveLock.isLocked()) {
         renderSaveLock();
       }
