@@ -125,6 +125,28 @@ describe('DuplicateRows.find', function() {
     expect(result).toEqual({ count: 1, rows: [] });
   });
 
+  it('ignores untouched placeholder rows', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo }
+    ], undefined, { placeholder: demo });
+
+    expect(result).toEqual({ count: 0, rows: [] });
+  });
+
+  it('still flags other copies when a placeholder is given', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo },
+      { data: { 'Column 1': 'Alice', 'Column 2': 'x' } },
+      { data: { 'Column 1': 'Alice', 'Column 2': 'x' } }
+    ], undefined, { placeholder: demo });
+
+    expect(result).toEqual({ count: 2, rows: [4, 5] });
+  });
+
   it('handles missing or empty input', function() {
     expect(DuplicateRows.find([])).toEqual({ count: 0, rows: [] });
     expect(DuplicateRows.find()).toEqual({ count: 0, rows: [] });

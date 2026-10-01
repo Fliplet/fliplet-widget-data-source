@@ -28,6 +28,14 @@ var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
+// Data of the two placeholder rows an empty data source opens with
+var DEMO_ROW_DATA = {
+  'Column 1': 'demo data',
+  'Column 2': 'demo data'
+};
+// Whether the grid was loaded with the demo rows, which the duplicate check
+// must not report as copies (PS-2251)
+var showingDemoData = false;
 var currentDataSourceVersions;
 var currentDataSourceRules;
 var currentDataSourceRuleIndex;
@@ -453,19 +461,15 @@ function fetchCurrentDataSourceEntries(entries, options) {
     $('#show-versions').show();
 
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
+      showingDemoData = true;
       rows = [{
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
+        data: Object.assign({}, DEMO_ROW_DATA)
       }, {
-        data: {
-          'Column 1': 'demo data',
-          'Column 2': 'demo data'
-        }
+        data: Object.assign({}, DEMO_ROW_DATA)
       }];
       columns = ['Column 1', 'Column 2'];
     } else {
+      showingDemoData = false;
       var flattenedColumns = {};
 
       rows.map(function(row) {
@@ -780,17 +784,37 @@ function isSaveLocked() {
 }
 
 /**
- * Show a message in the save status next to the data source name
+ * Show a save notice above the data source. It wraps at any width, unlike
+ * the status next to the name, which the toolbar overlaps (PS-2251).
  * @param {String} message - Text to show
  * @param {Boolean} [withReload] - Add a link that reloads the data source
  * @returns {undefined}
  */
-function showSaveStatus(message, withReload) {
-  var $status = $('.data-save-status').removeClass('hidden').text(message);
+function showSaveNotice(message, withReload) {
+  var $notice = $('#alert-save-notice').removeClass('hidden').text(message);
 
   if (withReload) {
-    $status.append(' ', $('<a href="#" data-source-reload></a>').text('Reload'));
+    $notice.append(' ', $('<a href="#" data-source-reload></a>').text('Reload'));
   }
+}
+
+/**
+ * Tell the user an action is blocked until they reload the data source
+ * @returns {Promise} Resolves once the alert is closed
+ */
+function alertReloadFirst() {
+  return Fliplet.Modal.alert({
+    title: 'Reload required',
+    message: 'Your last save couldn\'t be confirmed. Copy anything you need, then Reload the data source before doing this.'
+  });
+}
+
+/**
+ * Hide the save notice
+ * @returns {undefined}
+ */
+function hideSaveNotice() {
+  $('#alert-save-notice').addClass('hidden').empty();
 }
 
 /**
@@ -805,7 +829,7 @@ function refreshSaveButton() {
 }
 
 /**
- * Bring the grid, Save and the status in line with the save lock
+ * Bring the grid, Save and the save notice in line with the save lock
  * @returns {undefined}
  */
 function renderSaveLock() {
@@ -822,7 +846,9 @@ function renderSaveLock() {
   }
 
   if (saveLock.needsReload()) {
-    showSaveStatus(saveLock.reason(), true);
+    showSaveNotice(saveLock.reason(), true);
+  } else if (!saveLock.isInFlight()) {
+    hideSaveNotice();
   }
 }
 
@@ -954,7 +980,9 @@ function confirmAndCommit() {
     parseJSON: true,
     removeEmptyRows: true
   });
-  var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []));
+  var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []), {
+    placeholder: showingDemoData ? DEMO_ROW_DATA : undefined
+  });
 
   if (!duplicates.count) {
     return commitCurrentData(entries);
@@ -1059,7 +1087,7 @@ function commitCurrentData(entries) {
   return SaveState.withTimeouts(currentDataSource.commit(commitData), {
     softMs: SaveState.SOFT_TIMEOUT_MS,
     onSoft: function() {
-      showSaveStatus(SaveState.SLOW_MESSAGE);
+      showSaveNotice(SaveState.SLOW_MESSAGE);
     }
   }).then(function(response) {
     try {
@@ -1597,6 +1625,13 @@ $('#app')
       return;
     }
 
+    // ...or the rows the user may still need to copy (PS-2251)
+    if (saveLock.needsReload()) {
+      alertReloadFirst();
+
+      return;
+    }
+
     $('[href="#entries"]').click();
 
     if (table.hasChanges()) {
@@ -1824,6 +1859,14 @@ $('#app')
     // An import reloads the grid, which must not happen mid-save
     if (saveLock.isInFlight()) {
       $input.val('');
+
+      return;
+    }
+
+    // ...or add rows while a save that may still land is unconfirmed
+    if (saveLock.needsReload()) {
+      $input.val('');
+      alertReloadFirst();
 
       return;
     }
@@ -2106,6 +2149,13 @@ $('#app')
       return;
     }
 
+    // An unconfirmed save may still land on top of the restored version
+    if (saveLock.needsReload()) {
+      alertReloadFirst();
+
+      return;
+    }
+
     var id = $(this).data('version-restore');
 
     return Fliplet.Modal.confirm({
@@ -2180,7 +2230,7 @@ $('#app')
         table.reset();
       }
 
-      // reset() hides the status, which may be saying a reload is needed
+      // Keep the re-rendered grid and Save in line with the lock
       if (saveLock.isLocked()) {
         renderSaveLock();
       }
