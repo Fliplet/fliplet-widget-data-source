@@ -70,6 +70,11 @@ var lastRenderedPage = 0;
 // bottom of it is placed between (null at either end of the data source). Null
 // when no page is cached, and EntryDiff then treats the grid as the whole thing.
 var pageEdges = null;
+// The save the Save button started, until it ends (PS-2204). A save that renames
+// or deletes a column changes every row and can take several seconds on a large
+// data source, and the grid reloads before it ends, so a second save started
+// meanwhile would read rows the first one is still changing.
+var saveInProgress = null;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -761,7 +766,8 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  saveCurrentData().then(Fliplet.Widget.complete);
+  // After a save already running, so the two never overlap (PS-2204)
+  Promise.resolve(saveInProgress).catch(_.noop).then(saveCurrentData).then(Fliplet.Widget.complete);
 });
 
 /**
@@ -1611,8 +1617,21 @@ $('#app')
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
+    // One save at a time. The changes made meanwhile stay unsaved, so the next
+    // click once this save ends saves them (PS-2204).
+    if (saveInProgress) {
+      return saveInProgress;
+    }
+
+    var $saveButton = $(this).prop('disabled', true);
+
+    function endSave() {
+      saveInProgress = null;
+      $saveButton.prop('disabled', false);
+    }
+
     // Wait for the current thread to apply changes to Handsontable
-    return new Promise(function(resolve) {
+    saveInProgress = new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
       if (table && table.hasChanges()) {
@@ -1647,7 +1666,13 @@ $('#app')
         table.setChanges(true);
         table.onSaveError();
       }
+    }).then(endSave, function(err) {
+      endSave();
+
+      throw err;
     });
+
+    return saveInProgress;
   })
   .on('click', '[data-page-prev], [data-page-next]', function(event) {
     event.preventDefault();
