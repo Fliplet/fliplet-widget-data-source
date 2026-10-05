@@ -901,12 +901,19 @@ function saveCurrentData() {
   // is left alone - removing it now deletes it from every page (PS-2204).
   var emptyColumns = totalEntries > PAGE_SIZE ? [] : getEmptyColumns(columns, entries);
 
-  // Remove empty columns from the table
+  // Remove empty columns from the table. The grid position comes from the grid:
+  // `columns` leaves out header-less columns, so with one to the left its index
+  // points at the neighbouring column, which would be removed and then deleted
+  // from every row as a deleted column (PS-2204).
   _.forEach(emptyColumns, function(column) {
+    var gridIndex = table.getColumns().indexOf(column);
     var columnIndex = columns.indexOf(column);
 
+    if (gridIndex !== -1) {
+      hot.alter('remove_col', gridIndex, 1, 'removeEmptyColumn');
+    }
+
     if (columnIndex !== -1) {
-      hot.alter('remove_col', columnIndex, 1, 'removeEmptyColumn');
       columns.splice(columnIndex, 1);
     }
   });

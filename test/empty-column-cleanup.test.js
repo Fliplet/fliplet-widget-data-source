@@ -1,0 +1,234 @@
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var expect = require('./expect');
+
+var fs = require('fs');
+var path = require('path');
+var vm = require('vm');
+
+// PS-2204: on a data source of 500 rows or fewer, the save removes empty
+// "Column (n)" columns from the grid. It worked out the grid position from the
+// column list with header-less columns left out, so with a spare column to the
+// left it removed the column next to it. The column tracker then sent that
+// column as deleted, and the API removed it from every row.
+
+var interfaceSource = fs.readFileSync(path.join(__dirname, '../js/interface.js'), 'utf8');
+
+// Cuts `function name(...) { ... }` out of the source by brace-counting, as
+// interface.js needs Fliplet/jQuery globals and can't be required here
+function extractFunction(source, functionName) {
+  var startIndex = source.indexOf('function ' + functionName + '(');
+
+  if (startIndex === -1) {
+    throw new Error('Could not find function ' + functionName + ' in source');
+  }
+
+  var depth = 0;
+
+  for (var i = source.indexOf('{', startIndex); i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+    } else if (source[i] === '}') {
+      depth--;
+
+      if (depth === 0) {
+        return source.slice(startIndex, i + 1);
+      }
+    }
+  }
+
+  throw new Error('Could not find matching closing brace for function ' + functionName);
+}
+
+// The lodash calls the save path makes
+var lodash = {
+  some: function(list) {
+    return list.some(Boolean);
+  },
+  forEach: function(list, fn) {
+    for (var i = 0; i < list.length; i++) {
+      if (fn(list[i], i) === false) {
+        break;
+      }
+    }
+  },
+  filter: function(list, fn) {
+    return list.filter(fn);
+  },
+  omitBy: function(object, fn) {
+    var result = {};
+
+    Object.keys(object).forEach(function(key) {
+      if (!fn(object[key], key)) {
+        result[key] = object[key];
+      }
+    });
+
+    return result;
+  },
+  zipObject: function(keys, values) {
+    var result = {};
+
+    keys.forEach(function(key, i) {
+      result[key] = values[i];
+    });
+
+    return result;
+  }
+};
+
+/**
+ * Runs the widget's saveCurrentData against a grid whose header row is
+ * `headers`, in the order the columns are shown (null for a column without a
+ * name). The grid removes columns the way HOT 0.38's alter('remove_col') does:
+ * by visual index. A saved column the save removes from the grid is reported
+ * as deleted, as js/column-changes.js does.
+ * @param {Array} headers Header row, in the order the columns are shown
+ * @param {Array} rows Data of each row on the page
+ * @returns {Promise} The grid after the save, the columns it removed and the commit sent
+ */
+function save(headers, rows) {
+  var grid = headers.slice();
+  var savedColumns = headers.filter(function(header) {
+    return header !== null && !/^Column\s\([0-9]+\)$/.test(header);
+  });
+  var removed = [];
+  var commits = [];
+
+  var table = {
+    onSave: function() {},
+    getData: function() {
+      return rows.map(function(row) {
+        return { data: Object.assign({}, row) };
+      });
+    },
+    getColumns: function() {
+      return grid.slice();
+    },
+    getColWidths: function() {
+      return grid.map(function() {
+        return 100;
+      });
+    },
+    getColumnChanges: function() {
+      return {
+        renameColumns: [],
+        deleteColumns: savedColumns.filter(function(column) {
+          return grid.indexOf(column) === -1;
+        }),
+        saved: []
+      };
+    },
+    markColumnsSaved: function() {},
+    setData: function() {},
+    clearRowsMoved: function() {}
+  };
+
+  var context = {
+    _: lodash,
+    table: table,
+    hot: {
+      alter: function(action, index, amount) {
+        removed = removed.concat(grid.splice(index, amount));
+      }
+    },
+    totalEntries: rows.length,
+    PAGE_SIZE: 500,
+    emptyColumnNameRegex: /^Column\s\([0-9]+\)$/,
+    currentDataSourceId: 1,
+    currentDataSource: {
+      commit: function(body) {
+        commits.push(body);
+
+        return Promise.resolve({ clientIds: [] });
+      }
+    },
+    pageEdges: null,
+    locale: 'en',
+    TD: function() {
+      return '';
+    },
+    fetchCurrentDataSourceEntries: function() {
+      return Promise.resolve();
+    },
+    getCommitPayload: function(entries) {
+      return { entries: entries, delete: [], orders: {} };
+    },
+    cacheOriginalEntries: function() {},
+    CommitNotice: {
+      forDeclined: function() {
+        return null;
+      }
+    },
+    Fliplet: {
+      DataSources: {
+        getById: function() {
+          return Promise.resolve({});
+        },
+        update: function() {
+          return Promise.resolve();
+        }
+      }
+    },
+    Promise: Promise,
+    console: console
+  };
+
+  vm.createContext(context);
+  vm.runInContext([
+    'trimColumns',
+    'getEmptyColumns',
+    'removeEmptyColumnsInEntries',
+    'saveCurrentData'
+  ].map(function(name) {
+    return extractFunction(interfaceSource, name);
+  }).join('\n'), context);
+
+  return context.saveCurrentData().then(function() {
+    return { grid: grid, removed: removed, commit: commits[0] };
+  });
+}
+
+describe('empty column cleanup on save (PS-2204)', function() {
+  var rows = [
+    { A: 'a1', B: 'b1', C: 'c1', D: 'd1' },
+    { A: 'a2', B: 'b2', C: 'c2', D: 'd2' }
+  ];
+
+  it('removes the empty column, not the one beside it, when a spare column is to its left', function() {
+    // A spare column dragged to the front, then "Column (9)" typed into a spare header
+    var headers = [null, 'A', 'B', 'C', 'D', 'Column (9)', null, null];
+
+    return save(headers, rows).then(function(result) {
+      expect(result.removed).toEqual(['Column (9)']);
+      expect(result.grid).toEqual([null, 'A', 'B', 'C', 'D', null, null]);
+      expect(result.commit.columns).toEqual(['A', 'B', 'C', 'D']);
+      expect(result.commit.deleteColumns).toBeUndefined();
+      expect(result.commit.entries.map(function(entry) {
+        return entry.data.D;
+      })).toEqual(['d1', 'd2']);
+    });
+  });
+
+  it('removes each empty column when several sit among spare columns', function() {
+    var headers = [null, 'A', 'Column (7)', null, 'B', 'C', 'Column (8)', 'D', null];
+
+    return save(headers, rows).then(function(result) {
+      expect(result.removed).toEqual(['Column (7)', 'Column (8)']);
+      expect(result.grid).toEqual([null, 'A', null, 'B', 'C', 'D', null]);
+      expect(result.commit.columns).toEqual(['A', 'B', 'C', 'D']);
+      expect(result.commit.deleteColumns).toBeUndefined();
+    });
+  });
+
+  it('keeps a "Column (n)" that has values', function() {
+    var headers = [null, 'A', 'B', 'C', 'D', 'Column (9)'];
+    var rowsWithValue = rows.concat([{ A: 'a3', 'Column (9)': 'kept' }]);
+
+    return save(headers, rowsWithValue).then(function(result) {
+      expect(result.removed).toEqual([]);
+      expect(result.commit.columns).toEqual(['A', 'B', 'C', 'D', 'Column (9)']);
+    });
+  });
+});
