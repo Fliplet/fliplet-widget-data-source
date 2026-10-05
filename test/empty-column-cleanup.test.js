@@ -86,15 +86,21 @@ var lodash = {
  * as deleted, as js/column-changes.js does.
  * @param {Array} headers Header row, in the order the columns are shown
  * @param {Array} rows Data of each row on the page
+ * @param {Object} [options] `commit` returns the promise the commit resolves with,
+ *   `fetchStarted` is called each time the save reloads the grid
  * @returns {Promise} The grid after the save, the columns it removed and the commit sent
  */
-function save(headers, rows) {
+function save(headers, rows, options) {
+  options = options || {};
+
   var grid = headers.slice();
   var savedColumns = headers.filter(function(header) {
     return header !== null && !/^Column\s\([0-9]+\)$/.test(header);
   });
   var removed = [];
   var commits = [];
+  // The loader over the grid (.page-loading-overlay)
+  var loader = { hidden: true, text: '' };
 
   var table = {
     onSave: function() {},
@@ -141,8 +147,28 @@ function save(headers, rows) {
       commit: function(body) {
         commits.push(body);
 
-        return Promise.resolve({ clientIds: [] });
+        return options.commit ? options.commit() : Promise.resolve({ clientIds: [] });
       }
+    },
+    commitRunning: false,
+    $: function() {
+      return {
+        text: function(text) {
+          loader.text = text;
+
+          return this;
+        },
+        removeClass: function() {
+          loader.hidden = false;
+
+          return this;
+        },
+        addClass: function() {
+          loader.hidden = true;
+
+          return this;
+        }
+      };
     },
     pageEdges: null,
     locale: 'en',
@@ -150,6 +176,10 @@ function save(headers, rows) {
       return '';
     },
     fetchCurrentDataSourceEntries: function() {
+      if (options.fetchStarted) {
+        options.fetchStarted(context, loader);
+      }
+
       return Promise.resolve();
     },
     getCommitPayload: function(entries) {
@@ -177,6 +207,8 @@ function save(headers, rows) {
 
   vm.createContext(context);
   vm.runInContext([
+    'showGridLoader',
+    'hideGridLoader',
     'trimColumns',
     'getEmptyColumns',
     'removeEmptyColumnsInEntries',
@@ -186,7 +218,7 @@ function save(headers, rows) {
   }).join('\n'), context);
 
   return context.saveCurrentData().then(function() {
-    return { grid: grid, removed: removed, commit: commits[0] };
+    return { grid: grid, removed: removed, commit: commits[0], loader: loader };
   });
 }
 
@@ -229,6 +261,62 @@ describe('empty column cleanup on save (PS-2204)', function() {
     return save(headers, rowsWithValue).then(function(result) {
       expect(result.removed).toEqual([]);
       expect(result.commit.columns).toEqual(['A', 'B', 'C', 'D', 'Column (9)']);
+    });
+  });
+});
+
+describe('loader over the grid during a save (PS-2204)', function() {
+  var headers = ['A', 'B'];
+  var rows = [{ A: 'a1', B: 'b1' }];
+
+  it('stays up while the commit runs, even when the reload started by the save shows its rows', function() {
+    var seen = [];
+
+    return save(headers, rows, {
+      commit: function() {
+        return new Promise(function(resolve) {
+          setTimeout(function() {
+            resolve({ clientIds: [] });
+          }, 5);
+        });
+      },
+      fetchStarted: function(context, loader) {
+        // The reload at the start of the save renders while the commit runs
+        // (renderSpreadsheet calls hideGridLoader); the reload after it checks
+        // the loader is still up as the saved rows load
+        setTimeout(function() {
+          context.hideGridLoader();
+          seen.push({ hidden: loader.hidden, text: loader.text, commitRunning: context.commitRunning });
+        }, 0);
+      }
+    }).then(function(result) {
+      return new Promise(function(resolve) {
+        setTimeout(resolve, 10);
+      }).then(function() {
+        // During the commit: still up, saying it saves
+        expect(seen[0]).toEqual({ hidden: false, text: 'Saving...', commitRunning: true });
+        // After it, the reload's render takes it down
+        expect(seen[1]).toEqual({ hidden: true, text: 'Loading data...', commitRunning: false });
+        expect(result.loader.hidden).toBe(true);
+      });
+    });
+  });
+
+  it('comes down when the commit fails', function() {
+    var loaderAfterFailure;
+
+    return save(headers, rows, {
+      commit: function() {
+        return Promise.reject(new Error('Network error'));
+      },
+      fetchStarted: function(context, loader) {
+        loaderAfterFailure = loader;
+      }
+    }).then(function() {
+      throw new Error('The save should have failed');
+    }, function(error) {
+      expect(error.message).toBe('Network error');
+      expect(loaderAfterFailure.hidden).toBe(true);
     });
   });
 });

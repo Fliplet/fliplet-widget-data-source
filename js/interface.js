@@ -75,6 +75,9 @@ var pageEdges = null;
 // data source, and the grid reloads before it ends, so a second save started
 // meanwhile would read rows the first one is still changing.
 var saveInProgress = null;
+// True while a commit is running. The grid reloads during it, and the loader
+// stays over the grid until the reload after the commit shows the saved rows.
+var commitRunning = false;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -285,6 +288,28 @@ function renderError(options) {
   });
 }
 
+/**
+ * Covers the grid until the rows it shows are the ones saved (PS-2204)
+ * @param {String} message - Text shown on the loader
+ * @returns {void}
+ */
+function showGridLoader(message) {
+  $('.page-loading-overlay').text(message).removeClass('hidden');
+}
+
+/**
+ * Removes the loader, unless a commit is running: the grid then shows rows from
+ * before the save, and the reload after it removes the loader
+ * @returns {void}
+ */
+function hideGridLoader() {
+  if (commitRunning) {
+    return;
+  }
+
+  $('.page-loading-overlay').addClass('hidden');
+}
+
 function renderSpreadsheet(rowsData, fetchId) {
   WaitUntilSized.waitUntilSized('.table-entries', function() {
     // Discard a stale render: a newer fetch (fetchGeneration) started
@@ -300,7 +325,7 @@ function renderSpreadsheet(rowsData, fetchId) {
 
     table = spreadsheet({ columns: columns, rows: rowsData });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
-    $('.page-loading-overlay').addClass('hidden');
+    hideGridLoader();
     $('#versions').removeClass('hidden');
     updatePaginationControls();
   });
@@ -451,7 +476,7 @@ function navigateToPage(targetPage) {
   function goToPage() {
     currentPage = targetPage;
     $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
-    $('.page-loading-overlay').removeClass('hidden');
+    showGridLoader('Loading page...');
     fetchCurrentDataSourceEntries();
   }
 
@@ -478,6 +503,12 @@ function navigateToPage(targetPage) {
 
 function fetchCurrentDataSourceEntries(entries) {
   var thisFetch = ++fetchGeneration;
+
+  // A loader already showing keeps its message ("Loading page...", "Saving...")
+  if ($('.page-loading-overlay').hasClass('hidden')) {
+    showGridLoader('Loading data...');
+  }
+
   // Edges of the page this fetch returns, cached together with its rows below
   var fetchedEdges = null;
 
@@ -666,7 +697,7 @@ function fetchCurrentDataSourceEntries(entries) {
       }
 
       $('.entries-message').html('<br>' + message);
-      $('.page-loading-overlay').addClass('hidden');
+      hideGridLoader();
 
       // A stale error never reaches here — the guard at the top of onFetchError
       // already returned for it — so there is no staleness left to decide on.
@@ -971,7 +1002,13 @@ function saveCurrentData() {
     commitData.normalizeOrder = payload.normalizeOrder;
   }
 
+  showGridLoader('Saving...');
+  commitRunning = true;
+
   return currentDataSource.commit(commitData).then(function(response) {
+    commitRunning = false;
+    showGridLoader('Loading data...');
+
     var clientIds = [];
     var ids = [];
 
@@ -1024,6 +1061,13 @@ function saveCurrentData() {
       // straight to Fliplet.Widget.complete
       return result;
     });
+  }, function(error) {
+    // The grid already shows the data source as saved before this commit: the
+    // reload at the start of the save has it
+    commitRunning = false;
+    hideGridLoader();
+
+    throw error;
   });
 }
 
