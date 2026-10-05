@@ -1827,6 +1827,18 @@ $('#app')
   })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
+
+    // Deleting leaves the data source, which the save lock blocks (PS-2251)
+    if (saveLock.isInFlight()) {
+      return;
+    }
+
+    if (saveLock.needsReload()) {
+      alertReloadFirst();
+
+      return;
+    }
+
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
 
     var usedAppsText = '';
