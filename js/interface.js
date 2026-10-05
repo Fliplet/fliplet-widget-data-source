@@ -28,10 +28,11 @@ var currentDataSourceDefinition;
 var currentDataSourceUpdatedAt;
 var currentDataSourceRowsCount;
 var currentDataSourceColumnsCount;
-// Data of the two placeholder rows an empty data source opens with
+// Value of every cell in the two placeholder rows an empty data source opens with
+var DEMO_ROW_VALUE = 'demo data';
 var DEMO_ROW_DATA = {
-  'Column 1': 'demo data',
-  'Column 2': 'demo data'
+  'Column 1': DEMO_ROW_VALUE,
+  'Column 2': DEMO_ROW_VALUE
 };
 // Whether the grid was loaded with the demo rows, which the duplicate check
 // must not report as copies (PS-2251)
@@ -983,7 +984,7 @@ function confirmAndCommit() {
     removeEmptyRows: true
   });
   var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []), {
-    placeholder: showingDemoData ? DEMO_ROW_DATA : undefined
+    placeholderValue: showingDemoData ? DEMO_ROW_VALUE : undefined
   });
 
   if (!duplicates.count) {
