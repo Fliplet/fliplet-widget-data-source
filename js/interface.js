@@ -846,6 +846,8 @@ function renderSaveLock() {
   }
 
   if (saveLock.needsReload()) {
+    // The notice says why. "Saving..." next to the name would contradict it.
+    $('.data-save-status').addClass('hidden').empty();
     showSaveNotice(saveLock.reason(), true);
   } else if (!saveLock.isInFlight()) {
     hideSaveNotice();
@@ -1778,7 +1780,7 @@ $('#app')
         return;
       }
 
-      // Saved, and the status already asks for a reload
+      // Saved, and the notice already asks for a reload
       if (result === SAVED_NOT_REFRESHED) {
         $('#show-versions').show();
 
