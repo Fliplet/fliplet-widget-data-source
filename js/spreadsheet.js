@@ -357,7 +357,7 @@ function spreadsheet(options) {
   // Which saved column each grid column came from, so a save can send column
   // renames and deletions for the API to apply to every page (PS-2204). Created
   // before the grid, whose hooks keep it up to date from the first spare column.
-  var columnTracker = ColumnChanges.createTracker(spreadsheetData[0]);
+  var columnTracker = ColumnChanges.createTracker(spreadsheetData[0], { demo: !!options.demoColumns });
 
   var hotSettings = {
     stretchH: 'all',

@@ -8,6 +8,7 @@ var path = require('path');
 
 var interfaceSource = fs.readFileSync(path.join(__dirname, '../js/interface.js'), 'utf8');
 var widgetJson = fs.readFileSync(path.join(__dirname, '../widget.json'), 'utf8');
+var spreadsheetSource = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
 
 // Extracts the body of `function renderSpreadsheet(...) { ... }` by
 // brace-counting from the source text, without needing to parse/require
@@ -66,5 +67,14 @@ describe('renderSpreadsheet wiring (regression for the render-race fix)', functi
     expect(waitUntilSizedIndex).toBeGreaterThan(-1);
     expect(interfaceIndex).toBeGreaterThan(-1);
     expect(waitUntilSizedIndex).toBeLessThan(interfaceIndex);
+  });
+
+  // PS-2204: the demo columns of an empty data source are not the data source's,
+  // so a save must not send them as the columns it expects the API to have
+  it('tells the column tracker when the grid shows demo columns', function() {
+    var body = extractFunctionBody(interfaceSource, 'renderSpreadsheet');
+
+    expect(body.indexOf('demoColumns: demoColumns')).toBeGreaterThan(-1);
+    expect(spreadsheetSource.indexOf('ColumnChanges.createTracker(spreadsheetData[0], { demo: !!options.demoColumns })')).toBeGreaterThan(-1);
   });
 });

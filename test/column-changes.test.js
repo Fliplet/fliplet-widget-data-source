@@ -325,6 +325,29 @@ describe('ColumnChanges - undo, redo and saves', function() {
     ]);
   });
 
+  it('expects the names the columns were loaded under, not the ones this save renames them to', function() {
+    var tracker = ColumnChanges.createTracker(['Name', 'Email', null]);
+    var changes = tracker.getChanges(['Name', 'Work email', 'Notes']);
+
+    expect(changes.expectColumns).toEqual(['Name', 'Email']);
+
+    tracker.markSaved(changes.saved);
+
+    expect(tracker.getChanges(['Name', 'Work email', 'Notes']).expectColumns).toEqual(['Name', 'Work email', 'Notes']);
+  });
+
+  it('expects no names while the grid shows the demo columns of an empty data source', function() {
+    var tracker = ColumnChanges.createTracker(['Column 1', 'Column 2'], { demo: true });
+    var changes = tracker.getChanges(['Name', 'Column 2']);
+
+    expect(changes.expectColumns).toEqual([]);
+
+    // Once saved, the columns are the data source's own
+    tracker.markSaved(changes.saved);
+
+    expect(tracker.getChanges(['Name', 'Column 2']).expectColumns).toEqual(['Name', 'Column 2']);
+  });
+
   it('idOf finds the id of a column by its header, for recording a state built from names', function() {
     var tracker = ColumnChanges.createTracker(['A', 'B']);
     var ids = tracker.getIds();

@@ -78,6 +78,8 @@ var saveInProgress = null;
 // True while a commit is running. The grid reloads during it, and the loader
 // stays over the grid until the reload after the commit shows the saved rows.
 var commitRunning = false;
+// The grid shows the demo columns of an empty data source, which it does not have
+var demoColumns = false;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -323,7 +325,7 @@ function renderSpreadsheet(rowsData, fetchId) {
     // it's the correct page to roll back to if a later navigation fails.
     lastRenderedPage = currentPage;
 
-    table = spreadsheet({ columns: columns, rows: rowsData });
+    table = spreadsheet({ columns: columns, rows: rowsData, demoColumns: demoColumns });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
     hideGridLoader();
     $('#versions').removeClass('hidden');
@@ -624,7 +626,10 @@ function fetchCurrentDataSourceEntries(entries) {
         }
       }];
       columns = ['Column 1', 'Column 2'];
+      demoColumns = true;
     } else {
+      demoColumns = false;
+
       var flattenedColumns = {};
 
       rows.map(function(row) {
@@ -1006,6 +1011,10 @@ function saveCurrentData() {
 
   if (columnChanges.deleteColumns.length) {
     commitData.deleteColumns = columnChanges.deleteColumns;
+  }
+
+  if (columnChanges.expectColumns.length) {
+    commitData.expectColumns = columnChanges.expectColumns;
   }
 
   // Only when the stored orders cannot seat the rows this save is placing. The
@@ -1718,6 +1727,22 @@ $('#app')
       }
     }).catch(function(err) {
       if (Fliplet.Error.isHandled(err)) {
+        return;
+      }
+
+      // A column this grid's rows use was renamed or deleted somewhere else
+      // (PS-2204). The reload at the start of the save already shows the data
+      // source as it is now, so the edits are gone from the grid, not pending.
+      if (err && err.status === 409) {
+        Fliplet.Modal.alert({
+          title: 'Changes not saved',
+          message: 'Someone renamed or deleted a column in this data source while you were editing it, maybe in another tab. The table now shows the latest version. Please make your changes again.'
+        });
+
+        if (table) {
+          table.onSaveError();
+        }
+
         return;
       }
 

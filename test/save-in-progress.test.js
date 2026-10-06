@@ -67,6 +67,7 @@ function wait() {
  */
 function setup() {
   var commits = [];
+  var alerts = [];
   var button = { disabled: false };
   var context = {
     _: { noop: function() {} },
@@ -81,7 +82,9 @@ function setup() {
         this.changes = value;
       },
       onSaveComplete: function() {},
-      onSaveError: function() {}
+      onSaveError: function() {
+        this.saveErrorShown = true;
+      }
     },
     $: function() {
       return {
@@ -106,7 +109,11 @@ function setup() {
           return false;
         }
       },
-      Modal: { alert: function() {} },
+      Modal: {
+        alert: function(options) {
+          alerts.push(options);
+        }
+      },
       parseError: String,
       Widget: { complete: function() {} }
     },
@@ -129,7 +136,9 @@ function setup() {
       context.table.changes = true;
     },
     button: button,
-    commits: commits
+    commits: commits,
+    alerts: alerts,
+    table: context.table
   };
 }
 
@@ -285,6 +294,28 @@ describe('one save at a time (PS-2204)', function() {
 
       return wait();
     }).then(function() {
+      expect(page.button.disabled).toBe(false);
+    });
+  });
+
+  // A column the grid's rows use was renamed or deleted in another tab, and the
+  // API refused the save. The reload at the start of the save already shows
+  // the data source as it is now, so there is nothing left to save.
+  it('explains a save refused because a column changed elsewhere, and lets Save run again', function() {
+    var page = setup();
+
+    page.click();
+
+    return wait().then(function() {
+      page.commits[0].reject({ status: 409, responseJSON: { message: 'changed somewhere else' } });
+
+      return wait();
+    }).then(function() {
+      expect(page.alerts).toHaveLength(1);
+      expect(page.alerts[0].title).toBe('Changes not saved');
+      expect(page.alerts[0].message.indexOf('another tab') !== -1).toBe(true);
+      expect(page.table.changes).toBe(false);
+      expect(page.table.saveErrorShown).toBe(true);
       expect(page.button.disabled).toBe(false);
     });
   });

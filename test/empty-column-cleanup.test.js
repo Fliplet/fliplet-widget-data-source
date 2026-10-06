@@ -172,6 +172,7 @@ function save(headers, rows, options) {
         deleteColumns: savedColumns.filter(function(column) {
           return grid.indexOf(column) === -1;
         }),
+        expectColumns: savedColumns.slice(),
         saved: []
       };
     },
@@ -309,6 +310,14 @@ describe('empty column cleanup on save (PS-2204)', function() {
       expect(result.commit.entries.map(function(entry) {
         return entry.data.D;
       })).toEqual(['d1', 'd2']);
+    });
+  });
+
+  it('sends the column names the grid was loaded with, for the API to check', function() {
+    var headers = ['A', 'B', 'C', 'D'];
+
+    return save(headers, rows).then(function(result) {
+      expect(result.commit.expectColumns).toEqual(['A', 'B', 'C', 'D']);
     });
   });
 

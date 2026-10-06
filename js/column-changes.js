@@ -183,11 +183,14 @@ var ColumnChanges = (function() {
   /**
    * Track the grid's columns from the header row it was loaded with.
    * @param {Array} names - Header row as loaded, in physical order
+   * @param {Object} [options] - `demo: true` when the header row is the demo
+   *   columns shown for an empty data source, which the data source does not have
    * @returns {Object} Tracker
    */
-  function createTracker(names) {
+  function createTracker(names, options) {
     var ids = [];
     var savedNames = {};
+    var savedOnServer = !(options && options.demo);
 
     function rememberSaved(columnIds, columnNames) {
       savedNames = {};
@@ -310,6 +313,15 @@ var ColumnChanges = (function() {
           names: columnNames.slice()
         };
 
+        // The names this grid's rows use. If one was renamed or deleted since in
+        // another tab, the API refuses the save rather than write rows with the
+        // old name back over that change (PS-2204).
+        changes.expectColumns = savedOnServer
+          ? Object.keys(savedNames).map(function(id) {
+            return savedNames[id];
+          })
+          : [];
+
         return changes;
       },
 
@@ -320,6 +332,7 @@ var ColumnChanges = (function() {
        */
       markSaved: function(saved) {
         rememberSaved(saved.ids, saved.names);
+        savedOnServer = true;
       }
     };
   }
