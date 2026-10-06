@@ -7,6 +7,8 @@ var fs = require('fs');
 var path = require('path');
 var vm = require('vm');
 
+var Pagination = require('../js/pagination');
+
 // PS-2204: on a data source of 500 rows or fewer, the save removes empty
 // "Column (n)" columns from the grid. It worked out the grid position from the
 // column list with header-less columns left out, so with a spare column to the
@@ -79,6 +81,48 @@ var lodash = {
 };
 
 /**
+ * A page bar whose controls record whether they are disabled, for the calls
+ * updatePaginationControls and navigateToPage make
+ * @returns {Object} The bar, with `disabled` per control and `all` for the three
+ */
+function createPageBar() {
+  var bar = { disabled: {} };
+
+  function control(selector) {
+    var chain = {
+      prop: function(name, value) {
+        selector.split(', ').forEach(function(name) {
+          bar.disabled[name] = value;
+        });
+
+        return chain;
+      },
+      val: function() {
+        return chain;
+      },
+      attr: function() {
+        return chain;
+      },
+      text: function() {
+        return chain;
+      }
+    };
+
+    return chain;
+  }
+
+  bar.find = control;
+
+  bar.toggleClass = function() {
+    return bar;
+  };
+
+  bar.all = control('[data-page-prev], [data-page-next], [data-page-jump]');
+
+  return bar;
+}
+
+/**
  * Runs the widget's saveCurrentData against a grid whose header row is
  * `headers`, in the order the columns are shown (null for a column without a
  * name). The grid removes columns the way HOT 0.38's alter('remove_col') does:
@@ -87,8 +131,11 @@ var lodash = {
  * @param {Array} headers Header row, in the order the columns are shown
  * @param {Array} rows Data of each row on the page
  * @param {Object} [options] `commit` returns the promise the commit resolves with,
- *   `fetchStarted` is called each time the save reloads the grid
- * @returns {Promise} The grid after the save, the columns it removed and the commit sent
+ *   `fetchStarted` is called each time the save reloads the grid, `duringCommit`
+ *   is called once the commit has started, `totalEntries` and `currentPage` set
+ *   the size of the data source and the page shown
+ * @returns {Promise} The grid after the save, the columns it removed, the commit
+ *   sent, and the page bar and widget state after it
  */
 function save(headers, rows, options) {
   options = options || {};
@@ -101,6 +148,8 @@ function save(headers, rows, options) {
   var commits = [];
   // The loader over the grid (.page-loading-overlay)
   var loader = { hidden: true, text: '' };
+  // The page bar under the grid (.pagination-controls): whether each control is disabled
+  var pageBar = createPageBar();
 
   var table = {
     onSave: function() {},
@@ -126,6 +175,9 @@ function save(headers, rows, options) {
         saved: []
       };
     },
+    hasChanges: function() {
+      return false;
+    },
     markColumnsSaved: function() {},
     setData: function() {},
     clearRowsMoved: function() {}
@@ -139,7 +191,7 @@ function save(headers, rows, options) {
         removed = removed.concat(grid.splice(index, amount));
       }
     },
-    totalEntries: rows.length,
+    totalEntries: options.totalEntries || rows.length,
     PAGE_SIZE: 500,
     emptyColumnNameRegex: /^Column\s\([0-9]+\)$/,
     currentDataSourceId: 1,
@@ -147,11 +199,26 @@ function save(headers, rows, options) {
       commit: function(body) {
         commits.push(body);
 
+        if (options.duringCommit) {
+          options.duringCommit(context, pageBar);
+        }
+
         return options.commit ? options.commit() : Promise.resolve({ clientIds: [] });
       }
     },
     commitRunning: false,
-    $: function() {
+    currentPage: options.currentPage || 0,
+    totalPages: 1,
+    Pagination: Pagination,
+    $: function(selector) {
+      if (selector === '.pagination-controls') {
+        return pageBar;
+      }
+
+      if (selector === '[data-page-prev], [data-page-next], [data-page-jump]') {
+        return pageBar.all;
+      }
+
       return {
         text: function(text) {
           loader.text = text;
@@ -212,13 +279,15 @@ function save(headers, rows, options) {
     'trimColumns',
     'getEmptyColumns',
     'removeEmptyColumnsInEntries',
+    'updatePaginationControls',
+    'navigateToPage',
     'saveCurrentData'
   ].map(function(name) {
     return extractFunction(interfaceSource, name);
   }).join('\n'), context);
 
   return context.saveCurrentData().then(function() {
-    return { grid: grid, removed: removed, commit: commits[0], loader: loader };
+    return { grid: grid, removed: removed, commit: commits[0], loader: loader, pageBar: pageBar, context: context };
   });
 }
 
@@ -317,6 +386,70 @@ describe('loader over the grid during a save (PS-2204)', function() {
     }, function(error) {
       expect(error.message).toBe('Network error');
       expect(loaderAfterFailure.hidden).toBe(true);
+    });
+  });
+});
+
+describe('page bar during a save (PS-2204)', function() {
+  var headers = ['A', 'B'];
+  var rows = [{ A: 'a1', B: 'b1' }];
+
+  // Page 2 of a 1,500-row data source, which has a page before and after it
+  var largeDataSource = { totalEntries: 1500, currentPage: 1 };
+
+  function pageBarEnabled(pageBar) {
+    return pageBar.disabled['[data-page-prev]'] === false
+      && pageBar.disabled['[data-page-next]'] === false
+      && pageBar.disabled['[data-page-jump]'] === false;
+  }
+
+  it('locks page changes while the commit runs, and unlocks them when it succeeds', function() {
+    var duringCommit = {};
+
+    return save(headers, rows, Object.assign({
+      duringCommit: function(context, pageBar) {
+        duringCommit.disabled = Object.assign({}, pageBar.disabled);
+
+        // Next, Previous or the page box while the commit runs
+        context.navigateToPage(2);
+        context.navigateToPage(0);
+        duringCommit.page = context.currentPage;
+      }
+    }, largeDataSource)).then(function(result) {
+      expect(duringCommit.disabled).toEqual({
+        '[data-page-prev]': true,
+        '[data-page-next]': true,
+        '[data-page-jump]': true
+      });
+      expect(duringCommit.page).toBe(1);
+
+      expect(pageBarEnabled(result.pageBar)).toBe(true);
+
+      result.context.navigateToPage(2);
+      expect(result.context.currentPage).toBe(2);
+    });
+  });
+
+  it('unlocks page changes when the commit fails', function() {
+    var context;
+    var pageBar;
+
+    return save(headers, rows, Object.assign({
+      commit: function() {
+        return Promise.reject(new Error('Network error'));
+      },
+      duringCommit: function(saveContext, saveBar) {
+        context = saveContext;
+        pageBar = saveBar;
+      }
+    }, largeDataSource)).then(function() {
+      throw new Error('The save should have failed');
+    }, function(error) {
+      expect(error.message).toBe('Network error');
+      expect(pageBarEnabled(pageBar)).toBe(true);
+
+      context.navigateToPage(2);
+      expect(context.currentPage).toBe(2);
     });
   });
 });

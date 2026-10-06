@@ -455,9 +455,11 @@ function updatePaginationControls() {
   $pagination.find('.pagination-info').text(
     pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries + ' entries'
   );
-  $pagination.find('[data-page-prev]').prop('disabled', !pageInfo.hasPrev);
-  $pagination.find('[data-page-next]').prop('disabled', !pageInfo.hasNext);
-  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', false);
+  // No page change while a commit runs (PS-2204): when it ends, the save writes
+  // the page it saved into the grid, which would then be another page's grid
+  $pagination.find('[data-page-prev]').prop('disabled', commitRunning || !pageInfo.hasPrev);
+  $pagination.find('[data-page-next]').prop('disabled', commitRunning || !pageInfo.hasNext);
+  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', commitRunning);
   $pagination.find('[data-page-total]').text(pageInfo.totalPages);
   $pagination.toggleClass('hidden', totalEntries <= PAGE_SIZE);
 }
@@ -469,7 +471,7 @@ function updatePaginationControls() {
  * @returns {void}
  */
 function navigateToPage(targetPage) {
-  if (targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
+  if (commitRunning || targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
     return;
   }
 
@@ -797,8 +799,20 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  // After a save already running, so the two never overlap (PS-2204)
-  Promise.resolve(saveInProgress).catch(_.noop).then(saveCurrentData).then(Fliplet.Widget.complete);
+  // After a save already running, so the two never overlap (PS-2204). It is the
+  // running save itself until it ends, so a Save click meanwhile waits for it too.
+  var $saveButton = $('[data-save]').prop('disabled', true);
+  var save = Promise.resolve(saveInProgress).catch(_.noop).then(saveCurrentData);
+  var thisSave = save.then(_.noop, _.noop).then(function() {
+    if (saveInProgress === thisSave) {
+      saveInProgress = null;
+      $saveButton.prop('disabled', false);
+    }
+  });
+
+  saveInProgress = thisSave;
+
+  return save.then(Fliplet.Widget.complete);
 });
 
 /**
@@ -1004,9 +1018,11 @@ function saveCurrentData() {
 
   showGridLoader('Saving...');
   commitRunning = true;
+  updatePaginationControls();
 
   return currentDataSource.commit(commitData).then(function(response) {
     commitRunning = false;
+    updatePaginationControls();
     showGridLoader('Loading data...');
 
     var clientIds = [];
@@ -1065,6 +1081,7 @@ function saveCurrentData() {
     // The grid already shows the data source as saved before this commit: the
     // reload at the start of the save has it
     commitRunning = false;
+    updatePaginationControls();
     hideGridLoader();
 
     throw error;
@@ -1661,21 +1678,24 @@ $('#app')
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
-    // One save at a time. The changes made meanwhile stay unsaved, so the next
-    // click once this save ends saves them (PS-2204).
+    // One save at a time, including a Save & close (PS-2204)
     if (saveInProgress) {
       return saveInProgress;
     }
 
     var $saveButton = $(this).prop('disabled', true);
+    var thisSave;
 
+    // Unless a Save & close has queued behind this save: it is the running save now
     function endSave() {
-      saveInProgress = null;
-      $saveButton.prop('disabled', false);
+      if (saveInProgress === thisSave) {
+        saveInProgress = null;
+        $saveButton.prop('disabled', false);
+      }
     }
 
     // Wait for the current thread to apply changes to Handsontable
-    saveInProgress = new Promise(function(resolve) {
+    thisSave = saveInProgress = new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
       if (table && table.hasChanges()) {

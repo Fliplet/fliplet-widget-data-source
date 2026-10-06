@@ -123,7 +123,7 @@ function setup() {
       return context.onSaveClick.call({}, { preventDefault: function() {} });
     },
     saveAndClose: function() {
-      context.onSaveRequest();
+      return context.onSaveRequest();
     },
     makeChange: function() {
       context.table.changes = true;
@@ -203,6 +203,89 @@ describe('one save at a time (PS-2204)', function() {
       return wait();
     }).then(function() {
       expect(page.commits).toHaveLength(2);
+    });
+  });
+
+  it('ignores Save while Save & close runs, and lets Save run again once it ends', function() {
+    var page = setup();
+
+    page.saveAndClose();
+
+    return wait().then(function() {
+      expect(page.commits).toHaveLength(1);
+      expect(page.button.disabled).toBe(true);
+
+      page.click();
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(1);
+
+      page.commits[0].resolve();
+
+      return wait();
+    }).then(function() {
+      expect(page.button.disabled).toBe(false);
+
+      page.click();
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(2);
+    });
+  });
+
+  it('lets Save run again after Save & close fails', function() {
+    var page = setup();
+
+    var closed = page.saveAndClose();
+
+    // The overlay stays open: Save & close does not complete after a failed save
+    closed.then(function() {
+      throw new Error('Save & close should not have completed');
+    }, function() {});
+
+    return wait().then(function() {
+      page.commits[0].reject(new Error('Network error'));
+
+      return wait();
+    }).then(function() {
+      expect(page.button.disabled).toBe(false);
+
+      page.click();
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(2);
+    });
+  });
+
+  it('keeps Save locked when a save ends with Save & close waiting behind it', function() {
+    var page = setup();
+
+    page.click();
+
+    return wait().then(function() {
+      page.saveAndClose();
+      page.commits[0].resolve();
+
+      return wait();
+    }).then(function() {
+      // Save & close's own save is running now
+      expect(page.commits).toHaveLength(2);
+      expect(page.button.disabled).toBe(true);
+
+      page.click();
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(2);
+
+      page.commits[1].resolve();
+
+      return wait();
+    }).then(function() {
+      expect(page.button.disabled).toBe(false);
     });
   });
 });
