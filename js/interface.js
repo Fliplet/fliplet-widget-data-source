@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice */
+/* global Pagination, WaitUntilSized, EntryDiff, CommitNotice */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -52,6 +52,32 @@ var selectedTokenName;
 var globalTimer;
 var dataSourceIsLive = false;
 var locale = navigator.language.indexOf('en') === 0 ? navigator.language : 'en';
+
+// Pagination state
+var PAGE_SIZE = 500;
+var currentPage = 0;
+var totalEntries = 0;
+var totalPages = 0;
+var fetchGeneration = 0;
+// The page whose entries are actually rendered in the grid right now. Distinct
+// from currentPage, which is updated optimistically before a page fetch even
+// starts — on a failed fetch we roll currentPage back to this so pagination
+// controls (and the next navigation request) stay aligned with what's on screen.
+var lastRenderedPage = 0;
+// Where the cached page sits in the data source (PS-2204), cached with its rows:
+// { offset, before, after }, where before/after are the { id, order } of the
+// rows just above and below the page - the neighbours a row added at the top or
+// bottom of it is placed between (null at either end of the data source). Null
+// when no page is cached, and EntryDiff then treats the grid as the whole thing.
+var pageEdges = null;
+// The save the Save button started, until it ends (PS-2204). A save that renames
+// or deletes a column changes every row and can take several seconds on a large
+// data source, and the grid reloads before it ends, so a second save started
+// meanwhile would read rows the first one is still changing.
+var saveInProgress = null;
+// True while a commit is running. The grid reloads during it, and the loader
+// stays over the grid until the reload after the commit shows the saved rows.
+var commitRunning = false;
 
 var DESCRIPTION_APP_UNKNOWN = 'Other...';
 
@@ -262,6 +288,49 @@ function renderError(options) {
   });
 }
 
+/**
+ * Covers the grid until the rows it shows are the ones saved (PS-2204)
+ * @param {String} message - Text shown on the loader
+ * @returns {void}
+ */
+function showGridLoader(message) {
+  $('.page-loading-overlay').text(message).removeClass('hidden');
+}
+
+/**
+ * Removes the loader, unless a commit is running: the grid then shows rows from
+ * before the save, and the reload after it removes the loader
+ * @returns {void}
+ */
+function hideGridLoader() {
+  if (commitRunning) {
+    return;
+  }
+
+  $('.page-loading-overlay').addClass('hidden');
+}
+
+function renderSpreadsheet(rowsData, fetchId) {
+  WaitUntilSized.waitUntilSized('.table-entries', function() {
+    // Discard a stale render: a newer fetch (fetchGeneration) started
+    // while this one was waiting for the container to be sized.
+    if (typeof fetchId === 'number' && fetchId !== fetchGeneration) {
+      return;
+    }
+
+    // Reached only once this render has actually survived the sizing wait and
+    // the generation check — this is genuinely what's about to be painted, so
+    // it's the correct page to roll back to if a later navigation fails.
+    lastRenderedPage = currentPage;
+
+    table = spreadsheet({ columns: columns, rows: rowsData });
+    $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
+    hideGridLoader();
+    $('#versions').removeClass('hidden');
+    updatePaginationControls();
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -371,13 +440,100 @@ function startLiveDataTimer() {
   }, 300000);
 }
 
+/**
+ * Updates the pagination controls in the UI
+ * @returns {void}
+ */
+function updatePaginationControls() {
+  var $pagination = $('.pagination-controls');
+  var pageInfo = Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage);
+
+  // Sync clamped page back
+  currentPage = pageInfo.currentPage;
+  totalPages = pageInfo.totalPages;
+
+  $pagination.find('.pagination-info').text(
+    pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries + ' entries'
+  );
+  // No page change while a commit runs (PS-2204): when it ends, the save writes
+  // the page it saved into the grid, which would then be another page's grid
+  $pagination.find('[data-page-prev]').prop('disabled', commitRunning || !pageInfo.hasPrev);
+  $pagination.find('[data-page-next]').prop('disabled', commitRunning || !pageInfo.hasNext);
+  $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', commitRunning);
+  $pagination.find('[data-page-total]').text(pageInfo.totalPages);
+  $pagination.toggleClass('hidden', totalEntries <= PAGE_SIZE);
+}
+
+/**
+ * Navigate to a target page, with unsaved-changes confirmation if needed.
+ * Shared by prev/next buttons and page-jump input.
+ * @param {Number} targetPage - 0-based page index to navigate to
+ * @returns {void}
+ */
+function navigateToPage(targetPage) {
+  if (commitRunning || targetPage < 0 || targetPage >= totalPages || targetPage === currentPage) {
+    return;
+  }
+
+  function goToPage() {
+    currentPage = targetPage;
+    $('[data-page-prev], [data-page-next], [data-page-jump]').prop('disabled', true);
+    showGridLoader('Loading page...');
+    fetchCurrentDataSourceEntries();
+  }
+
+  if (table && table.hasChanges()) {
+    Fliplet.Modal.confirm({
+      message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+    }).then(function(result) {
+      if (!result) {
+        // Reset page-jump input to current page if user cancels
+        $('[data-page-jump]').val(currentPage + 1);
+
+        return;
+      }
+
+      table.setChanges(false);
+      goToPage();
+    });
+
+    return;
+  }
+
+  goToPage();
+}
+
 function fetchCurrentDataSourceEntries(entries) {
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+  var thisFetch = ++fetchGeneration;
+
+  // A loader already showing keeps its message ("Loading page...", "Saving...")
+  if ($('.page-loading-overlay').hasClass('hidden')) {
+    showGridLoader('Loading data...');
+  }
+
+  // Edges of the page this fetch returns, cached together with its rows below
+  var fetchedEdges = null;
+
+  // Reuse existing connection if available, otherwise connect
+  var connectionPromise = currentDataSource
+    ? Promise.resolve(currentDataSource)
+    : Fliplet.DataSources.connect(currentDataSourceId);
+
+  return connectionPromise.then(function(source) {
     clearLiveDataTimer();
 
     currentDataSource = source;
 
-    return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+    return Fliplet.API.request({
+      url: 'v1/data-sources/' + currentDataSourceId + '?includeEntriesCount',
+      headers: { 'Cache-Control': 'no-cache' }
+    }).then(function(response) {
+      // Discard stale response if a newer fetch was started
+      if (thisFetch !== fetchGeneration) {
+        return Promise.reject({ stale: true });
+      }
+
+      var dataSource = response.dataSource;
       var sourceName = dataSource.name;
 
       currentDataSourceUpdatedAt = TD(new Date(), { format: 'lll', locale: locale });
@@ -386,19 +542,63 @@ function fetchCurrentDataSourceEntries(entries) {
 
       columns = dataSource.columns || [];
 
+      // Track total entries for pagination
+      if (typeof dataSource.entriesCount === 'number') {
+        totalEntries = dataSource.entriesCount;
+      }
+
       if (entries) {
         return Promise.resolve(entries);
       }
 
-      // Deliberately no explicit sort: the manager must read a data source the
-      // same way the rest of the platform does. Asking for id ASC here made rows
-      // with a null or shared order appear in one sequence in the manager and
-      // the reverse of it in apps, with nothing written down to reconcile them.
-      return source.find({}).catch(function() {
+      // Fetch only the current page of entries using the query endpoint.
+      // The sort is the platform's own read order - the API's default, and the
+      // sequence its renumber walks - so the manager reads a data source the same
+      // way the rest of the platform does. Asking for id ASC here made rows with a
+      // null or shared order appear in one sequence in the manager and the reverse
+      // of it in apps, with nothing written down to reconcile them.
+      //
+      // The window is one row wider on each side than the page (PS-2204): the
+      // row above and the row below are what a row added at the top or bottom of
+      // the page is placed between. They are not shown.
+      var fetchWindow = Pagination.computeFetchWindow(currentPage, PAGE_SIZE);
+
+      return Fliplet.API.request({
+        url: 'v1/data-sources/' + currentDataSourceId + '/data/query',
+        method: 'POST',
+        data: {
+          limit: fetchWindow.limit,
+          offset: fetchWindow.offset,
+          order: [['order', 'ASC'], ['id', 'DESC']]
+        }
+      }).then(function(queryResponse) {
+        // Discard stale response if a newer fetch was started
+        if (thisFetch !== fetchGeneration) {
+          return Promise.reject({ stale: true });
+        }
+
+        var split = Pagination.splitFetchWindow(queryResponse.entries, currentPage, PAGE_SIZE);
+
+        fetchedEdges = {
+          offset: currentPage * PAGE_SIZE,
+          before: split.before,
+          after: split.after
+        };
+
+        return split.rows;
+      }).catch(function(err) {
+        if (err && err.stale) {
+          return Promise.reject(err);
+        }
+
         return Promise.reject('Access denied. Please review your security settings if you want to access this data source.');
       });
     });
   }).then(function(rows) {
+    // lastRenderedPage is set inside renderSpreadsheet's waitUntilSized
+    // callback below, not here — this .then() fires once the fetch itself
+    // resolves, but the render can still be discarded by the sizing wait or
+    // a newer navigation before anything is actually painted.
     if (dataSourceIsLive) {
       startLiveDataTimer();
     }
@@ -406,6 +606,7 @@ function fetchCurrentDataSourceEntries(entries) {
     // Cache entries in a new thread
     setTimeout(function() {
       cacheOriginalEntries(rows);
+      pageEdges = fetchedEdges;
     }, 0);
 
     $('#show-versions').show();
@@ -442,7 +643,11 @@ function fetchCurrentDataSourceEntries(entries) {
       columns = _.uniq(_.concat(columns, computedColumns));
     }
 
-    currentDataSourceRowsCount = rows.length;
+    // rows is only the current page (PAGE_SIZE at most) since pagination — totalEntries
+    // is the true data-source-wide count and is what the Versions tab should reflect.
+    // Note: entriesCount is read from an API read-replica, so immediately after a
+    // save it can briefly lag by one — cosmetic, not worth chasing as a bug.
+    currentDataSourceRowsCount = totalEntries;
     currentDataSourceColumnsCount = columns.length;
 
     // On initial load, create an empty spreadsheet as this speeds up subsequent loads
@@ -453,27 +658,34 @@ function fetchCurrentDataSourceEntries(entries) {
 
       table = spreadsheet({ columns: columns, rows: [], initialLoad: true });
 
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         table.destroy();
+        table = null;
         initialLoad = false;
-
-        table = spreadsheet({ columns: columns, rows: rows });
-        $('.table-entries').css('visibility', 'visible');
-
-        $('#versions').removeClass('hidden');
-      }, 0);
+        renderSpreadsheet(rows, thisFetch);
+      });
     } else {
+      // From here until renderSpreadsheet's sizing wait builds the new grid (up
+      // to 2s), there is no table, so the `table && table.hasChanges()` guards
+      // skip their "unsaved changes" confirm. Nothing is lost by that: every
+      // caller of this fetch has either just saved, already confirmed with the
+      // user (page change, tab change), or is a reload the user asked for
+      // (Reload, import, version restore). Until the new grid shows there is
+      // nothing to edit, so there are no changes for a guard to protect.
       if (table) {
         table.destroy();
+        table = null;
       }
 
-      table = spreadsheet({ columns: columns, rows: rows });
-      $('.table-entries').css('visibility', 'visible');
-
-      $('#versions').removeClass('hidden');
+      renderSpreadsheet(rows, thisFetch);
     }
   })
     .catch(function onFetchError(error) {
+      // Silently ignore stale fetch responses (superseded by a newer navigation)
+      if (error && error.stale) {
+        return;
+      }
+
       var message = error;
 
       if (error instanceof Error) {
@@ -487,6 +699,17 @@ function fetchCurrentDataSourceEntries(entries) {
       }
 
       $('.entries-message').html('<br>' + message);
+      hideGridLoader();
+
+      // A stale error never reaches here — the guard at the top of onFetchError
+      // already returned for it — so there is no staleness left to decide on.
+      // The rollback itself still goes through the shared function so there's
+      // one tested source of truth for it.
+      var recovery = Pagination.resolveFetchErrorRecovery(lastRenderedPage);
+
+      currentPage = recovery.currentPage;
+      lastRenderedPage = recovery.lastRenderedPage;
+      updatePaginationControls();
     });
 }
 
@@ -576,7 +799,20 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  saveCurrentData().then(Fliplet.Widget.complete);
+  // After a save already running, so the two never overlap (PS-2204). It is the
+  // running save itself until it ends, so a Save click meanwhile waits for it too.
+  var $saveButton = $('[data-save]').prop('disabled', true);
+  var save = Promise.resolve(saveInProgress).catch(_.noop).then(saveCurrentData);
+  var thisSave = save.then(_.noop, _.noop).then(function() {
+    if (saveInProgress === thisSave) {
+      saveInProgress = null;
+      $saveButton.prop('disabled', false);
+    }
+  });
+
+  saveInProgress = thisSave;
+
+  return save.then(Fliplet.Widget.complete);
 });
 
 /**
@@ -661,6 +897,17 @@ function getCommitPayload(entries) {
     // ...and only when the grid is showing the stored sequence. Under a column
     // sort the visible order is not an arrangement anyone asked to persist.
     viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
+    // The grid is one page of the data source (PS-2204). Without this, EntryDiff
+    // takes the page to be the whole data source and numbers a new row from the
+    // top of it, so the row reloads on the first page instead of where it was put.
+    // Offset and edges come from the same fetch as the cached rows, so they
+    // always describe the page the save is comparing against.
+    page: pageEdges ? {
+      offset: pageEdges.offset,
+      liveCount: totalEntries,
+      before: pageEdges.before,
+      after: pageEdges.after
+    } : null,
     isEqual: _.isEqual,
     guid: Fliplet.guid
   });
@@ -668,6 +915,14 @@ function getCommitPayload(entries) {
 
 function saveCurrentData() {
   var columns;
+
+  // No table means a fetch is replacing the grid (see fetchCurrentDataSourceEntries):
+  // nothing can have been edited since the last grid went, so there is nothing
+  // to save, and the fetch already running will show the data. Resolving lets
+  // Save & close (onSaveRequest) close; the Save button checks for a table first.
+  if (!table) {
+    return Promise.resolve();
+  }
 
   table.onSave();
   fetchCurrentDataSourceEntries();
@@ -692,15 +947,24 @@ function saveCurrentData() {
     columns = trimColumns(table.getColumns());
   }
 
-  // Get the empty columns from assessing all entries
-  var emptyColumns = getEmptyColumns(columns, entries);
+  // Get the empty columns from assessing all entries. A paginated grid holds one
+  // page, and a column that is empty here can hold data on another page, so it
+  // is left alone - removing it now deletes it from every page (PS-2204).
+  var emptyColumns = totalEntries > PAGE_SIZE ? [] : getEmptyColumns(columns, entries);
 
-  // Remove empty columns from the table
+  // Remove empty columns from the table. The grid position comes from the grid:
+  // `columns` leaves out header-less columns, so with one to the left its index
+  // points at the neighbouring column, which would be removed and then deleted
+  // from every row as a deleted column (PS-2204).
   _.forEach(emptyColumns, function(column) {
+    var gridIndex = table.getColumns().indexOf(column);
     var columnIndex = columns.indexOf(column);
 
+    if (gridIndex !== -1) {
+      hot.alter('remove_col', gridIndex, 1, 'removeEmptyColumn');
+    }
+
     if (columnIndex !== -1) {
-      hot.alter('remove_col', columnIndex, 1, 'removeEmptyColumn');
       columns.splice(columnIndex, 1);
     }
   });
@@ -730,6 +994,20 @@ function saveCurrentData() {
     returnEntries: false
   };
 
+  // The entries carry only this page's rows (PS-2204). Renamed and deleted
+  // columns are sent as such, so the API applies them to every row in the data
+  // source; otherwise the other pages keep the old column and it comes back.
+  var savedTable = table;
+  var columnChanges = table.getColumnChanges();
+
+  if (columnChanges.renameColumns.length) {
+    commitData.renameColumns = columnChanges.renameColumns;
+  }
+
+  if (columnChanges.deleteColumns.length) {
+    commitData.deleteColumns = columnChanges.deleteColumns;
+  }
+
   // Only when the stored orders cannot seat the rows this save is placing. The
   // API renumbers every live entry over its own read order before applying the
   // payload, which is what lets the payload be the rows the user touched rather
@@ -738,7 +1016,15 @@ function saveCurrentData() {
     commitData.normalizeOrder = payload.normalizeOrder;
   }
 
+  showGridLoader('Saving...');
+  commitRunning = true;
+  updatePaginationControls();
+
   return currentDataSource.commit(commitData).then(function(response) {
+    commitRunning = false;
+    updatePaginationControls();
+    showGridLoader('Loading data...');
+
     var clientIds = [];
     var ids = [];
 
@@ -751,7 +1037,32 @@ function saveCurrentData() {
     var clientIdMap = _.zipObject(clientIds, ids);
 
     cacheOriginalEntries(entries, clientIdMap, payload.orders);
-    table.setData({ columns: columns, rows: entries });
+
+    // The columns this save renamed or deleted are now the saved ones. Only on
+    // the grid the save read them from: a reload since then has its own.
+    if (table && table === savedTable) {
+      table.markColumnsSaved(columnChanges.saved);
+    }
+
+    if (pageEdges && payload.pageEdges) {
+      pageEdges = {
+        offset: pageEdges.offset,
+        before: payload.pageEdges.before,
+        after: payload.pageEdges.after
+      };
+    }
+
+    if (table) {
+      table.setData({ columns: columns, rows: entries });
+      // rowsMoved lives on the spreadsheet instance, and the refetch this save
+      // already started replaces that instance with a fresh one (rowsMoved
+      // false) as soon as it renders. So this is housekeeping for the case
+      // where `table` is still the instance that was saved — not a fail-safe
+      // carrying a reorder into a retry, which the per-instance flag could
+      // never do. Nothing needs it to: a failed commit leaves the refetch to
+      // put the grid back to server state, so no pending reorder survives.
+      table.clearRowsMoved();
+    }
 
     // After the reload, not before: loading the entries clears this element,
     // so a notice written any earlier is wiped by the refresh that proves it.
@@ -766,6 +1077,14 @@ function saveCurrentData() {
       // straight to Fliplet.Widget.complete
       return result;
     });
+  }, function(error) {
+    // The grid already shows the data source as saved before this commit: the
+    // reload at the start of the save has it
+    commitRunning = false;
+    updatePaginationControls();
+    hideGridLoader();
+
+    throw error;
   });
 }
 
@@ -857,6 +1176,11 @@ function browseDataSource(id) {
     // Something went wrong
     // EG: User try to edit an already deleted data source
     // TODO: Show some error message
+
+      // Ensure .table-entries still gets sized even though the
+      // Promise.all().then() branch that normally does this was skipped -
+      // otherwise any pending waitUntilSized() gate would poll forever.
+      windowResized();
       getDataSources();
     });
 }
@@ -1235,27 +1559,15 @@ $('#app')
 
     $('[href="#entries"]').click();
 
-    if (table.hasChanges()) {
-      Fliplet.Modal.confirm({
-        message: 'Are you sure? Changes that you made may not be saved.'
-      }).then(function(result) {
-        if (!result) {
-          return;
-        }
+    function resetAndGoBack() {
+      // Reset pagination and connection state when leaving a data source
+      currentPage = 0;
+      lastRenderedPage = 0;
+      totalEntries = 0;
+      totalPages = 0;
+      pageEdges = null;
+      currentDataSource = null;
 
-        $('#save-rules').addClass('hidden');
-
-        try {
-          table.destroy();
-        } catch (e) {
-          // Fail silently
-        }
-
-        $('[data-order-date]').removeClass('asc').addClass('desc');
-
-        getDataSources();
-      });
-    } else {
       $('#save-rules').addClass('hidden');
 
       try {
@@ -1267,6 +1579,20 @@ $('#app')
       $('[data-order-date]').removeClass('asc').addClass('desc');
 
       getDataSources();
+    }
+
+    if (table && table.hasChanges()) {
+      Fliplet.Modal.confirm({
+        message: 'Are you sure? Changes that you made may not be saved.'
+      }).then(function(result) {
+        if (!result) {
+          return;
+        }
+
+        resetAndGoBack();
+      });
+    } else {
+      resetAndGoBack();
     }
   })
   .on('click', '[data-show-source]', function() {
@@ -1352,11 +1678,27 @@ $('#app')
   .on('click', '[data-save]', function(event) {
     event.preventDefault();
 
+    // One save at a time, including a Save & close (PS-2204)
+    if (saveInProgress) {
+      return saveInProgress;
+    }
+
+    var $saveButton = $(this).prop('disabled', true);
+    var thisSave;
+
+    // Unless a Save & close has queued behind this save: it is the running save now
+    function endSave() {
+      if (saveInProgress === thisSave) {
+        saveInProgress = null;
+        $saveButton.prop('disabled', false);
+      }
+    }
+
     // Wait for the current thread to apply changes to Handsontable
-    return new Promise(function(resolve) {
+    thisSave = saveInProgress = new Promise(function(resolve) {
       setTimeout(resolve, 0);
     }).then(function() {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         table.setChanges(false);
 
         return saveCurrentData();
@@ -1370,7 +1712,10 @@ $('#app')
       }
 
       $('#show-versions').show();
-      table.onSaveComplete();
+
+      if (table) {
+        table.onSaveComplete();
+      }
     }).catch(function(err) {
       if (Fliplet.Error.isHandled(err)) {
         return;
@@ -1381,9 +1726,41 @@ $('#app')
         message: Fliplet.parseError(err)
       });
 
-      table.setChanges(true);
-      table.onSaveError();
+      if (table) {
+        table.setChanges(true);
+        table.onSaveError();
+      }
+    }).then(endSave, function(err) {
+      endSave();
+
+      throw err;
     });
+
+    return saveInProgress;
+  })
+  .on('click', '[data-page-prev], [data-page-next]', function(event) {
+    event.preventDefault();
+
+    var isPrev = $(this).is('[data-page-prev]');
+
+    navigateToPage(isPrev ? currentPage - 1 : currentPage + 1);
+  })
+  .on('change', '[data-page-jump]', function() {
+    var inputPage = parseInt($(this).val(), 10);
+
+    if (isNaN(inputPage) || inputPage < 1 || inputPage > totalPages) {
+      $(this).val(currentPage + 1);
+
+      return;
+    }
+
+    navigateToPage(inputPage - 1);
+  })
+  .on('keydown', '[data-page-jump]', function(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      $(this).trigger('change');
+    }
   })
   .on('click', '[save-settings]', function() {
     $('form[data-settings]').submit();
@@ -1759,7 +2136,7 @@ $('#app')
   })
   .on('shown.bs.tab', function(e) {
     if ($(e.target).attr('aria-controls') !== 'entries') {
-      if (table.hasChanges()) {
+      if (table && table.hasChanges()) {
         Fliplet.Modal.confirm({
           message: 'Are you sure? Changes that you made may not be saved.'
         }).then(function(result) {
@@ -1783,10 +2160,12 @@ $('#app')
         hot.render();
       }
 
-      if (table.hasChanges()) {
-        table.onChange();
-      } else {
-        table.reset();
+      if (table) {
+        if (table.hasChanges()) {
+          table.onChange();
+        } else {
+          table.reset();
+        }
       }
 
       $('.back-name-holder').removeClass('hide-date');
