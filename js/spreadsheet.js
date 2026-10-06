@@ -606,6 +606,25 @@ function spreadsheet(options) {
       rowsMoved = true;
       onChange();
     },
+    beforeCreateRow: function(index) {
+      // A row added above the column names row would become the column names
+      // row, and the save would delete every column from every row (PS-2204)
+      if (index === 0) {
+        showGridNotice('Rows cannot be added above the column names. Select a row below it.');
+
+        return false;
+      }
+    },
+    beforeRemoveRow: function(index) {
+      // Removing the column names row makes the first entry the column names,
+      // and the save would rename every column to that entry's values (PS-2204).
+      // A selection that starts at the column names row starts at index 0.
+      if (index === 0) {
+        showGridNotice('The column names row cannot be deleted. Select only entry rows to delete them.');
+
+        return false;
+      }
+    },
     afterCreateRow: function() {
       onChange();
     },
@@ -619,16 +638,30 @@ function spreadsheet(options) {
         return true;
       }
 
-      // Column name
-      for (var i = 0; i < amount; i++) {
-        var columnName = generateColumnName();
+      // Column name, written where the data arrays hold the column. Its place on
+      // screen is not known yet: Handsontable's column move plugin places the new
+      // columns after this hook, so after a column drag the same index on screen
+      // is another column, which would be renamed instead (PS-2204).
+      var headerRow = hot.getSourceDataAtRow(0);
 
-        hot.setDataAtCell(0, index + i, columnName);
+      for (var i = 0; i < amount; i++) {
+        headerRow[index + i] = generateColumnName();
       }
 
-      // Add this new width before set the widths again
-      colWidths.splice(index, 0, 50);
-      hot.updateSettings({ colWidths: colWidths });
+      // Widths once the insert has finished. updateSettings here would restart the
+      // column move plugin before it places the new columns, and the columns
+      // would show in the wrong order after a column drag (PS-2204).
+      Promise.resolve().then(function() {
+        if (isDestroyed) {
+          return;
+        }
+
+        for (var j = 0; j < amount; j++) {
+          colWidths.splice(hot.toVisualColumn(index + j), 0, 50);
+        }
+
+        hot.updateSettings({ colWidths: colWidths });
+      });
 
       onChange();
     },
