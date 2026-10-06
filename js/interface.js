@@ -34,6 +34,8 @@ var DEMO_ROW_DATA = {
   'Column 1': DEMO_ROW_VALUE,
   'Column 2': DEMO_ROW_VALUE
 };
+// How many demo rows the grid opens with. Any more are copies of them.
+var DEMO_ROW_COUNT = 2;
 // Whether the grid was loaded with the demo rows, which the duplicate check
 // must not report as copies (PS-2251)
 var showingDemoData = false;
@@ -402,21 +404,30 @@ function fetchCurrentDataSourceEntries(entries, options) {
   // is waiting for (PS-2251)
   var reloadToken = saveLock.beginReload();
   var thisFetch = ++fetchSequence;
+  // The data source this load is for, even if another one is opened meanwhile
+  var dataSourceId = currentDataSourceId;
 
-  // A newer load has started: this one's answer may be older than the one
-  // on screen, so it must not rebuild the grid or the cached originals
+  // A newer load or a save has started: this one's answer may be older than
+  // the one on screen, so it must not rebuild the grid or the cached originals
   function isStale() {
     return thisFetch !== fetchSequence;
   }
 
   options = options || {};
 
-  return Fliplet.DataSources.connect(currentDataSourceId).then(function(source) {
+  return Fliplet.DataSources.connect(dataSourceId).then(function(source) {
+    // Checked before taking the connection: saves commit through
+    // currentDataSource, so a stale one would send them to the data source
+    // this load was for, not the one on screen (PS-2251)
+    if (isStale()) {
+      return Promise.reject(STALE_FETCH);
+    }
+
     clearLiveDataTimer();
 
     currentDataSource = source;
 
-    return Fliplet.DataSources.getById(currentDataSourceId, { cache: false }).then(function(dataSource) {
+    return Fliplet.DataSources.getById(dataSourceId, { cache: false }).then(function(dataSource) {
       if (isStale()) {
         return Promise.reject(STALE_FETCH);
       }
@@ -463,11 +474,9 @@ function fetchCurrentDataSourceEntries(entries, options) {
 
     if ((!rows || !rows.length) && (!columns || !columns.length)) {
       showingDemoData = true;
-      rows = [{
-        data: Object.assign({}, DEMO_ROW_DATA)
-      }, {
-        data: Object.assign({}, DEMO_ROW_DATA)
-      }];
+      rows = _.times(DEMO_ROW_COUNT, function() {
+        return { data: Object.assign({}, DEMO_ROW_DATA) };
+      });
       columns = ['Column 1', 'Column 2'];
     } else {
       showingDemoData = false;
@@ -539,7 +548,7 @@ function fetchCurrentDataSourceEntries(entries, options) {
         message = FETCH_ERROR_MESSAGE;
 
         if (typeof Raven !== 'undefined') {
-          Raven.captureException(error, { extra: { dataSourceId: currentDataSourceId } });
+          Raven.captureException(error, { extra: { dataSourceId: dataSourceId } });
         }
       } else {
         // A jqXHR from any of the requests above, or one find() already sorted.
@@ -551,7 +560,7 @@ function fetchCurrentDataSourceEntries(entries, options) {
         message = failure.message;
 
         if (typeof Raven !== 'undefined') {
-          Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: currentDataSourceId, status: failure.status, error: message } });
+          Raven.captureMessage('Error accessing data source', { extra: { dataSourceId: dataSourceId, status: failure.status, error: message } });
         }
       }
 
@@ -944,6 +953,11 @@ function saveCurrentData() {
     return Promise.resolve(SAVE_BUSY);
   }
 
+  // A load already running, such as a Reload clicked just before Save, would
+  // otherwise rebuild the grid mid-save and replace the rows being saved
+  // (PS-2251). The save reloads the grid itself once the commit is confirmed.
+  fetchSequence++;
+
   var saving;
 
   renderSaveLock();
@@ -984,7 +998,8 @@ function confirmAndCommit() {
     removeEmptyRows: true
   });
   var duplicates = DuplicateRows.find(entries, DuplicateRows.gridRowNumbers(hot ? hot.getData().slice(1) : []), {
-    placeholderValue: showingDemoData ? DEMO_ROW_VALUE : undefined
+    placeholderValue: showingDemoData ? DEMO_ROW_VALUE : undefined,
+    placeholderRows: DEMO_ROW_COUNT
   });
 
   if (!duplicates.count) {
@@ -1002,7 +1017,8 @@ function confirmAndCommit() {
       }
     }
   }).then(function(confirmed) {
-    return confirmed ? commitCurrentData() : SAVE_CANCELLED;
+    // Commit the rows the user was asked about, not a fresh read of the grid
+    return confirmed ? commitCurrentData(entries) : SAVE_CANCELLED;
   });
 }
 

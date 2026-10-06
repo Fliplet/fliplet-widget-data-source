@@ -175,6 +175,50 @@ describe('DuplicateRows.find', function() {
     expect(result).toEqual({ count: 2, rows: [4, 5] });
   });
 
+  it('flags a copy of a placeholder row beyond the seeded ones', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo },
+      { data: demo }
+    ], undefined, { placeholderValue: 'demo data', placeholderRows: 2 });
+
+    expect(result).toEqual({ count: 1, rows: [4] });
+  });
+
+  it('flags every copy of a placeholder row beyond the seeded ones', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo },
+      { data: demo },
+      { data: demo }
+    ], [2, 3, 5, 6], { placeholderValue: 'demo data', placeholderRows: 2 });
+
+    expect(result).toEqual({ count: 2, rows: [5, 6] });
+  });
+
+  it('flags a copy of a renamed placeholder row beyond the seeded ones', function() {
+    var demo = { Name: 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo },
+      { data: demo }
+    ], undefined, { placeholderValue: 'demo data', placeholderRows: 2 });
+
+    expect(result).toEqual({ count: 1, rows: [4] });
+  });
+
+  it('ignores the seeded placeholder rows when the count is given', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo }
+    ], undefined, { placeholderValue: 'demo data', placeholderRows: 2 });
+
+    expect(result).toEqual({ count: 0, rows: [] });
+  });
+
   it('flags placeholder-looking rows when no placeholder is given', function() {
     var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
 

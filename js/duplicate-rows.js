@@ -104,10 +104,18 @@ var DuplicateRows = (function() {
    *   every value is this one are left alone: they were not copied by the
    *   user. Matched on values, as renaming or deleting a column changes the
    *   keys of the row data.
+   * @param {Number} [options.placeholderRows] - How many placeholder rows the
+   *   grid opened with. Only that many are left alone; any further ones are
+   *   copies of them and are reported. Defaults to every placeholder row.
    * @returns {Object} { count, rows } where rows are 1-based grid row numbers
    */
   function find(entries, gridRows, options) {
     var placeholderValue = options ? options.placeholderValue : undefined;
+    var placeholderRows = options && options.placeholderRows !== undefined
+      ? options.placeholderRows
+      : Infinity;
+    var placeholdersSeen = 0;
+    var exempt = [];
     var counts = {};
     var keys = [];
     var rows = [];
@@ -120,8 +128,12 @@ var DuplicateRows = (function() {
     entries.forEach(function(entry, index) {
       var key = dataKey(entry && entry.data);
 
+      // Placeholder rows have no id, so the seeded ones cannot be told from
+      // copies of them: the first placeholderRows are taken as the seeded
+      // ones. They still count, so one copy is matched against them (PS-2251).
       if (key !== null && isPlaceholder(entry.data, placeholderValue)) {
-        key = null;
+        exempt[index] = placeholdersSeen < placeholderRows;
+        placeholdersSeen++;
       }
 
       keys[index] = key;
@@ -134,7 +146,7 @@ var DuplicateRows = (function() {
     entries.forEach(function(entry, index) {
       var key = keys[index];
 
-      if (key === null || (entry && entry.id) || counts[key] < 2) {
+      if (key === null || exempt[index] || (entry && entry.id) || counts[key] < 2) {
         return;
       }
 
