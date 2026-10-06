@@ -125,6 +125,62 @@ describe('DuplicateRows.find', function() {
     expect(result).toEqual({ count: 1, rows: [] });
   });
 
+  it('ignores untouched placeholder rows', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo }
+    ], undefined, { placeholderValue: 'demo data' });
+
+    expect(result).toEqual({ count: 0, rows: [] });
+  });
+
+  it('ignores placeholder rows after a column is renamed', function() {
+    var result = DuplicateRows.find([
+      { data: { Name: 'demo data', 'Column 2': 'demo data' } },
+      { data: { Name: 'demo data', 'Column 2': 'demo data' } }
+    ], undefined, { placeholderValue: 'demo data' });
+
+    expect(result).toEqual({ count: 0, rows: [] });
+  });
+
+  it('ignores placeholder rows after a column is deleted or added', function() {
+    var result = DuplicateRows.find([
+      { data: { 'Column 2': 'demo data', Email: '' } },
+      { data: { 'Column 2': 'demo data', Email: '' } }
+    ], undefined, { placeholderValue: 'demo data' });
+
+    expect(result).toEqual({ count: 0, rows: [] });
+  });
+
+  it('flags copies of a placeholder row the user has edited', function() {
+    var edited = { Name: 'Alice', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: edited },
+      { data: edited }
+    ], undefined, { placeholderValue: 'demo data' });
+
+    expect(result).toEqual({ count: 2, rows: [2, 3] });
+  });
+
+  it('still flags other copies when a placeholder is given', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+    var result = DuplicateRows.find([
+      { data: demo },
+      { data: demo },
+      { data: { 'Column 1': 'Alice', 'Column 2': 'x' } },
+      { data: { 'Column 1': 'Alice', 'Column 2': 'x' } }
+    ], undefined, { placeholderValue: 'demo data' });
+
+    expect(result).toEqual({ count: 2, rows: [4, 5] });
+  });
+
+  it('flags placeholder-looking rows when no placeholder is given', function() {
+    var demo = { 'Column 1': 'demo data', 'Column 2': 'demo data' };
+
+    expect(DuplicateRows.find([{ data: demo }, { data: demo }])).toEqual({ count: 2, rows: [2, 3] });
+  });
+
   it('handles missing or empty input', function() {
     expect(DuplicateRows.find([])).toEqual({ count: 0, rows: [] });
     expect(DuplicateRows.find()).toEqual({ count: 0, rows: [] });

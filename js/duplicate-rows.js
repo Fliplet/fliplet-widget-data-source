@@ -75,14 +75,39 @@ var DuplicateRows = (function() {
   }
 
   /**
+   * Whether every value of a row is the placeholder value
+   * @param {Object} data - Entry data
+   * @param {String} [placeholderValue] - Placeholder value
+   * @returns {Boolean} True for a placeholder row
+   */
+  function isPlaceholder(data, placeholderValue) {
+    if (placeholderValue === undefined) {
+      return false;
+    }
+
+    var normalized = entryDiff.normalizeData(data);
+
+    return Object.keys(normalized).every(function(key) {
+      return normalized[key] === placeholderValue;
+    });
+  }
+
+  /**
    * Find new rows whose data exactly matches another row in the same save
    * @param {Array} entries - Entries in visual order ([{ id, data }])
    * @param {Array} [gridRows] - Grid row number of each entry. When omitted,
    *   entries are taken to be every data row (index + 2). When given but not
    *   one per entry, the positions are unknown and no rows are reported.
+   * @param {Object} [options] - Options
+   * @param {String} [options.placeholderValue] - Value of placeholder rows,
+   *   such as the "demo data" rows a new data source opens with. Rows whose
+   *   every value is this one are left alone: they were not copied by the
+   *   user. Matched on values, as renaming or deleting a column changes the
+   *   keys of the row data.
    * @returns {Object} { count, rows } where rows are 1-based grid row numbers
    */
-  function find(entries, gridRows) {
+  function find(entries, gridRows, options) {
+    var placeholderValue = options ? options.placeholderValue : undefined;
     var counts = {};
     var keys = [];
     var rows = [];
@@ -94,6 +119,10 @@ var DuplicateRows = (function() {
 
     entries.forEach(function(entry, index) {
       var key = dataKey(entry && entry.data);
+
+      if (key !== null && isPlaceholder(entry.data, placeholderValue)) {
+        key = null;
+      }
 
       keys[index] = key;
 
