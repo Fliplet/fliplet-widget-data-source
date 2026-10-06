@@ -1160,6 +1160,12 @@ function search(action, options) {
 
   var value = searchField.value.trim();
 
+  // PS-2293: next/prev before the debounced find ran — search the new text first
+  if ((action === 'next' || action === 'prev') && value !== previousSearchValue) {
+    debouncedFind.cancel();
+    action = 'find';
+  }
+
   //  Don't run search again if the value hasn't changed
   if (action === 'find' && previousSearchValue === value && !options.force) {
     setSearchMessage();
