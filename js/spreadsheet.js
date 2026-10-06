@@ -1,4 +1,4 @@
-/* global GridSort */
+/* global GridSort, ColumnChanges */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
@@ -354,6 +354,11 @@ function spreadsheet(options) {
   // Data as an array
   spreadsheetData = prepareData(rows, columns);
 
+  // Which saved column each grid column came from, so a save can send column
+  // renames and deletions for the API to apply to every page (PS-2204). Created
+  // before the grid, whose hooks keep it up to date from the first spare column.
+  var columnTracker = ColumnChanges.createTracker(spreadsheetData[0], { demo: !!options.demoColumns });
+
   var hotSettings = {
     stretchH: 'all',
     manualColumnResize: true,
@@ -471,7 +476,8 @@ function spreadsheet(options) {
       // Add current change to stack
       HistoryStack.add({
         data: preparedData,
-        colWidths: colWidths
+        colWidths: colWidths,
+        columnIds: getColumnIdsInView()
       });
 
       // Re-execute search without changing cell selection
@@ -485,6 +491,9 @@ function spreadsheet(options) {
       onChange();
     },
     afterRemoveCol: function(index, amount, originalArr, source) {
+      // Handsontable passes the physical indexes of the removed columns
+      columnTracker.remove(Array.isArray(originalArr) ? originalArr : [index]);
+
       // Remove columns widths from the widths array
       colWidths.splice(index, amount);
 
@@ -597,25 +606,62 @@ function spreadsheet(options) {
       rowsMoved = true;
       onChange();
     },
+    beforeCreateRow: function(index) {
+      // A row added above the column names row would become the column names
+      // row, and the save would delete every column from every row (PS-2204)
+      if (index === 0) {
+        showGridNotice('Rows cannot be added above the column names. Select a row below it.');
+
+        return false;
+      }
+    },
+    beforeRemoveRow: function(index) {
+      // Removing the column names row makes the first entry the column names,
+      // and the save would rename every column to that entry's values (PS-2204).
+      // A selection that starts at the column names row starts at index 0.
+      if (index === 0) {
+        showGridNotice('The column names row cannot be deleted. Select only entry rows to delete them.');
+
+        return false;
+      }
+    },
     afterCreateRow: function() {
       onChange();
     },
     afterCreateCol: function(index, amount, source) {
+      // Every new column, spare ones included: `index` is where Handsontable
+      // spliced them into the data arrays
+      columnTracker.insert(index, amount);
+
       // Source auto means that column was created by lib to add empty col at the end of the table
       if (source === 'auto') {
         return true;
       }
 
-      // Column name
-      for (var i = 0; i < amount; i++) {
-        var columnName = generateColumnName();
+      // Column name, written where the data arrays hold the column. Its place on
+      // screen is not known yet: Handsontable's column move plugin places the new
+      // columns after this hook, so after a column drag the same index on screen
+      // is another column, which would be renamed instead (PS-2204).
+      var headerRow = hot.getSourceDataAtRow(0);
 
-        hot.setDataAtCell(0, index + i, columnName);
+      for (var i = 0; i < amount; i++) {
+        headerRow[index + i] = generateColumnName();
       }
 
-      // Add this new width before set the widths again
-      colWidths.splice(index, 0, 50);
-      hot.updateSettings({ colWidths: colWidths });
+      // Widths once the insert has finished. updateSettings here would restart the
+      // column move plugin before it places the new columns, and the columns
+      // would show in the wrong order after a column drag (PS-2204).
+      Promise.resolve().then(function() {
+        if (isDestroyed) {
+          return;
+        }
+
+        for (var j = 0; j < amount; j++) {
+          colWidths.splice(hot.toVisualColumn(index + j), 0, 50);
+        }
+
+        hot.updateSettings({ colWidths: colWidths });
+      });
 
       onChange();
     },
@@ -699,13 +745,62 @@ function spreadsheet(options) {
 
   HistoryStack.add({
     data: spreadsheetData,
-    colWidths: colWidths
+    colWidths: colWidths,
+    columnIds: getColumnIdsInView()
   });
 
   copyPastePlugin = hot.getPlugin('copyPaste');
 
   function getColumns() {
     return hot.getDataAtRow(0);
+  }
+
+  /**
+   * Column ids in the order the columns are shown, which is the order of the
+   * data an undo/redo state records - and so the physical order the grid has
+   * once that state is loaded back
+   * @returns {Array} Column ids
+   */
+  function getColumnIdsInView() {
+    var physicalIds = columnTracker.getIds(hot.countSourceCols());
+
+    return getColumns().map(function(header, visualIndex) {
+      return physicalIds[hot.toPhysicalColumn(visualIndex)];
+    });
+  }
+
+  /**
+   * Headers in physical order, the order the column ids are kept in
+   * @returns {Array} Column names, null for a column without one
+   */
+  function getPhysicalColumns() {
+    return (hot.getSourceDataAtRow(0) || []).slice();
+  }
+
+  /**
+   * Columns renamed or deleted since the grid was loaded or last saved
+   * @returns {Object} { renameColumns, deleteColumns, saved } - see ColumnChanges
+   */
+  function getColumnChanges() {
+    return columnTracker.getChanges(getPhysicalColumns());
+  }
+
+  /**
+   * The save carrying these column changes succeeded
+   * @param {Object} saved - The `saved` value from getColumnChanges()
+   * @returns {undefined}
+   */
+  function markColumnsSaved(saved) {
+    columnTracker.markSaved(saved);
+  }
+
+  /**
+   * Undo/redo loaded a recorded state: go back to the column ids recorded with it
+   * @param {Array} columnIds - Ids recorded with the state
+   * @returns {undefined}
+   */
+  function restoreColumnIds(columnIds) {
+    columnTracker.restore(columnIds);
   }
 
   /**
@@ -931,12 +1026,16 @@ function spreadsheet(options) {
     var rows = options.rows || [];
     var columns = options.columns || [];
     var preparedData = prepareData(rows, columns);
+    var physicalColumns = getPhysicalColumns();
 
     if (!dataLoaded) {
       hot.loadData(preparedData);
     }
 
-    HistoryStack.getCurrent().setData(preparedData);
+    // The state now holds the saved columns only, so record their ids with it
+    HistoryStack.getCurrent().setData(preparedData, columns.map(function(column) {
+      return columnTracker.idOf(physicalColumns, column);
+    }));
   }
 
   /**
@@ -1005,6 +1104,14 @@ function spreadsheet(options) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
   }
 
+  function hasRowsMoved() {
+    return rowsMoved;
+  }
+
+  function clearRowsMoved() {
+    rowsMoved = false;
+  }
+
   /**
    * Whether a column sort is currently applied to the grid.
    * @returns {Boolean} True when the visible sequence is a sort, not the stored order
@@ -1046,7 +1153,7 @@ function spreadsheet(options) {
   function reset(resetHistory) {
     search('clear');
     setChanges(false);
-    rowsMoved = false;
+    clearRowsMoved();
 
     $('.save-btn').addClass('hidden');
     $('.data-save-status').addClass('hidden');
@@ -1061,6 +1168,9 @@ function spreadsheet(options) {
     setData: setData,
     getColumns: getColumns,
     getColWidths: getColWidths,
+    getColumnChanges: getColumnChanges,
+    markColumnsSaved: markColumnsSaved,
+    restoreColumnIds: restoreColumnIds,
     destroy: function() {
       reset(true);
 
@@ -1094,9 +1204,8 @@ function spreadsheet(options) {
     onSaveError: onSaveError,
     hasChanges: hasChanges,
     setChanges: setChanges,
-    hasRowsMoved: function() {
-      return rowsMoved;
-    },
+    hasRowsMoved: hasRowsMoved,
+    clearRowsMoved: clearRowsMoved,
     // True while the grid is showing a column sort instead of the stored
     // sequence. Nothing about a row's position can be read off the grid then.
     isColumnSorted: isColumnSorted,
