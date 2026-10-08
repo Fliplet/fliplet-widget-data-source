@@ -322,7 +322,7 @@ function save(headers, rows, options) {
           return Promise.resolve();
         },
         confirm: function() {
-          return Promise.resolve(true);
+          return Promise.resolve(options.confirmAnswer !== false);
         }
       }
     },
@@ -358,8 +358,12 @@ function save(headers, rows, options) {
     return extractFunction(interfaceSource, name);
   }).join('\n'), context);
 
-  return context.saveCurrentData().then(function() {
-    return { grid: grid, removed: removed, commit: commits[0], loader: loader, pageBar: pageBar, context: context };
+  if (options.beforeSave) {
+    options.beforeSave(context, loader);
+  }
+
+  return context.saveCurrentData().then(function(result) {
+    return { grid: grid, removed: removed, commit: commits[0], loader: loader, pageBar: pageBar, context: context, result: result };
   });
 }
 
@@ -551,6 +555,27 @@ describe('page bar during a save (PS-2204)', function() {
       // Another page would replace the rows still to copy
       context.navigateToPage(2);
       expect(context.currentPage).toBe(1);
+    });
+  });
+});
+
+describe('cancelled save (PR #291 review)', function() {
+  var headers = ['A', 'B'];
+  // Two identical new rows: the save asks before inserting the copy
+  var rows = [{ A: 'a1', B: 'b1' }, { A: 'a1', B: 'b1' }];
+
+  it('lifts the cover of a reload the save abandoned when the duplicate prompt is cancelled', function() {
+    return save(headers, rows, {
+      confirmAnswer: false,
+      beforeSave: function(context) {
+        // A page change still loading when Save is clicked
+        context.showGridLoader('Loading page...');
+      }
+    }).then(function(result) {
+      expect(result.result).toEqual({ cancelled: true });
+      expect(result.commit).toBeUndefined();
+      expect(result.loader.hidden).toBe(true);
+      expect(result.context.saveLock.isLocked()).toBe(false);
     });
   });
 });

@@ -868,7 +868,16 @@ function fetchCurrentDataSourceVersions() {
 
 Fliplet.Widget.onSaveRequest(function() {
   // After a save already running, so the two never overlap (PS-2204)
-  return Promise.resolve(saveInProgress).catch(_.noop).then(saveCurrentData).then(function(result) {
+  var previous = saveInProgress;
+
+  return Promise.resolve(previous).catch(_.noop).then(function(previousResult) {
+    return saveCurrentData().then(function(result) {
+      // The grid is still being rebuilt after the save that just finished (its
+      // render waits for the Entries tab to be sized), so there is no table and
+      // nothing can have changed since: close with that save's result
+      return result === SAVE_SKIPPED && previous ? previousResult : result;
+    });
+  }).then(function(result) {
     // Cancelled from the duplicate rows prompt: stay open with the edits.
     // Already saving, a reload needed, or nothing open: nothing was sent.
     if (result === SAVE_CANCELLED || result === SAVE_BUSY || result === SAVE_SKIPPED) {
@@ -1199,7 +1208,10 @@ function saveCurrentData() {
   // A load already running, such as a Reload clicked just before Save, would
   // otherwise rebuild the grid mid-save and replace the rows being saved
   // (PS-2251). The save reloads the grid itself once the commit is confirmed.
+  // That load's cover comes down with it: it never renders, so nothing else
+  // would, and a cancelled save would leave the grid covered.
   fetchGeneration++;
+  hideGridLoader();
 
   var saving;
 

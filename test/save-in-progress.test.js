@@ -97,6 +97,7 @@ function setup() {
     COLUMNS_CHANGED_MESSAGE: 'A column was renamed or deleted elsewhere. Reload before editing.',
     saveLock: SaveState.createSaveLock(),
     updatePaginationControls: function() {},
+    hideGridLoader: function() {},
     table: {
       changes: true,
       hasChanges: function() {
@@ -177,6 +178,9 @@ function setup() {
     },
     makeChange: function() {
       context.table.changes = true;
+    },
+    setTable: function(value) {
+      context.table = value;
     },
     button: button,
     commits: commits,
@@ -336,6 +340,31 @@ describe('one save at a time (PS-2204)', function() {
 
       return wait();
     }).then(function() {
+      expect(page.button.disabled).toBe(false);
+    });
+  });
+
+  // The save's reload rebuilds the grid only once the Entries tab has a size. A
+  // Save & close queued behind that save ran before the grid was back, found no
+  // table, and never closed the overlay (PR #291 review).
+  it("closes with the finished save's result when Save & close is queued and the grid is still being rebuilt", function() {
+    var page = setup();
+
+    page.click();
+
+    return wait().then(function() {
+      page.saveAndClose();
+
+      return wait();
+    }).then(function() {
+      // The reload after the first save has taken the grid down for its render
+      page.setTable(null);
+      page.commits[0].resolve('reloaded');
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(1);
+      expect(page.completed).toEqual(['reloaded']);
       expect(page.button.disabled).toBe(false);
     });
   });
