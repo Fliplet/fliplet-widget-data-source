@@ -1209,9 +1209,11 @@ function saveCurrentData() {
   // otherwise rebuild the grid mid-save and replace the rows being saved
   // (PS-2251). The save reloads the grid itself once the commit is confirmed.
   // That load's cover comes down with it: it never renders, so nothing else
-  // would, and a cancelled save would leave the grid covered.
+  // would, and a cancelled save would leave the grid covered. The page it was
+  // loading never shows either, so the page bar goes back to the page on screen.
   fetchGeneration++;
   hideGridLoader();
+  currentPage = Pagination.resolveFetchErrorRecovery(lastRenderedPage).currentPage;
 
   var saving;
 

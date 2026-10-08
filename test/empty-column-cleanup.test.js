@@ -233,6 +233,8 @@ function save(headers, rows, options) {
       }
     },
     currentPage: options.currentPage || 0,
+    // The page on screen; a page load still pending when Save is clicked sets currentPage ahead of it
+    lastRenderedPage: typeof options.lastRenderedPage === 'number' ? options.lastRenderedPage : (options.currentPage || 0),
     totalPages: 1,
     fetchGeneration: 0,
     saveInProgress: null,
@@ -576,6 +578,22 @@ describe('cancelled save (PR #291 review)', function() {
       expect(result.commit).toBeUndefined();
       expect(result.loader.hidden).toBe(true);
       expect(result.context.saveLock.isLocked()).toBe(false);
+    });
+  });
+});
+
+describe('page load pending when Save is clicked (PR #291 review)', function() {
+  var headers = ['A', 'B'];
+  var rows = [{ A: 'a1', B: 'b1' }];
+
+  it('puts the page bar back on the page on screen, as the pending load never renders', function() {
+    // Next clicked on page 1 of a 1,500-row DS: currentPage is already 1 while page 0 is still shown
+    return save(headers, rows, { totalEntries: 1500, currentPage: 1, lastRenderedPage: 0, beforeSave: function(context) {
+      context.showGridLoader('Loading page...');
+    } }).then(function(result) {
+      expect(result.context.currentPage).toBe(0);
+      expect(result.context.lastRenderedPage).toBe(0);
+      expect(result.loader.hidden).toBe(true);
     });
   });
 });
