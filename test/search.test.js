@@ -14,7 +14,7 @@ var expect = require('./expect');
 
 var source = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
 
-function load(cells) {
+function load(cells, applySearchFilter) {
   var handlers = {};
   var pending = null;
   var message = { html: '' };
@@ -74,6 +74,10 @@ function load(cells) {
     },
     setTimeout: function(fn) {
       fn();
+    },
+    // interface.js's server-side search hook (PS-2313); off unless a test says so
+    applySearchFilter: applySearchFilter || function() {
+      return false;
     }
   };
 
@@ -173,5 +177,33 @@ describe('Data source search', function() {
 
     expect(grid.queries).toEqual(['st']);
     expect(grid.message.html).toBe('3 of 5 found');
+  });
+
+  // PS-2313: on a paginated data source the term goes to the server instead
+  it('leaves the grid search to interface.js when it takes the term', function() {
+    var terms = [];
+    var grid = load(cells, function(term) {
+      terms.push(term);
+
+      return true;
+    });
+
+    grid.type('smith');
+    grid.flush();
+
+    expect(terms).toEqual(['smith']);
+    expect(grid.queries).toEqual([]);
+  });
+
+  it('searches the grid when interface.js declines the term', function() {
+    var grid = load(cells, function() {
+      return false;
+    });
+
+    grid.type('smith');
+    grid.flush();
+
+    expect(grid.queries).toEqual(['smith']);
+    expect(grid.message.html).toBe('0 found');
   });
 });
