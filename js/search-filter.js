@@ -53,6 +53,10 @@ var SearchFilter = (function() {
    * @returns {String} e.g. `1–37 of 37 entries matching "smith"`
    */
   function rangeText(pageInfo, term) {
+    if (!pageInfo.totalEntries) {
+      return 'No entries matching "' + term + '"';
+    }
+
     return pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries
       + ' entries matching "' + term + '"';
   }

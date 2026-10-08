@@ -554,10 +554,19 @@ function applySearchFilter(term) {
   }
 
   function searchFor() {
+    var previousTerm = searchTerm;
+    var previousPage = currentPage;
+
     searchTerm = term;
     currentPage = 0;
     showGridLoader(term ? 'Searching...' : 'Loading...');
-    fetchCurrentDataSourceEntries();
+    fetchCurrentDataSourceEntries(undefined, { rejectOnError: true }).catch(function() {
+      // The old rows stayed on screen: show their term and page again
+      searchTerm = previousTerm;
+      currentPage = previousPage;
+      keepCurrentSearch();
+      updatePaginationControls();
+    });
   }
 
   if (table && table.hasChanges()) {
@@ -665,12 +674,16 @@ function fetchCurrentDataSourceEntries(entries, options) {
       // PS-2313: the Find box term is matched server-side across the whole
       // data source, and the grid shows the matches a page at a time. They
       // are not a page of the stored sequence, so the fetch has no edges.
-      if (SearchFilter.isActive(searchTerm, totalEntries, PAGE_SIZE)) {
+      var where = SearchFilter.isActive(searchTerm, totalEntries, PAGE_SIZE)
+        ? SearchFilter.buildWhere(columns, searchTerm)
+        : null;
+
+      if (where) {
         return Fliplet.API.request({
           url: 'v1/data-sources/' + dataSourceId + '/data/query',
           method: 'POST',
           data: {
-            where: SearchFilter.buildWhere(columns, searchTerm),
+            where: where,
             limit: PAGE_SIZE,
             offset: currentPage * PAGE_SIZE,
             order: [['order', 'ASC'], ['id', 'DESC']],
@@ -693,6 +706,11 @@ function fetchCurrentDataSourceEntries(entries, options) {
         });
       }
 
+      // Not filtered: the rows fit in a page, or no column can match the term.
+      // A term left over from a filtered grid is dropped so the box and the
+      // grid stay in step - the rebuild's search('clear') empties the box, as
+      // a page change did before PS-2313.
+      searchTerm = '';
       filteredTotal = null;
 
       // Fetch only the current page of entries using the query endpoint.

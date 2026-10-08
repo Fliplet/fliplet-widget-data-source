@@ -49,4 +49,8 @@ describe('SearchFilter.rangeText', function() {
     expect(text.indexOf('smith') > -1).toBe(true);
     expect(text).toBe('1–37 of 37 entries matching "smith"');
   });
+
+  it('says so when nothing matched', function() {
+    expect(SearchFilter.rangeText({ startEntry: 0, endEntry: 0, totalEntries: 0 }, 'x')).toBe('No entries matching "x"');
+  });
 });

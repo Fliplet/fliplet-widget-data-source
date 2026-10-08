@@ -10,7 +10,7 @@
     "Papa": "readonly",
     "SearchFilter": "readonly",
     "applySearchFilter": "readonly",
-    "searchTerm": "readonly",
+    "searchTerm": true,
     "search": "readonly",
     "currentDataSourceId": true,
     "table": true,

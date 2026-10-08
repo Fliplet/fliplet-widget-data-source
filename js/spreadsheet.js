@@ -721,10 +721,23 @@ function spreadsheet(options) {
         $('.entries-message').html('');
       }
 
-      // Clear search in initial load, unless the grid was rebuilt for a
-      // server-side search (PS-2313): then re-run it over the rows shown
-      if (firstTime && !isSearchFiltered()) {
-        search('clear');
+      if (firstTime) {
+        if (isSearchFiltered()) {
+          // The grid was rebuilt for a server-side search (PS-2313): re-run
+          // the find over the rows shown. Handsontable fires this hook from
+          // inside its constructor, before `hot` is the new grid, so the find
+          // waits the way search('clear') does.
+          setTimeout(function() {
+            search('find', {
+              selectCell: false,
+              force: true,
+              focusSearch: false
+            });
+          }, 50);
+        } else {
+          // Clear search in initial load
+          search('clear');
+        }
       } else {
         // Re-execute search without changing cell selection
         search('find', {
