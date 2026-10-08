@@ -8,6 +8,8 @@ var path = require('path');
 var vm = require('vm');
 
 var Pagination = require('../js/pagination');
+var SaveState = require('../js/save-state');
+var DuplicateRows = require('../js/duplicate-rows');
 
 // PS-2204: on a data source of 500 rows or fewer, the save removes empty
 // "Column (n)" columns from the grid. It worked out the grid position from the
@@ -123,11 +125,14 @@ function createPageBar() {
 }
 
 /**
- * Runs the widget's saveCurrentData against a grid whose header row is
- * `headers`, in the order the columns are shown (null for a column without a
- * name). The grid removes columns the way HOT 0.38's alter('remove_col') does:
- * by visual index. A saved column the save removes from the grid is reported
- * as deleted, as js/column-changes.js does.
+ * Runs the widget's save (saveCurrentData, through confirmAndCommit and
+ * commitCurrentData) against a grid whose header row is `headers`, in the
+ * order the columns are shown (null for a column without a name). The grid
+ * removes columns the way HOT 0.38's alter('remove_col') does: by visual
+ * index. A saved column the save removes from the grid is reported as
+ * deleted, as js/column-changes.js does. The save lock is the real one
+ * (js/save-state.js), so the loader and the page bar follow it as they do in
+ * the widget (PS-2251).
  * @param {Array} headers Header row, in the order the columns are shown
  * @param {Array} rows Data of each row on the page
  * @param {Object} [options] `commit` returns the promise the commit resolves with,
@@ -150,6 +155,18 @@ function save(headers, rows, options) {
   var loader = { hidden: true, text: '' };
   // The page bar under the grid (.pagination-controls): whether each control is disabled
   var pageBar = createPageBar();
+  // Any other element: chainable, remembers nothing
+  var element = {};
+
+  ['text', 'html', 'removeClass', 'addClass', 'prop', 'empty', 'append', 'show', 'hide'].forEach(function(name) {
+    element[name] = function() {
+      return element;
+    };
+  });
+
+  element.hasClass = function() {
+    return false;
+  };
 
   var table = {
     onSave: function() {},
@@ -190,6 +207,14 @@ function save(headers, rows, options) {
     hot: {
       alter: function(action, index, amount) {
         removed = removed.concat(grid.splice(index, amount));
+      },
+      // Header row first, then each row's cells in grid order
+      getData: function() {
+        return [grid.slice()].concat(rows.map(function(row) {
+          return grid.map(function(header) {
+            return header === null ? null : row[header];
+          });
+        }));
       }
     },
     totalEntries: options.totalEntries || rows.length,
@@ -201,15 +226,31 @@ function save(headers, rows, options) {
         commits.push(body);
 
         if (options.duringCommit) {
-          options.duringCommit(context, pageBar);
+          options.duringCommit(context, pageBar, loader);
         }
 
         return options.commit ? options.commit() : Promise.resolve({ clientIds: [] });
       }
     },
-    commitRunning: false,
     currentPage: options.currentPage || 0,
+    // The page on screen; a page load still pending when Save is clicked sets currentPage ahead of it
+    lastRenderedPage: typeof options.lastRenderedPage === 'number' ? options.lastRenderedPage : (options.currentPage || 0),
     totalPages: 1,
+    fetchGeneration: 0,
+    saveInProgress: null,
+    showingDemoData: false,
+    DEMO_ROW_VALUE: 'demo data',
+    DEMO_ROW_COUNT: 2,
+    SAVE_CANCELLED: { cancelled: true },
+    SAVE_BUSY: { busy: true },
+    SAVE_SKIPPED: { skipped: true },
+    SAVED_NOT_REFRESHED: { saved: true, refreshed: false },
+    FETCH_ERROR_MESSAGE: 'Error loading data source.',
+    SAVE_ERROR_MESSAGE: 'Error saving data source.',
+    COLUMNS_CHANGED_MESSAGE: 'A column was renamed or deleted elsewhere. Reload before editing.',
+    SaveState: SaveState,
+    DuplicateRows: DuplicateRows,
+    saveLock: SaveState.createSaveLock(),
     Pagination: Pagination,
     $: function(selector) {
       if (selector === '.pagination-controls') {
@@ -220,23 +261,30 @@ function save(headers, rows, options) {
         return pageBar.all;
       }
 
-      return {
-        text: function(text) {
-          loader.text = text;
+      if (selector === '.page-loading-overlay') {
+        return {
+          text: function(text) {
+            loader.text = text;
 
-          return this;
-        },
-        removeClass: function() {
-          loader.hidden = false;
+            return this;
+          },
+          removeClass: function() {
+            loader.hidden = false;
 
-          return this;
-        },
-        addClass: function() {
-          loader.hidden = true;
+            return this;
+          },
+          addClass: function() {
+            loader.hidden = true;
 
-          return this;
-        }
-      };
+            return this;
+          },
+          hasClass: function() {
+            return loader.hidden;
+          }
+        };
+      }
+
+      return element;
     },
     pageEdges: null,
     locale: 'en',
@@ -247,6 +295,9 @@ function save(headers, rows, options) {
       if (options.fetchStarted) {
         options.fetchStarted(context, loader);
       }
+
+      // The reload's render takes the loader down (renderSpreadsheet)
+      context.hideGridLoader();
 
       return Promise.resolve();
     },
@@ -267,9 +318,19 @@ function save(headers, rows, options) {
         update: function() {
           return Promise.resolve();
         }
+      },
+      Modal: {
+        alert: function() {
+          return Promise.resolve();
+        },
+        confirm: function() {
+          return Promise.resolve(options.confirmAnswer !== false);
+        }
       }
     },
     Promise: Promise,
+    setTimeout: setTimeout,
+    clearTimeout: clearTimeout,
     console: console
   };
 
@@ -282,13 +343,29 @@ function save(headers, rows, options) {
     'removeEmptyColumnsInEntries',
     'updatePaginationControls',
     'navigateToPage',
-    'saveCurrentData'
+    'isSaveLocked',
+    'showSaveNotice',
+    'alertReloadFirst',
+    'hideSaveNotice',
+    'refreshSaveButton',
+    'renderSaveLock',
+    'requireReload',
+    'onGridReloaded',
+    'reloadGrid',
+    'onUnconfirmedSave',
+    'saveCurrentData',
+    'confirmAndCommit',
+    'commitCurrentData'
   ].map(function(name) {
     return extractFunction(interfaceSource, name);
   }).join('\n'), context);
 
-  return context.saveCurrentData().then(function() {
-    return { grid: grid, removed: removed, commit: commits[0], loader: loader, pageBar: pageBar, context: context };
+  if (options.beforeSave) {
+    options.beforeSave(context, loader);
+  }
+
+  return context.saveCurrentData().then(function(result) {
+    return { grid: grid, removed: removed, commit: commits[0], loader: loader, pageBar: pageBar, context: context, result: result };
   });
 }
 
@@ -347,10 +424,13 @@ describe('loader over the grid during a save (PS-2204)', function() {
   var headers = ['A', 'B'];
   var rows = [{ A: 'a1', B: 'b1' }];
 
-  it('stays up while the commit runs, even when the reload started by the save shows its rows', function() {
+  it('stays up while the commit runs, and until the reload after it renders', function() {
     var seen = [];
 
     return save(headers, rows, {
+      duringCommit: function(context, pageBar, loader) {
+        seen.push({ hidden: loader.hidden, text: loader.text });
+      },
       commit: function() {
         return new Promise(function(resolve) {
           setTimeout(function() {
@@ -359,42 +439,35 @@ describe('loader over the grid during a save (PS-2204)', function() {
         });
       },
       fetchStarted: function(context, loader) {
-        // The reload at the start of the save renders while the commit runs
-        // (renderSpreadsheet calls hideGridLoader); the reload after it checks
-        // the loader is still up as the saved rows load
-        setTimeout(function() {
-          context.hideGridLoader();
-          seen.push({ hidden: loader.hidden, text: loader.text, commitRunning: context.commitRunning });
-        }, 0);
+        // The reload after the commit starts under the loader
+        seen.push({ hidden: loader.hidden, text: loader.text });
       }
     }).then(function(result) {
-      return new Promise(function(resolve) {
-        setTimeout(resolve, 10);
-      }).then(function() {
-        // During the commit: still up, saying it saves
-        expect(seen[0]).toEqual({ hidden: false, text: 'Saving...', commitRunning: true });
-        // After it, the reload's render takes it down
-        expect(seen[1]).toEqual({ hidden: true, text: 'Loading data...', commitRunning: false });
-        expect(result.loader.hidden).toBe(true);
-      });
+      // During the commit: up, saying it saves
+      expect(seen[0]).toEqual({ hidden: false, text: 'Saving...' });
+      // After it, the reload keeps it up until its render takes it down
+      expect(seen[1]).toEqual({ hidden: false, text: 'Loading data...' });
+      expect(result.loader.hidden).toBe(true);
     });
   });
 
-  it('comes down when the commit fails', function() {
-    var loaderAfterFailure;
+  it('comes down when the commit fails, so the rows typed can be copied', function() {
+    var loaderDuringCommit;
 
     return save(headers, rows, {
       commit: function() {
         return Promise.reject(new Error('Network error'));
       },
-      fetchStarted: function(context, loader) {
-        loaderAfterFailure = loader;
+      duringCommit: function(context, pageBar, loader) {
+        loaderDuringCommit = loader.hidden;
       }
     }).then(function() {
       throw new Error('The save should have failed');
-    }, function(error) {
-      expect(error.message).toBe('Network error');
-      expect(loaderAfterFailure.hidden).toBe(true);
+    }, function(failure) {
+      expect(loaderDuringCommit).toBe(false);
+      // No status: the server may have applied it (PS-2251)
+      expect(failure.kind).toBe('ambiguous');
+      expect(failure.error.message).toBe('Network error');
     });
   });
 });
@@ -439,13 +512,13 @@ describe('page bar during a save (PS-2204)', function() {
     });
   });
 
-  it('unlocks page changes when the commit fails', function() {
+  it('unlocks page changes when the server refuses the commit', function() {
     var context;
     var pageBar;
 
     return save(headers, rows, Object.assign({
       commit: function() {
-        return Promise.reject(new Error('Network error'));
+        return Promise.reject({ status: 422, responseJSON: { message: 'Invalid' } });
       },
       duringCommit: function(saveContext, saveBar) {
         context = saveContext;
@@ -453,12 +526,74 @@ describe('page bar during a save (PS-2204)', function() {
       }
     }, largeDataSource)).then(function() {
       throw new Error('The save should have failed');
-    }, function(error) {
-      expect(error.message).toBe('Network error');
+    }, function(failure) {
+      expect(failure.kind).toBe('definitive');
       expect(pageBarEnabled(pageBar)).toBe(true);
 
       context.navigateToPage(2);
       expect(context.currentPage).toBe(2);
+    });
+  });
+
+  it('keeps page changes locked after a commit that may have landed, until a reload (PS-2251)', function() {
+    var context;
+    var pageBar;
+
+    return save(headers, rows, Object.assign({
+      commit: function() {
+        return Promise.reject({ status: 504 });
+      },
+      duringCommit: function(saveContext, saveBar) {
+        context = saveContext;
+        pageBar = saveBar;
+      }
+    }, largeDataSource)).then(function() {
+      throw new Error('The save should have failed');
+    }, function(failure) {
+      expect(failure.unconfirmed).toBe(true);
+      expect(context.saveLock.needsReload()).toBe(true);
+      expect(pageBarEnabled(pageBar)).toBe(false);
+
+      // Another page would replace the rows still to copy
+      context.navigateToPage(2);
+      expect(context.currentPage).toBe(1);
+    });
+  });
+});
+
+describe('cancelled save (PR #291 review)', function() {
+  var headers = ['A', 'B'];
+  // Two identical new rows: the save asks before inserting the copy
+  var rows = [{ A: 'a1', B: 'b1' }, { A: 'a1', B: 'b1' }];
+
+  it('lifts the cover of a reload the save abandoned when the duplicate prompt is cancelled', function() {
+    return save(headers, rows, {
+      confirmAnswer: false,
+      beforeSave: function(context) {
+        // A page change still loading when Save is clicked
+        context.showGridLoader('Loading page...');
+      }
+    }).then(function(result) {
+      expect(result.result).toEqual({ cancelled: true });
+      expect(result.commit).toBeUndefined();
+      expect(result.loader.hidden).toBe(true);
+      expect(result.context.saveLock.isLocked()).toBe(false);
+    });
+  });
+});
+
+describe('page load pending when Save is clicked (PR #291 review)', function() {
+  var headers = ['A', 'B'];
+  var rows = [{ A: 'a1', B: 'b1' }];
+
+  it('puts the page bar back on the page on screen, as the pending load never renders', function() {
+    // Next clicked on page 1 of a 1,500-row DS: currentPage is already 1 while page 0 is still shown
+    return save(headers, rows, { totalEntries: 1500, currentPage: 1, lastRenderedPage: 0, beforeSave: function(context) {
+      context.showGridLoader('Loading page...');
+    } }).then(function(result) {
+      expect(result.context.currentPage).toBe(0);
+      expect(result.context.lastRenderedPage).toBe(0);
+      expect(result.loader.hidden).toBe(true);
     });
   });
 });

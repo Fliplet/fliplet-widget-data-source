@@ -6,6 +6,7 @@ var expect = require('./expect');
 var fs = require('fs');
 var path = require('path');
 var vm = require('vm');
+var SaveState = require('../js/save-state');
 
 // PS-2204: a save that renames or deletes a column changes every row and can
 // take several seconds on a large data source. A second save started meanwhile
@@ -60,19 +61,46 @@ function wait() {
 }
 
 /**
- * The Save button's click handler and the Save & close handler from
- * interface.js, with a grid that always has changes and a saveCurrentData
+ * The Save button's click handler, the Save & close handler and the real
+ * saveCurrentData (with the real save lock from js/save-state.js) from
+ * interface.js, with a grid that always has changes and a confirmAndCommit
  * whose commits end when the test says so
  * @returns {Object} The handlers, the button and the commits started
  */
 function setup() {
   var commits = [];
   var alerts = [];
+  var completed = [];
   var button = { disabled: false };
+  // Any element but the Save button: chainable, remembers nothing
+  var element = {};
+
+  ['text', 'html', 'removeClass', 'addClass', 'prop', 'empty', 'append', 'show', 'hide'].forEach(function(name) {
+    element[name] = function() {
+      return element;
+    };
+  });
+
+  element.hasClass = function() {
+    return false;
+  };
+
   var context = {
     _: { noop: function() {} },
     saveInProgress: null,
+    fetchGeneration: 0,
     widgetData: {},
+    SAVE_CANCELLED: { cancelled: true },
+    SAVE_BUSY: { busy: true },
+    SAVE_SKIPPED: { skipped: true },
+    SAVED_NOT_REFRESHED: { saved: true, refreshed: false },
+    COLUMNS_CHANGED_MESSAGE: 'A column was renamed or deleted elsewhere. Reload before editing.',
+    saveLock: SaveState.createSaveLock(),
+    updatePaginationControls: function() {},
+    hideGridLoader: function() {},
+    Pagination: require('../js/pagination'),
+    currentPage: 0,
+    lastRenderedPage: 0,
     table: {
       changes: true,
       hasChanges: function() {
@@ -86,17 +114,20 @@ function setup() {
         this.saveErrorShown = true;
       }
     },
-    $: function() {
-      return {
-        prop: function(name, value) {
-          button[name] = value;
+    $: function(selector) {
+      if (selector === '[data-save]') {
+        return {
+          prop: function(name, value) {
+            button[name] = value;
 
-          return this;
-        },
-        show: function() {}
-      };
+            return this;
+          }
+        };
+      }
+
+      return element;
     },
-    saveCurrentData: function() {
+    confirmAndCommit: function() {
       var commit = deferred();
 
       commits.push(commit);
@@ -115,14 +146,30 @@ function setup() {
         }
       },
       parseError: String,
-      Widget: { complete: function() {} }
+      Widget: {
+        complete: function(result) {
+          completed.push(result);
+        }
+      }
     },
     Promise: Promise,
-    setTimeout: setTimeout
+    setTimeout: setTimeout,
+    console: console
   };
 
   vm.createContext(context);
-  vm.runInContext('var onSaveClick = ' + extractFunction(interfaceSource, ".on('click', '[data-save]'")
+  vm.runInContext([
+    'showSaveNotice',
+    'hideSaveNotice',
+    'refreshSaveButton',
+    'renderSaveLock',
+    'requireReload',
+    'onSaveFailed',
+    'saveCurrentData'
+  ].map(function(name) {
+    return extractFunction(interfaceSource, 'function ' + name + '(');
+  }).join('\n')
+    + '\nvar onSaveClick = ' + extractFunction(interfaceSource, ".on('click', '[data-save]'")
     + ';\nvar onSaveRequest = ' + extractFunction(interfaceSource, 'Fliplet.Widget.onSaveRequest('), context);
 
   return {
@@ -135,10 +182,15 @@ function setup() {
     makeChange: function() {
       context.table.changes = true;
     },
+    setTable: function(value) {
+      context.table = value;
+    },
     button: button,
     commits: commits,
     alerts: alerts,
-    table: context.table
+    completed: completed,
+    table: context.table,
+    saveLock: context.saveLock
   };
 }
 
@@ -244,21 +296,18 @@ describe('one save at a time (PS-2204)', function() {
     });
   });
 
-  it('lets Save run again after Save & close fails', function() {
+  it('lets Save run again after Save & close fails, and does not close', function() {
     var page = setup();
 
-    var closed = page.saveAndClose();
-
-    // The overlay stays open: Save & close does not complete after a failed save
-    closed.then(function() {
-      throw new Error('Save & close should not have completed');
-    }, function() {});
+    page.saveAndClose();
 
     return wait().then(function() {
       page.commits[0].reject(new Error('Network error'));
 
       return wait();
     }).then(function() {
+      // The overlay stays open: Save & close does not complete after a failed save
+      expect(page.completed).toHaveLength(0);
       expect(page.button.disabled).toBe(false);
 
       page.click();
@@ -298,10 +347,35 @@ describe('one save at a time (PS-2204)', function() {
     });
   });
 
+  // The save's reload rebuilds the grid only once the Entries tab has a size. A
+  // Save & close queued behind that save ran before the grid was back, found no
+  // table, and never closed the overlay (PR #291 review).
+  it("closes with the finished save's result when Save & close is queued and the grid is still being rebuilt", function() {
+    var page = setup();
+
+    page.click();
+
+    return wait().then(function() {
+      page.saveAndClose();
+
+      return wait();
+    }).then(function() {
+      // The reload after the first save has taken the grid down for its render
+      page.setTable(null);
+      page.commits[0].resolve('reloaded');
+
+      return wait();
+    }).then(function() {
+      expect(page.commits).toHaveLength(1);
+      expect(page.completed).toEqual(['reloaded']);
+      expect(page.button.disabled).toBe(false);
+    });
+  });
+
   // A column the grid's rows use was renamed or deleted in another tab, and the
-  // API refused the save. The reload at the start of the save already shows
-  // the data source as it is now, so there is nothing left to save.
-  it('explains a save refused because a column changed elsewhere, and lets Save run again', function() {
+  // API refused the save. The edits are still on screen, but the columns under
+  // them are not the server's any more, so saving is blocked until a reload.
+  it('explains a save refused because a column changed elsewhere, and asks for a reload', function() {
     var page = setup();
 
     page.click();
@@ -316,7 +390,8 @@ describe('one save at a time (PS-2204)', function() {
       expect(page.alerts[0].message.indexOf('another tab') !== -1).toBe(true);
       expect(page.table.changes).toBe(false);
       expect(page.table.saveErrorShown).toBe(true);
-      expect(page.button.disabled).toBe(false);
+      expect(page.saveLock.needsReload()).toBe(true);
+      expect(page.button.disabled).toBe(true);
     });
   });
 });
