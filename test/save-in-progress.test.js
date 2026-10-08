@@ -98,6 +98,9 @@ function setup() {
     saveLock: SaveState.createSaveLock(),
     updatePaginationControls: function() {},
     hideGridLoader: function() {},
+    Pagination: require('../js/pagination'),
+    currentPage: 0,
+    lastRenderedPage: 0,
     table: {
       changes: true,
       hasChanges: function() {
