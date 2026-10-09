@@ -18,7 +18,7 @@ var CommitNotice = (function() {
 
   /**
    * Describe what a save could not persist.
-   * @param {Object} declined - { sorted: Boolean, rows: Number }
+   * @param {Object} declined - { sorted: Boolean, searched: Boolean, rows: Number }
    * @returns {String} Message for the user, empty when nothing was declined
    */
   function forDeclined(declined) {
@@ -30,6 +30,14 @@ var CommitNotice = (function() {
 
     if (!rows) {
       return '';
+    }
+
+    // PS-2313: a search shows rows from all over the data source, so no row
+    // around a new one says where it belongs. Clearing the search is the fix.
+    if (declined.searched) {
+      return rows === 1
+        ? 'A new row cannot be positioned while search results are shown, so it has been added at the end. Clear the search to place rows.'
+        : rows + ' new rows cannot be positioned while search results are shown, so they have been added at the end. Clear the search to place rows.';
     }
 
     // The sort comes first because it is the only one the user can undo

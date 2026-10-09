@@ -81,6 +81,10 @@ var lastRenderedPage = 0;
 // bottom of it is placed between (null at either end of the data source). Null
 // when no page is cached, and EntryDiff then treats the grid as the whole thing.
 var pageEdges = null;
+// The Find box term searched server-side on a paginated data source (PS-2313),
+// and how many rows matched it. Empty / null outside filter mode.
+var searchTerm = '';
+var filteredTotal = null;
 // The save that is running, until it settles (PS-2204). A Save & close
 // meanwhile waits for it, so the two never overlap.
 var saveInProgress = null;
@@ -134,6 +138,8 @@ function getDataSources() {
   $sourceContents.addClass('hidden');
   $('.search').val(''); // Reset search
   $('#search-field').val(''); // Reset filter
+  searchTerm = '';
+  filteredTotal = null;
   $('#data-sources').show();
   $('#trash-sources').hide();
 
@@ -326,11 +332,13 @@ function renderSpreadsheet(rowsData, fetchId, reloadToken) {
     // it's the correct page to roll back to if a later navigation fails.
     lastRenderedPage = currentPage;
 
+    // PS-2314: size the container before the grid is built; Handsontable does
+    // not redraw when its scroll container changes height afterwards
+    updatePaginationControls();
     table = spreadsheet({ columns: columns, rows: rowsData, demoColumns: demoColumns, isLocked: isSaveLocked });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
     hideGridLoader();
     $('#versions').removeClass('hidden');
-    updatePaginationControls();
     onGridReloaded(reloadToken);
   });
 }
@@ -450,14 +458,17 @@ function startLiveDataTimer() {
  */
 function updatePaginationControls() {
   var $pagination = $('.pagination-controls');
-  var pageInfo = Pagination.computePageInfo(totalEntries, PAGE_SIZE, currentPage);
+  // The bar pages through the matches while filtered (PS-2313)
+  var filtered = filteredTotal !== null && SearchFilter.isActive(searchTerm, totalEntries, PAGE_SIZE);
+  var pageInfo = Pagination.computePageInfo(filtered ? filteredTotal : totalEntries, PAGE_SIZE, currentPage);
 
   // Sync clamped page back
   currentPage = pageInfo.currentPage;
   totalPages = pageInfo.totalPages;
 
-  $pagination.find('.pagination-info').text(
-    pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries + ' entries'
+  $pagination.find('.pagination-info').text(filtered
+    ? SearchFilter.rangeText(pageInfo, searchTerm)
+    : pageInfo.startEntry + '–' + pageInfo.endEntry + ' of ' + pageInfo.totalEntries + ' entries'
   );
   // No page change while a save runs or a reload is needed (PS-2204, PS-2251):
   // the save writes the page it saved into the grid, which would then be
@@ -466,7 +477,9 @@ function updatePaginationControls() {
   $pagination.find('[data-page-next]').prop('disabled', saveLock.isLocked() || !pageInfo.hasNext);
   $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', saveLock.isLocked());
   $pagination.find('[data-page-total]').text(pageInfo.totalPages);
-  $pagination.toggleClass('hidden', totalEntries <= PAGE_SIZE);
+  // The match count is the proof the whole data source was searched
+  $pagination.toggleClass('hidden', !filtered && totalEntries <= PAGE_SIZE);
+  windowResized();
 }
 
 /**
@@ -513,6 +526,72 @@ function navigateToPage(targetPage) {
   }
 
   goToPage();
+}
+
+/**
+ * Search a paginated data source server-side from the Find box (PS-2313).
+ * Called by spreadsheet.js search('find') before its client-side search.
+ * @param {String} term - Text in the Find box, trimmed
+ * @returns {Boolean} True when the term is handled here (a fetch was started,
+ *   or the user was asked first); false for the caller to search the grid
+ */
+// eslint-disable-next-line no-unused-vars
+function applySearchFilter(term) {
+  // Small data source, same term, or a save still writing the grid
+  if (totalEntries <= PAGE_SIZE || term === searchTerm || saveLock.isInFlight()) {
+    return false;
+  }
+
+  // Put the previous term back in the box and show its results again
+  function keepCurrentSearch() {
+    $('#search-field').val(searchTerm);
+    search('find', { force: true, selectCell: false, focusSearch: false });
+  }
+
+  // Another page would replace the rows the user may still need to copy (PS-2251)
+  if (saveLock.needsReload()) {
+    keepCurrentSearch();
+    alertReloadFirst();
+
+    return true;
+  }
+
+  function searchFor() {
+    var previousTerm = searchTerm;
+    var previousPage = currentPage;
+
+    searchTerm = term;
+    currentPage = 0;
+    showGridLoader(term ? 'Searching...' : 'Loading...');
+    fetchCurrentDataSourceEntries(undefined, { rejectOnError: true }).catch(function() {
+      // The old rows stayed on screen: show their term and page again
+      searchTerm = previousTerm;
+      currentPage = previousPage;
+      keepCurrentSearch();
+      updatePaginationControls();
+    });
+  }
+
+  if (table && table.hasChanges()) {
+    Fliplet.Modal.confirm({
+      message: 'You have unsaved changes. Navigating away will discard them. Continue?'
+    }).then(function(result) {
+      if (!result) {
+        keepCurrentSearch();
+
+        return;
+      }
+
+      table.setChanges(false);
+      searchFor();
+    });
+
+    return true;
+  }
+
+  searchFor();
+
+  return true;
 }
 
 // What a superseded fetch rejects with internally
@@ -594,6 +673,48 @@ function fetchCurrentDataSourceEntries(entries, options) {
       if (entries) {
         return Promise.resolve(entries);
       }
+
+      // PS-2313: the Find box term is matched server-side across the whole
+      // data source, and the grid shows the matches a page at a time. They
+      // are not a page of the stored sequence, so the fetch has no edges.
+      var where = SearchFilter.isActive(searchTerm, totalEntries, PAGE_SIZE)
+        ? SearchFilter.buildWhere(columns, searchTerm)
+        : null;
+
+      if (where) {
+        return Fliplet.API.request({
+          url: 'v1/data-sources/' + dataSourceId + '/data/query',
+          method: 'POST',
+          data: {
+            where: where,
+            limit: PAGE_SIZE,
+            offset: currentPage * PAGE_SIZE,
+            order: [['order', 'ASC'], ['id', 'DESC']],
+            includePagination: true
+          }
+        }).then(function(queryResponse) {
+          if (isStale()) {
+            return Promise.reject(STALE_FETCH);
+          }
+
+          filteredTotal = queryResponse.pagination ? queryResponse.pagination.total : 0;
+
+          return queryResponse.entries;
+        }).catch(function(error) {
+          if (error === STALE_FETCH) {
+            return Promise.reject(error);
+          }
+
+          return Promise.reject(SaveState.classifyError(error, { defaultMessage: FETCH_ERROR_MESSAGE }));
+        });
+      }
+
+      // Not filtered: the rows fit in a page, or no column can match the term.
+      // A term left over from a filtered grid is dropped so the box and the
+      // grid stay in step - the rebuild's search('clear') empties the box, as
+      // a page change did before PS-2313.
+      searchTerm = '';
+      filteredTotal = null;
 
       // Fetch only the current page of entries using the query endpoint.
       // The sort is the platform's own read order - the API's default, and the
@@ -973,12 +1094,13 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @returns {Object} List of new/updated entries and deleted IDs
  */
 function getCommitPayload(entries) {
-  return EntryDiff.computeCommitPayload(entries, entryMap.original, {
+  var payload = EntryDiff.computeCommitPayload(entries, entryMap.original, {
     // Position is only worth writing when the user dragged a row during this save
     rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
     // ...and only when the grid is showing the stored sequence. Under a column
-    // sort the visible order is not an arrangement anyone asked to persist.
-    viewMatchesStoredOrder: !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
+    // sort or a server-side search (PS-2313) the visible order is not an
+    // arrangement anyone asked to persist.
+    viewMatchesStoredOrder: !searchTerm && !(table && typeof table.isColumnSorted === 'function' && table.isColumnSorted()),
     // The grid is one page of the data source (PS-2204). Without this, EntryDiff
     // takes the page to be the whole data source and numbers a new row from the
     // top of it, so the row reloads on the first page instead of where it was put.
@@ -993,6 +1115,13 @@ function getCommitPayload(entries) {
     isEqual: _.isEqual,
     guid: Fliplet.guid
   });
+
+  // PS-2313: rows declined because search results are shown, not a column sort
+  if (searchTerm && payload && payload.declined) {
+    payload.declined.searched = true;
+  }
+
+  return payload;
 }
 
 // What saveCurrentData() resolves with when the user declines to save
@@ -1499,8 +1628,13 @@ function getTrashSourceRender(data) {
 }
 
 function windowResized() {
+  // PS-2314: the pagination bar is a flow sibling after the grid, so the grid
+  // must give it room; hasClass, not outerHeight === 0, as jQuery 3.7 measures hidden elements
+  var $pagination = $('.pagination-controls');
+  var paginationHeight = $pagination.hasClass('hidden') ? 0 : $pagination.outerHeight(true);
+
   $('.tab-pane').height($('body').outerHeight() - $('.tab-content').offset().top);
-  $('.table-entries').height($('.tab-content').height());
+  $('.table-entries').height($('.tab-content').height() - paginationHeight);
 }
 
 function browseDataSource(id) {
@@ -1975,6 +2109,8 @@ $('#app')
       totalEntries = 0;
       totalPages = 0;
       pageEdges = null;
+      searchTerm = '';
+      filteredTotal = null;
       currentDataSource = null;
 
       $('#save-rules').addClass('hidden');

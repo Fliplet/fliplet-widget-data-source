@@ -14,7 +14,7 @@ var expect = require('./expect');
 
 var source = fs.readFileSync(path.join(__dirname, '../js/spreadsheet.js'), 'utf8');
 
-function load(cells) {
+function load(cells, applySearchFilter) {
   var handlers = {};
   var pending = null;
   var message = { html: '' };
@@ -74,6 +74,10 @@ function load(cells) {
     },
     setTimeout: function(fn) {
       fn();
+    },
+    // interface.js's server-side search hook (PS-2313); off unless a test says so
+    applySearchFilter: applySearchFilter || function() {
+      return false;
     }
   };
 
@@ -173,5 +177,126 @@ describe('Data source search', function() {
 
     expect(grid.queries).toEqual(['st']);
     expect(grid.message.html).toBe('3 of 5 found');
+  });
+
+  // PS-2313: on a paginated data source the term goes to the server instead
+  it('leaves the grid search to interface.js when it takes the term', function() {
+    var terms = [];
+    var grid = load(cells, function(term) {
+      terms.push(term);
+
+      return true;
+    });
+
+    grid.type('smith');
+    grid.flush();
+
+    expect(terms).toEqual(['smith']);
+    expect(grid.queries).toEqual([]);
+  });
+
+  it('searches the grid when interface.js declines the term', function() {
+    var grid = load(cells, function() {
+      return false;
+    });
+
+    grid.type('smith');
+    grid.flush();
+
+    expect(grid.queries).toEqual(['smith']);
+    expect(grid.message.html).toBe('0 found');
+  });
+});
+
+// Cuts the function that starts at `marker` out of the source by brace-counting
+function extractFunction(marker) {
+  var startIndex = source.indexOf('function', source.indexOf(marker));
+  var depth = 0;
+
+  for (var i = source.indexOf('{', startIndex); i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+    } else if (source[i] === '}') {
+      depth--;
+
+      if (depth === 0) {
+        return source.slice(startIndex, i + 1);
+      }
+    }
+  }
+
+  throw new Error('Could not find the end of ' + marker);
+}
+
+// The grid's afterLoadData hook, with recorders in place of search() and the timer
+function loadHook(filtered) {
+  var calls = [];
+  var timers = [];
+  var context = {
+    options: { initialLoad: false },
+    dataLoaded: false,
+    $: function() {
+      return { html: function() {} };
+    },
+    isSearchFiltered: function() {
+      return filtered;
+    },
+    // Copied out of the vm realm so deepStrictEqual can compare it
+    search: function(action, options) {
+      calls.push([action, options && Object.assign({}, options)]);
+    },
+    setTimeout: function(fn, delay) {
+      timers.push({ fn: fn, delay: delay });
+    }
+  };
+
+  vm.createContext(context);
+  vm.runInContext('var afterLoadData = ' + extractFunction('afterLoadData: function(firstTime)') + ';', context);
+
+  return {
+    calls: calls,
+    timers: timers,
+    run: function(firstTime) {
+      context.afterLoadData(firstTime);
+    }
+  };
+}
+
+// PS-2313: Handsontable fires afterLoadData(true) from inside its constructor,
+// before `hot` is the new grid, so the find for a server-side search must wait
+describe('Grid rebuild re-running the search', function() {
+  var forcedFind = { selectCell: false, force: true, focusSearch: false };
+
+  it('waits for the new grid before finding the term it was rebuilt for', function() {
+    var hook = loadHook(true);
+
+    hook.run(true);
+
+    expect(hook.calls).toEqual([]);
+    expect(hook.timers.length).toBe(1);
+    expect(hook.timers[0].delay).toBe(50);
+
+    hook.timers[0].fn();
+
+    expect(hook.calls).toEqual([['find', forcedFind]]);
+  });
+
+  it('clears the search on a first load with no term', function() {
+    var hook = loadHook(false);
+
+    hook.run(true);
+
+    expect(hook.calls.length).toBe(1);
+    expect(hook.calls[0][0]).toBe('clear');
+    expect(hook.timers).toEqual([]);
+  });
+
+  it('re-runs the search straight away on later loads', function() {
+    var hook = loadHook(true);
+
+    hook.run(false);
+
+    expect(hook.calls).toEqual([['find', forcedFind]]);
+    expect(hook.timers).toEqual([]);
   });
 });

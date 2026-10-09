@@ -721,9 +721,23 @@ function spreadsheet(options) {
         $('.entries-message').html('');
       }
 
-      // Clear search in initial load
       if (firstTime) {
-        search('clear');
+        if (isSearchFiltered()) {
+          // The grid was rebuilt for a server-side search (PS-2313): re-run
+          // the find over the rows shown. Handsontable fires this hook from
+          // inside its constructor, before `hot` is the new grid, so the find
+          // waits the way search('clear') does.
+          setTimeout(function() {
+            search('find', {
+              selectCell: false,
+              force: true,
+              focusSearch: false
+            });
+          }, 50);
+        } else {
+          // Clear search in initial load
+          search('clear');
+        }
       } else {
         // Re-execute search without changing cell selection
         search('find', {
@@ -1184,7 +1198,11 @@ function spreadsheet(options) {
   }
 
   function reset(resetHistory) {
-    search('clear');
+    // A grid rebuilt for a server-side search keeps its term (PS-2313)
+    if (!isSearchFiltered()) {
+      search('clear');
+    }
+
     setChanges(false);
     clearRowsMoved();
 
@@ -1291,6 +1309,14 @@ function searchSpinner() {
 var previousSearchValue = '';
 
 /**
+ * Whether interface.js is showing server-side matches (PS-2313)
+ * @returns {Boolean} True in filter mode
+ */
+function isSearchFiltered() {
+  return typeof searchTerm === 'string' && searchTerm !== '';
+}
+
+/**
  * This will make a search
  * @param {String} action next | prev | find | clear
  * @param {Object} options a map of options for the function
@@ -1343,6 +1369,12 @@ function search(action, options) {
   var col;
 
   if (action === 'find') {
+    // PS-2313: a paginated data source is searched server-side instead; the
+    // reload's afterLoadData runs this again over the rows it shows
+    if (typeof applySearchFilter === 'function' && applySearchFilter(value)) {
+      return;
+    }
+
     queryResult = hot.search.query(value);
     resultsCount = queryResult.length;
     queryResultIndex = 0;

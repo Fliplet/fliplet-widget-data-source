@@ -252,6 +252,10 @@ function save(headers, rows, options) {
     DuplicateRows: DuplicateRows,
     saveLock: SaveState.createSaveLock(),
     Pagination: Pagination,
+    // No server-side search (PS-2313)
+    SearchFilter: require('../js/search-filter'),
+    searchTerm: '',
+    filteredTotal: null,
     $: function(selector) {
       if (selector === '.pagination-controls') {
         return pageBar;
@@ -305,6 +309,7 @@ function save(headers, rows, options) {
       return { entries: entries, delete: [], orders: {} };
     },
     cacheOriginalEntries: function() {},
+    windowResized: function() {},
     CommitNotice: {
       forDeclined: function() {
         return null;
