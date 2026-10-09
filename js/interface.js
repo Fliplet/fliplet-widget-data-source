@@ -1094,7 +1094,7 @@ function removeEmptyColumnsInEntries(entries, emptyColumns) {
  * @returns {Object} List of new/updated entries and deleted IDs
  */
 function getCommitPayload(entries) {
-  return EntryDiff.computeCommitPayload(entries, entryMap.original, {
+  var payload = EntryDiff.computeCommitPayload(entries, entryMap.original, {
     // Position is only worth writing when the user dragged a row during this save
     rowsMoved: !!(table && typeof table.hasRowsMoved === 'function' && table.hasRowsMoved()),
     // ...and only when the grid is showing the stored sequence. Under a column
@@ -1115,6 +1115,13 @@ function getCommitPayload(entries) {
     isEqual: _.isEqual,
     guid: Fliplet.guid
   });
+
+  // PS-2313: rows declined because search results are shown, not a column sort
+  if (searchTerm && payload && payload.declined) {
+    payload.declined.searched = true;
+  }
+
+  return payload;
 }
 
 // What saveCurrentData() resolves with when the user declines to save

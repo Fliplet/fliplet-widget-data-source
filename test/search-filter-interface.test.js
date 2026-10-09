@@ -49,9 +49,20 @@ function extractFunction(source, marker) {
 /**
  * The real getCommitPayload with an EntryDiff that records what it was given
  * @param {String} searchTerm - The active server-side search term
+ * @param {Object} [diffResult] - What the stubbed EntryDiff returns (default {})
  * @returns {Object} The options passed to EntryDiff.computeCommitPayload
  */
-function commitOptions(searchTerm) {
+function commitOptions(searchTerm, diffResult) {
+  return runCommitPayload(searchTerm, diffResult).options;
+}
+
+/**
+ * Run the real getCommitPayload once
+ * @param {String} searchTerm - The active server-side search term
+ * @param {Object} [diffResult] - What the stubbed EntryDiff returns (default {})
+ * @returns {Object} { options, payload }
+ */
+function runCommitPayload(searchTerm, diffResult) {
   var received = null;
 
   var context = {
@@ -59,7 +70,7 @@ function commitOptions(searchTerm) {
       computeCommitPayload: function(entries, original, options) {
         received = options;
 
-        return {};
+        return diffResult || {};
       }
     },
     entryMap: { original: {} },
@@ -79,9 +90,9 @@ function commitOptions(searchTerm) {
   };
 
   vm.createContext(context);
-  vm.runInContext(extractFunction(interfaceSource, 'function getCommitPayload(') + '\ngetCommitPayload([]);', context);
+  vm.runInContext(extractFunction(interfaceSource, 'function getCommitPayload(') + '\nvar result = getCommitPayload([]);', context);
 
-  return received;
+  return { options: received, payload: context.result };
 }
 
 describe('getCommitPayload under a server-side search (PS-2313)', function() {
@@ -91,6 +102,24 @@ describe('getCommitPayload under a server-side search (PS-2313)', function() {
 
   it('keeps the stored-order view when there is no term and no column sort', function() {
     expect(commitOptions('').viewMatchesStoredOrder).toBe(true);
+  });
+
+  it('marks rows declined under a search as searched, so the notice does not blame a sort', function() {
+    var payload = runCommitPayload('smith', { declined: { sorted: true, rows: 1 } }).payload;
+
+    expect(payload.declined.searched).toBe(true);
+    expect(payload.declined.rows).toBe(1);
+  });
+
+  it('leaves the declined block alone when no search is active', function() {
+    var payload = runCommitPayload('', { declined: { sorted: true, rows: 1 } }).payload;
+
+    expect(payload.declined.searched).toBeUndefined();
+    expect(payload.declined.sorted).toBe(true);
+  });
+
+  it('copes with a payload that has no declined block', function() {
+    expect(runCommitPayload('smith', {}).payload.declined).toBeUndefined();
   });
 });
 
