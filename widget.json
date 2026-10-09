@@ -44,8 +44,6 @@
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/entry-diff.js",
-      "js/duplicate-rows.js",
-      "js/save-state.js",
       "js/commit-notice.js",
       "js/interface.js",
 

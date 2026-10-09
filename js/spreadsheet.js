@@ -5,11 +5,6 @@ var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
-// Whether the grid must not change, e.g. while a save is in flight. Set from
-// the latest spreadsheet's options.isLocked (PS-2251).
-var isGridLocked = function() {
-  return false;
-};
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -24,10 +19,6 @@ function spreadsheet(options) {
   // Set once the user drags a row. Row order is only worth committing when they
   // actually reordered something - see getData().
   var rowsMoved = false;
-
-  if (typeof options.isLocked === 'function') {
-    isGridLocked = options.isLocked;
-  }
 
   /**
    * Given an array of data source entries it does return an array
@@ -75,12 +66,6 @@ function spreadsheet(options) {
     }
 
     setChanges(true);
-
-    // A save is still running: keep Save hidden and its status on screen. The
-    // grid is read-only meanwhile, so this is only a safety net (PS-2251).
-    if (isGridLocked()) {
-      return;
-    }
 
     $('.save-btn').removeClass('hidden');
     $('.data-save-status').addClass('hidden');
@@ -445,15 +430,8 @@ function spreadsheet(options) {
     renderer: addMaxHeightToCells,
     minSpareRows: 40,
     minSpareCols: 10,
-    // Read-only while a save is in flight or a reload is needed (PS-2251)
-    readOnly: isGridLocked(),
     // Hooks
     beforeChange: function(changes) {
-      // Edits, pastes, cuts and fills made now would be lost or saved twice
-      if (isGridLocked()) {
-        return false;
-      }
-
       onChange();
 
       // If users intend to remove value from the cells with Delete or Backspace buttons
@@ -565,11 +543,6 @@ function spreadsheet(options) {
       colWidths = getColWidths();
     },
     beforeColumnMove: function(items, index) {
-      // Not while a save is in flight or a reload is needed (PS-2251)
-      if (isGridLocked()) {
-        return false;
-      }
-
       colWidths = getColWidths();
 
       var length = items.length;
@@ -606,11 +579,6 @@ function spreadsheet(options) {
       }).catch(console.error);
     },
     beforeRowMove: function(movedRows) {
-      // Not while a save is in flight or a reload is needed (PS-2251)
-      if (isGridLocked()) {
-        return false;
-      }
-
       // No rows moved. Cancel action.
       if (!movedRows || !movedRows.length) {
         return false;
@@ -1119,9 +1087,8 @@ function spreadsheet(options) {
   }
 
   function onSaveComplete() {
-    // Update save status. The reload after a commit rebuilds the grid, which
-    // hides this element, so show it again.
-    $('.data-save-status').removeClass('hidden').html('All changes saved!');
+    // Update save status
+    $('.data-save-status').html('All changes saved!');
   }
 
   function onSaveError() {
@@ -1232,17 +1199,6 @@ function spreadsheet(options) {
       return;
     },
     reset: reset,
-    /**
-     * Make the grid read-only, or editable again, to match isLocked
-     * @returns {undefined}
-     */
-    applyLock: function() {
-      if (isDestroyed || !hot) {
-        return;
-      }
-
-      hot.updateSettings({ readOnly: isGridLocked() });
-    },
     onSave: onSave,
     onSaveComplete: onSaveComplete,
     onSaveError: onSaveError,
@@ -1516,10 +1472,6 @@ function getEventType(event) {
 
 // Capture undo/redo shortcuts
 document.addEventListener('keydown', function(event) {
-  if (isGridLocked()) {
-    return;
-  }
-
   if (getEventType(event) === 'undo') {
     HistoryStack.back();
   }
@@ -1531,15 +1483,6 @@ document.addEventListener('keydown', function(event) {
 
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
-  // Every action but copy changes the grid, so none of them may run while it
-  // is locked. Bound first, so it stops the handlers below.
-  .on('click', '[data-action]', function(event) {
-    if (isGridLocked() && $(this).attr('data-action') !== 'copy') {
-      event.stopImmediatePropagation();
-
-      return false;
-    }
-  })
   .on('click', '[data-action="insert-row-before"]', function() {
     hot.alter('insert_row', s[2], 1, 'Toolbar.rowBefore');
   })

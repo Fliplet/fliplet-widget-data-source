@@ -77,9 +77,9 @@ function extractOnFetchErrorBody(source) {
   throw new Error('Could not find matching closing brace for onFetchError');
 }
 
-describe('commitCurrentData wiring (PS-2072)', function() {
+describe('saveCurrentData wiring (PS-2072)', function() {
   it('builds the commit payload with EntryDiff, from the grid, before commit(), passing the real reorder and sort signals', function() {
-    var body = extractFunctionBody(interfaceSource, 'commitCurrentData');
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
     var payloadBody = extractFunctionBody(interfaceSource, 'getCommitPayload');
 
     var getDataIndex = body.indexOf('table.getData(');
@@ -105,7 +105,7 @@ describe('commitCurrentData wiring (PS-2072)', function() {
   });
 
   it('sends the renumber only when EntryDiff asks for it, and caches the orders the commit settled on', function() {
-    var body = extractFunctionBody(interfaceSource, 'commitCurrentData');
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
 
     var normalizeGuardIndex = body.indexOf('if (payload.normalizeOrder)');
     var normalizeAssignIndex = body.indexOf('commitData.normalizeOrder = payload.normalizeOrder;');
@@ -122,7 +122,7 @@ describe('commitCurrentData wiring (PS-2072)', function() {
   });
 
   it('clears the reorder signal only after a successful commit, not before', function() {
-    var body = extractFunctionBody(interfaceSource, 'commitCurrentData');
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
 
     var commitCallIndex = body.indexOf('currentDataSource.commit(');
     var clearIndex = body.indexOf('table.clearRowsMoved()');
@@ -172,7 +172,7 @@ describe('page context wiring (PS-2204)', function() {
   });
 
   it('caches the settled edges after a commit, alongside the settled orders', function() {
-    var body = extractFunctionBody(interfaceSource, 'commitCurrentData');
+    var body = extractFunctionBody(interfaceSource, 'saveCurrentData');
 
     var commitIndex = body.indexOf('currentDataSource.commit(commitData)');
     var cacheIndex = body.indexOf('cacheOriginalEntries(entries, clientIdMap, payload.orders)');
@@ -264,7 +264,7 @@ describe('onFetchError wiring (PS-2072)', function() {
 
   it('still returns early for stale responses, before the recovery decision runs at all', function() {
     var body = extractOnFetchErrorBody(interfaceSource);
-    var staleGuardIndex = body.indexOf('if (error === STALE_FETCH || isStale())');
+    var staleGuardIndex = body.indexOf('if (error && error.stale)');
     var resolveIndex = body.indexOf('Pagination.resolveFetchErrorRecovery(');
 
     expect(staleGuardIndex).toBeGreaterThan(-1);
