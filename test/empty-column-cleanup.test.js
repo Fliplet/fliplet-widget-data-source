@@ -309,6 +309,7 @@ function save(headers, rows, options) {
       return { entries: entries, delete: [], orders: {} };
     },
     cacheOriginalEntries: function() {},
+    windowResized: function() {},
     CommitNotice: {
       forDeclined: function() {
         return null;
