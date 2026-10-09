@@ -37,15 +37,10 @@
       "vendor/bootstrap-tokenfield.min.js",
 
       "js/history.js",
-      "js/pagination.js",
-      "js/waitUntilSized.js",
       "js/grid-sort.js",
-      "js/column-changes.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
       "js/entry-diff.js",
-      "js/duplicate-rows.js",
-      "js/save-state.js",
       "js/commit-notice.js",
       "js/interface.js",
 
