@@ -326,11 +326,13 @@ function renderSpreadsheet(rowsData, fetchId, reloadToken) {
     // it's the correct page to roll back to if a later navigation fails.
     lastRenderedPage = currentPage;
 
+    // PS-2314: size the container before the grid is built; Handsontable does
+    // not redraw when its scroll container changes height afterwards
+    updatePaginationControls();
     table = spreadsheet({ columns: columns, rows: rowsData, demoColumns: demoColumns, isLocked: isSaveLocked });
     $('.table-entries').css('visibility', 'visible').removeAttr('aria-busy');
     hideGridLoader();
     $('#versions').removeClass('hidden');
-    updatePaginationControls();
     onGridReloaded(reloadToken);
   });
 }
@@ -467,6 +469,7 @@ function updatePaginationControls() {
   $pagination.find('[data-page-jump]').val(pageInfo.currentPage + 1).attr('max', pageInfo.totalPages).prop('disabled', saveLock.isLocked());
   $pagination.find('[data-page-total]').text(pageInfo.totalPages);
   $pagination.toggleClass('hidden', totalEntries <= PAGE_SIZE);
+  windowResized();
 }
 
 /**
@@ -1499,8 +1502,13 @@ function getTrashSourceRender(data) {
 }
 
 function windowResized() {
+  // PS-2314: the pagination bar is a flow sibling after the grid, so the grid
+  // must give it room; hasClass, not outerHeight === 0, as jQuery 3.7 measures hidden elements
+  var $pagination = $('.pagination-controls');
+  var paginationHeight = $pagination.hasClass('hidden') ? 0 : $pagination.outerHeight(true);
+
   $('.tab-pane').height($('body').outerHeight() - $('.tab-content').offset().top);
-  $('.table-entries').height($('.tab-content').height());
+  $('.table-entries').height($('.tab-content').height() - paginationHeight);
 }
 
 function browseDataSource(id) {
