@@ -59,4 +59,22 @@ describe('CommitNotice.forDeclined', function() {
     expect(message.indexOf('Clear the sort') > -1).toBe(true);
     expect(message.indexOf('row order values') > -1).toBe(false);
   });
+
+  // PS-2313: on a big data source Find shows server-side matches, and a row
+  // added there is saved at the end. The sort wording told users to clear a
+  // sort that did not exist.
+  it('speaks for a row added while search results are shown', function() {
+    var message = CommitNotice.forDeclined({ sorted: true, searched: true, rows: 1 });
+
+    expect(message).toBe('A new row cannot be positioned while search results are shown, so it has been added at the end. Clear the search to place rows.');
+    expect(message.indexOf('sort') > -1).toBe(false);
+  });
+
+  it('counts them when several rows were added under a search', function() {
+    expect(CommitNotice.forDeclined({ sorted: true, searched: true, rows: 3 })).toBe('3 new rows cannot be positioned while search results are shown, so they have been added at the end. Clear the search to place rows.');
+  });
+
+  it('stays quiet under a search when nothing was declined', function() {
+    expect(CommitNotice.forDeclined({ sorted: true, searched: true, rows: 0 })).toBe('');
+  });
 });

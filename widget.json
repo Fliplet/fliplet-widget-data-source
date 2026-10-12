@@ -38,6 +38,7 @@
 
       "js/history.js",
       "js/pagination.js",
+      "js/search-filter.js",
       "js/waitUntilSized.js",
       "js/grid-sort.js",
       "js/column-changes.js",

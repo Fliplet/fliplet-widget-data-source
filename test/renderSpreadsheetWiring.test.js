@@ -78,3 +78,34 @@ describe('renderSpreadsheet wiring (regression for the render-race fix)', functi
     expect(spreadsheetSource.indexOf('ColumnChanges.createTracker(spreadsheetData[0], { demo: !!options.demoColumns })')).toBeGreaterThan(-1);
   });
 });
+
+// PS-2314: the pagination bar sits after the grid in the flow, so the grid
+// height must leave room for it or the bar lands below the viewport
+describe('pagination bar sizing (PS-2314)', function() {
+  it('has windowResized subtract the visible pagination bar from .table-entries', function() {
+    var body = extractFunctionBody(interfaceSource, 'windowResized');
+
+    expect(body.indexOf("$('.pagination-controls')")).toBeGreaterThan(-1);
+    expect(body.indexOf("hasClass('hidden') ? 0 :")).toBeGreaterThan(-1);
+    expect(body.indexOf("$('.table-entries').height($('.tab-content').height() - paginationHeight)")).toBeGreaterThan(-1);
+  });
+
+  it('has updatePaginationControls resize the grid after toggling the bar', function() {
+    var body = extractFunctionBody(interfaceSource, 'updatePaginationControls');
+    var toggleIndex = body.indexOf("$pagination.toggleClass('hidden',");
+    var resizeIndex = body.indexOf('windowResized()');
+
+    expect(toggleIndex).toBeGreaterThan(-1);
+    expect(resizeIndex).toBeGreaterThan(toggleIndex);
+  });
+
+  it('has renderSpreadsheet size the container before building the grid', function() {
+    var body = extractFunctionBody(interfaceSource, 'renderSpreadsheet');
+    var paginationIndex = body.indexOf('updatePaginationControls()');
+    var buildIndex = body.indexOf('table = spreadsheet(');
+
+    expect(paginationIndex).toBeGreaterThan(-1);
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(paginationIndex).toBeLessThan(buildIndex);
+  });
+});
