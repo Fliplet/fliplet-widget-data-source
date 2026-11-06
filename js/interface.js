@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice */
+/* global EntryDiff, CommitNotice, setSignOutEverywhereDataSource */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -276,6 +276,7 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceRules = dataSource.accessRules;
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+    setSignOutEverywhereDataSource(dataSource);
 
     if (dataSource.apps && dataSource.apps.length > 0) {
       dataSourceIsLive = _.some(dataSource.apps, function(app) {
@@ -576,7 +577,14 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  saveCurrentData().then(Fliplet.Widget.complete);
+  saveCurrentData().catch(function(error) {
+    // Let the grid know the save is over, then fail as before
+    if (table) {
+      table.onSaveError();
+    }
+
+    throw error;
+  }).then(Fliplet.Widget.complete);
 });
 
 /**
@@ -801,6 +809,8 @@ function windowResized() {
 
 function browseDataSource(id) {
   currentDataSourceId = id;
+  // Until its details load, nothing is known about this data source
+  setSignOutEverywhereDataSource(null);
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
 

@@ -381,6 +381,11 @@ textarea.handsontableInput {
   border-radius: 0;
 }
 
+/* Let the hover reach the group, which carries the tooltip, while the button is disabled */
+#toolbar [data-sign-out-everywhere] .btn[disabled] {
+  pointer-events: none;
+}
+
 #toolbar .filter-wrapper {
   margin-bottom: 5px;
   display: flex;
