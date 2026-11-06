@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice, updateSignOutEverywhere */
+/* global EntryDiff, CommitNotice, setSignOutEverywhereDataSource */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -276,7 +276,7 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceRules = dataSource.accessRules;
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
-    updateSignOutEverywhere();
+    setSignOutEverywhereDataSource(dataSource);
 
     if (dataSource.apps && dataSource.apps.length > 0) {
       dataSourceIsLive = _.some(dataSource.apps, function(app) {
@@ -802,6 +802,8 @@ function windowResized() {
 
 function browseDataSource(id) {
   currentDataSourceId = id;
+  // Until its details load, nothing is known about this data source
+  setSignOutEverywhereDataSource(null);
   $contents.addClass('hidden');
   $('.settings-btns').removeClass('active');
 

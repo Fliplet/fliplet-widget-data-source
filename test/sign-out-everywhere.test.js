@@ -63,6 +63,14 @@ describe('SignOutEverywhere.isLoginDataSource', function() {
     expect(SignOutEverywhere.isLoginDataSource({ columnsWidths: [50] })).toBe(false);
   });
 
+  it('tells whether the app owns or uses the data source', function() {
+    expect(SignOutEverywhere.isUsedByApp({ appId: 12, apps: [] }, 12)).toBe(true);
+    expect(SignOutEverywhere.isUsedByApp({ appId: 99, apps: [{ id: 12 }] }, 12)).toBe(true);
+    expect(SignOutEverywhere.isUsedByApp({ appId: 99, apps: [{ id: 77 }] }, 12)).toBe(false);
+    expect(SignOutEverywhere.isUsedByApp({ appId: 99 }, 12)).toBe(false);
+    expect(SignOutEverywhere.isUsedByApp({ appId: 12 }, undefined)).toBe(false);
+  });
+
   it('names the login column', function() {
     expect(SignOutEverywhere.getLoginColumn(emailLogin)).toBe('Email');
     expect(SignOutEverywhere.getLoginColumn(columnsLogin)).toBe('Username');

@@ -37,6 +37,27 @@ var SignOutEverywhere = (function() {
   }
 
   /**
+   * Whether a data source is used by an app, by the same rule the manager uses
+   * to list an app's data sources.
+   * @param {Object} dataSource - Data source with appId and apps
+   * @param {Number} appId - App ID
+   * @returns {Boolean} True when the data source belongs to or is used by the app
+   */
+  function isUsedByApp(dataSource, appId) {
+    if (!dataSource || !appId) {
+      return false;
+    }
+
+    if (dataSource.appId === appId) {
+      return true;
+    }
+
+    return Array.isArray(dataSource.apps) && dataSource.apps.some(function(app) {
+      return !!app && app.id === appId;
+    });
+  }
+
+  /**
    * The column that holds the login value, used to name the user in the confirmation.
    * @param {Object} definition - Data source definition
    * @returns {String|undefined} Column name
@@ -148,10 +169,37 @@ var SignOutEverywhere = (function() {
    * @param {Number} options.dataSourceId - Login data source
    * @param {Number} options.entryId - Row of the user to sign out
    * @param {String} [options.userLabel] - Login value of the row, to name the user in the confirmation
-   * @returns {Promise} Resolves with the API response, or undefined when cancelled or failed
+   * @returns {Promise} Resolves with the API response, or undefined when cancelled or failed. Never rejects.
    */
   function run(options) {
     var Fliplet = options.Fliplet;
+
+    // Started inside a promise so that anything that throws, even before the
+    // confirmation opens, ends up in the one error alert below
+    return Promise.resolve().then(function() {
+      return confirmAndRequest(Fliplet, options);
+    }).then(function(response) {
+      if (response) {
+        Fliplet.Modal.alert({
+          title: 'Sign out everywhere',
+          message: getMessage(response)
+        });
+      }
+
+      return response;
+    }).catch(function(error) {
+      try {
+        Fliplet.Modal.alert({
+          title: 'Could not sign this user out',
+          message: Fliplet.parseError(error)
+        });
+      } catch (e) {
+        // Nothing more can be shown
+      }
+    });
+  }
+
+  function confirmAndRequest(Fliplet, options) {
     var label = options.userLabel === undefined || options.userLabel === null ? '' : String(options.userLabel).trim();
     var who = label ? '<strong>' + escapeHtml(label) + '</strong>' : 'this user';
 
@@ -176,23 +224,15 @@ var SignOutEverywhere = (function() {
           entryId: options.entryId
         }
       }).then(function(response) {
-        Fliplet.Modal.alert({
-          title: 'Sign out everywhere',
-          message: getMessage(response)
-        });
-
-        return response;
-      }, function(error) {
-        Fliplet.Modal.alert({
-          title: 'Could not sign this user out',
-          message: Fliplet.parseError(error)
-        });
+        // Always something to report, even if the reply carried no body
+        return response || {};
       });
     });
   }
 
   return {
     isLoginDataSource: isLoginDataSource,
+    isUsedByApp: isUsedByApp,
     getLoginColumn: getLoginColumn,
     getState: getState,
     getSelectedEntryId: getSelectedEntryId,
