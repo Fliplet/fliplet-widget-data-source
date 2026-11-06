@@ -351,6 +351,32 @@ describe('Sign out everywhere, wired to the grid', function() {
     });
   });
 
+  it('does not carry a selection from one grid over to the next', function() {
+    page.loadDetails(loginSource);
+
+    var gridA = page.openGrid(rows);
+
+    gridA.select(2, 0, 2, 0);
+    expect(page.button().disabled).toBe(false);
+
+    // Back, then open data source B: same row number, different user
+    page.run('table.destroy();');
+    page.run('currentDataSourceId = 35;');
+    page.loadDetails({ id: 35, appId: 12, apps: [], definition: emailLogin });
+    page.openGrid([
+      { id: 601, data: { Email: 'cat@example.com', Name: 'Cat' } },
+      { id: 602, data: { Email: 'dan@example.com', Name: 'Dan' } }
+    ]);
+
+    expect(page.button()).toEqual({ hidden: false, disabled: true });
+
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
   it('stays disabled with unsaved changes, and a click then does nothing', function() {
     page.loadDetails(loginSource);
 

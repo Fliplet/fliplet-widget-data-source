@@ -30,6 +30,10 @@ function stubFliplet(options) {
       alert: function(config) {
         calls.alert.push(config);
 
+        if (options.alertThrows) {
+          throw new Error('alert broke');
+        }
+
         return Promise.resolve();
       }
     },
@@ -237,6 +241,17 @@ describe('SignOutEverywhere.run', function() {
       expect(Fliplet.calls.alert).toHaveLength(1);
       expect(Fliplet.calls.alert[0].title).toBe('Could not sign this user out');
       expect(Fliplet.calls.alert[0].message).toBe('parsed: Not allowed');
+    });
+  });
+
+  it('does not report a failure when only the success message fails to show', function() {
+    // The sessions are ended by then; "Could not sign this user out" would be untrue
+    var Fliplet = stubFliplet({ response: { sessionsEnded: 2, complete: true }, alertThrows: true });
+
+    return run(Fliplet).then(function(response) {
+      expect(response).toEqual({ sessionsEnded: 2, complete: true });
+      expect(Fliplet.calls.alert).toHaveLength(1);
+      expect(Fliplet.calls.alert[0].title).toBe('Sign out everywhere');
     });
   });
 });

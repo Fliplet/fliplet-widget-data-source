@@ -577,7 +577,14 @@ function fetchCurrentDataSourceVersions() {
 }
 
 Fliplet.Widget.onSaveRequest(function() {
-  saveCurrentData().then(Fliplet.Widget.complete);
+  saveCurrentData().catch(function(error) {
+    // Let the grid know the save is over, then fail as before
+    if (table) {
+      table.onSaveError();
+    }
+
+    throw error;
+  }).then(Fliplet.Widget.complete);
 });
 
 /**

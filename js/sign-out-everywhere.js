@@ -178,15 +178,6 @@ var SignOutEverywhere = (function() {
     // confirmation opens, ends up in the one error alert below
     return Promise.resolve().then(function() {
       return confirmAndRequest(Fliplet, options);
-    }).then(function(response) {
-      if (response) {
-        Fliplet.Modal.alert({
-          title: 'Sign out everywhere',
-          message: getMessage(response)
-        });
-      }
-
-      return response;
     }).catch(function(error) {
       try {
         Fliplet.Modal.alert({
@@ -196,6 +187,21 @@ var SignOutEverywhere = (function() {
       } catch (e) {
         // Nothing more can be shown
       }
+    }).then(function(response) {
+      // Past the error alert on purpose: once the request has succeeded the
+      // sessions are ended, and nothing here may claim otherwise
+      if (response) {
+        try {
+          Fliplet.Modal.alert({
+            title: 'Sign out everywhere',
+            message: getMessage(response)
+          });
+        } catch (e) {
+          // The sessions are ended either way
+        }
+      }
+
+      return response;
     });
   }
 
