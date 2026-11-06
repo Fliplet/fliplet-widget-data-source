@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice */
+/* global EntryDiff, CommitNotice, updateSignOutEverywhere */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -276,6 +276,7 @@ function fetchCurrentDataSourceDetails() {
     currentDataSourceRules = dataSource.accessRules;
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
+    updateSignOutEverywhere();
 
     if (dataSource.apps && dataSource.apps.length > 0) {
       dataSourceIsLive = _.some(dataSource.apps, function(app) {

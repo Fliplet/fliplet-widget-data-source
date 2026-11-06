@@ -1,10 +1,15 @@
-/* global GridSort */
+/* global GridSort, SignOutEverywhere, widgetData */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
+var selectedRangeCount = 1; // Number of ranges in the current selection
+// Whether the user has selected cells in the grid on screen. `s` outlives the
+// grid it was read from, so it cannot be trusted to name a row on its own.
+var hasGridSelection = false;
+var signOutEverywhereBusy = false; // Set while a "Sign out everywhere" request runs
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -19,6 +24,9 @@ function spreadsheet(options) {
   // Set once the user drags a row. Row order is only worth committing when they
   // actually reordered something - see getData().
   var rowsMoved = false;
+
+  // A new grid starts with nothing the user picked
+  hasGridSelection = false;
 
   /**
    * Given an array of data source entries it does return an array
@@ -656,7 +664,15 @@ function spreadsheet(options) {
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
+      var selected = hot.getSelected();
+
       s = [r, c, r2, c2];
+      hasGridSelection = true;
+      // getSelected() returns one range in this version and a list of ranges
+      // in later ones; anything other than a single range counts as many
+      selectedRangeCount = Array.isArray(selected) && Array.isArray(selected[0]) ? selected.length : 1;
+
+      updateSignOutEverywhere();
     },
     beforeKeyDown: function(event) {
       var editor = hot.getActiveEditor();
@@ -691,6 +707,9 @@ function spreadsheet(options) {
   }
 
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
+
+  // Nothing is selected in a new grid, so the button must not keep the state of the last one
+  updateSignOutEverywhere();
 
   // Initialize colWidths if they wasn't stored locally
   if (!colWidths || !colWidths.length) {
@@ -1003,6 +1022,8 @@ function spreadsheet(options) {
 
   function setChanges(value) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
+
+    updateSignOutEverywhere();
   }
 
   /**
@@ -1372,6 +1393,48 @@ document.addEventListener('keydown', function(event) {
   }
 });
 
+/**
+ * Get the entry the "Sign out everywhere" button acts on: the selected row,
+ * when exactly one row is selected and it has been saved.
+ * @returns {Number|undefined} Entry ID
+ */
+function getSignOutEverywhereEntryId() {
+  if (!hot || !hasGridSelection) {
+    return;
+  }
+
+  return SignOutEverywhere.getSelectedEntryId({
+    selection: s,
+    rangeCount: selectedRangeCount,
+    getRowId: function(visualRow) {
+      // Rows keep their entry ID on the source array. A row added in the grid
+      // has none until it is saved and the data source is reloaded.
+      var row = hot.getSourceDataAtRow(hot.toPhysicalRow(visualRow));
+
+      return row && row.id;
+    }
+  });
+}
+
+/**
+ * Show the "Sign out everywhere" button only for an app's login data source,
+ * and only enable it for one saved row while nothing is waiting to be saved.
+ * @returns {undefined}
+ */
+// eslint-disable-next-line no-unused-vars
+function updateSignOutEverywhere() {
+  var state = SignOutEverywhere.getState({
+    appId: widgetData.appId,
+    definition: currentDataSourceDefinition,
+    entryId: getSignOutEverywhereEntryId(),
+    hasChanges: !table || table.hasChanges(),
+    busy: signOutEverywhereBusy
+  });
+
+  $('#toolbar [data-sign-out-everywhere]').toggleClass('hidden', !state.visible);
+  $('#toolbar [data-action="sign-out-everywhere"]').prop('disabled', !state.enabled);
+}
+
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
   .on('click', '[data-action="insert-row-before"]', function() {
@@ -1418,6 +1481,42 @@ $('#toolbar')
   })
   .on('click', '[data-action="paste"]', function() {
     openOverlay();
+  })
+  .on('click', '[data-action="sign-out-everywhere"]', function() {
+    var entryId = getSignOutEverywhereEntryId();
+
+    // Checked again on click: the state may have moved on since the button was last updated
+    if (!SignOutEverywhere.getState({
+      appId: widgetData.appId,
+      definition: currentDataSourceDefinition,
+      entryId: entryId,
+      hasChanges: !table || table.hasChanges(),
+      busy: signOutEverywhereBusy
+    }).enabled) {
+      return;
+    }
+
+    var loginColumn = SignOutEverywhere.getLoginColumn(currentDataSourceDefinition);
+    var loginColumnIndex = loginColumn ? hot.getDataAtRow(0).indexOf(loginColumn) : -1;
+
+    signOutEverywhereBusy = true;
+    updateSignOutEverywhere();
+
+    SignOutEverywhere.run({
+      Fliplet: Fliplet,
+      appId: widgetData.appId,
+      dataSourceId: currentDataSourceId,
+      entryId: entryId,
+      userLabel: loginColumnIndex > -1 ? hot.getDataAtCell(s[0], loginColumnIndex) : undefined
+    }).catch(function(error) {
+      Fliplet.Modal.alert({
+        title: 'Could not sign this user out',
+        message: Fliplet.parseError(error)
+      });
+    }).then(function() {
+      signOutEverywhereBusy = false;
+      updateSignOutEverywhere();
+    });
   });
 
 $('#entries [data-toggle="tooltip"]').tooltip({
