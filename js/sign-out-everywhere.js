@@ -205,6 +205,51 @@ var SignOutEverywhere = (function() {
     });
   }
 
+  // The API scans a bounded number of sessions per request and returns
+  // `after` when it stops early. Keep calling from that position so a large
+  // app's older sessions are reached. Cap the loop so a broken cursor cannot
+  // retry forever; the per-user rate limit is 10 requests a minute.
+  var MAX_REVOKE_REQUESTS = 8;
+
+  function requestUntilComplete(Fliplet, options) {
+    var total = 0;
+    var after;
+
+    function once(attempt) {
+      var data = {
+        dataSourceId: options.dataSourceId,
+        entryId: options.entryId
+      };
+
+      if (after) {
+        data.after = after;
+      }
+
+      return Fliplet.API.request({
+        method: 'POST',
+        url: 'v1/apps/' + options.appId + '/sessions/revoke',
+        data: data
+      }).then(function(response) {
+        response = response || {};
+        total += response.sessionsEnded || 0;
+
+        if (response.complete !== false) {
+          return { sessionsEnded: total, complete: true };
+        }
+
+        if (response.after && attempt < MAX_REVOKE_REQUESTS) {
+          after = response.after;
+
+          return once(attempt + 1);
+        }
+
+        return { sessionsEnded: total, complete: false };
+      });
+    }
+
+    return once(1);
+  }
+
   function confirmAndRequest(Fliplet, options) {
     var label = options.userLabel === undefined || options.userLabel === null ? '' : String(options.userLabel).trim();
     var who = label ? '<strong>' + escapeHtml(label) + '</strong>' : 'this user';
@@ -222,17 +267,7 @@ var SignOutEverywhere = (function() {
         return;
       }
 
-      return Fliplet.API.request({
-        method: 'POST',
-        url: 'v1/apps/' + options.appId + '/sessions/revoke',
-        data: {
-          dataSourceId: options.dataSourceId,
-          entryId: options.entryId
-        }
-      }).then(function(response) {
-        // Always something to report, even if the reply carried no body
-        return response || {};
-      });
+      return requestUntilComplete(Fliplet, options);
     });
   }
 

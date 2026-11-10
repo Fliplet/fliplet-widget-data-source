@@ -18,6 +18,7 @@ function stubFliplet(options) {
   options = options || {};
 
   var calls = { confirm: [], request: [], alert: [] };
+  var responses = options.responses ? options.responses.slice() : undefined;
 
   return {
     calls: calls,
@@ -41,9 +42,15 @@ function stubFliplet(options) {
       request: function(config) {
         calls.request.push(config);
 
-        return options.error
-          ? Promise.reject(options.error)
-          : Promise.resolve(options.response);
+        if (options.error) {
+          return Promise.reject(options.error);
+        }
+
+        if (responses && responses.length) {
+          return Promise.resolve(responses.shift());
+        }
+
+        return Promise.resolve(options.response);
       }
     },
     parseError: function(error) {
@@ -220,6 +227,32 @@ describe('SignOutEverywhere.run', function() {
 
     return run(Fliplet).then(function() {
       expect(Fliplet.calls.alert[0].message).toBe(SignOutEverywhere.getMessage({ sessionsEnded: 5, complete: false }));
+    });
+  });
+
+  it('keeps calling from the resume position until the scan is complete', function() {
+    var Fliplet = stubFliplet({
+      responses: [
+        { sessionsEnded: 2, complete: false, after: { userId: 88, lastId: 900 } },
+        { sessionsEnded: 3, complete: true }
+      ]
+    });
+
+    return run(Fliplet).then(function(response) {
+      expect(Fliplet.calls.request).toEqual([
+        {
+          method: 'POST',
+          url: 'v1/apps/12/sessions/revoke',
+          data: { dataSourceId: 34, entryId: 345 }
+        },
+        {
+          method: 'POST',
+          url: 'v1/apps/12/sessions/revoke',
+          data: { dataSourceId: 34, entryId: 345, after: { userId: 88, lastId: 900 } }
+        }
+      ]);
+      expect(response).toEqual({ sessionsEnded: 5, complete: true });
+      expect(Fliplet.calls.alert[0].message).toBe('Signed out of 5 sessions.');
     });
   });
 
