@@ -87,12 +87,17 @@ var ProjectLinks = (function() {
       items.push('<li data-ask-ai-source><a href="#">Ask AI</a></li>');
     }
 
-    // The list decides, whoever owns the data source: an app reads one it doesn't list
-    // only in its draft, through ownership, never once published
+    // The list decides: an app reads a data source it doesn't list only in its draft,
+    // through ownership, never once published. One the app owns was made for it, so
+    // it's never unlinked.
     if (context.links) {
-      items.push(context.links.linked().indexOf(dataSource.id) === -1
-        ? '<li data-add-to-project><a href="#">Add to this ' + context.appLabel + '</a></li>'
-        : '<li data-remove-from-project><a href="#">Remove from this ' + context.appLabel + '</a></li>');
+      var linked = context.links.linked().indexOf(dataSource.id) !== -1;
+
+      if (!linked) {
+        items.push('<li data-add-to-project><a href="#">Add to this ' + context.appLabel + '</a></li>');
+      } else if (dataSource.appId !== context.links.appId) {
+        items.push('<li data-remove-from-project><a href="#">Unlink from this ' + context.appLabel + '</a></li>');
+      }
     }
 
     return items.join('');

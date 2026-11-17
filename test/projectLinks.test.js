@@ -109,14 +109,21 @@ describe('ProjectLinks.menuItems', function() {
 
       expect(html).toContain('Ask AI');
       expect(html).toContain('Add to this project');
-      expect(html).not.toContain('Remove');
+      expect(html).not.toContain('Unlink');
     });
   });
 
-  it('offers Remove for one on the app\'s list', function() {
-    var html = ProjectLinks.menuItems({ id: 3, apps: [{ id: 7 }] }, context);
+  it('offers Unlink for one on the app\'s list that another app made', function() {
+    var html = ProjectLinks.menuItems({ id: 3, appId: 8, apps: [{ id: 7 }] }, context);
 
-    expect(html).toContain('Remove from this project');
+    expect(html).toContain('Unlink from this project');
+    expect(html).not.toContain('Add to');
+  });
+
+  it('never offers Unlink for one the app made, even on its list', function() {
+    var html = ProjectLinks.menuItems({ id: 3, appId: 7, apps: [{ id: 7 }] }, context);
+
+    expect(html).not.toContain('Unlink');
     expect(html).not.toContain('Add to');
   });
 

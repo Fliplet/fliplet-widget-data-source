@@ -1375,7 +1375,7 @@ function changeProjectLink(action, dataSource, isUndo) {
     }
 
     if (!isUndo) {
-      showProjectToast(dataSource.name + (action === 'add' ? ' added to ' : ' removed from ') + projectLinks.name(), function() {
+      showProjectToast(dataSource.name + (action === 'add' ? ' added to ' : ' unlinked from ') + projectLinks.name(), function() {
         changeProjectLink(action === 'add' ? 'remove' : 'add', dataSource, true);
       });
     }
@@ -1383,7 +1383,7 @@ function changeProjectLink(action, dataSource, isUndo) {
     trackProjectLink(action + '_failed', { error_code: (error && error.status) || null });
 
     return Fliplet.Modal.alert({
-      title: (action === 'add' ? 'Couldn\'t add ' : 'Couldn\'t remove ') + _.escape(dataSource.name),
+      title: (action === 'add' ? 'Couldn\'t add ' : 'Couldn\'t unlink ') + _.escape(dataSource.name),
       message: Fliplet.parseError(error)
     });
   });
@@ -1759,12 +1759,12 @@ $('#app')
     trackProjectLink('remove_asked');
 
     Fliplet.Modal.confirm({
-      title: 'Remove ' + _.escape(dataSource.name) + ' from this ' + appLabel + '?',
+      title: 'Unlink ' + _.escape(dataSource.name) + ' from this ' + appLabel + '?',
       message: 'Screens that connect to it will stop getting its data. The data source and its records stay in Data Sources.'
         + (widgetData.askAi ? ' If the ' + appLabel + '\'s code still connects to it, the AI adds it back after its next change.' : ''),
       buttons: {
         cancel: { label: 'Cancel' },
-        confirm: { label: 'Remove', className: 'btn-danger' }
+        confirm: { label: 'Unlink', className: 'btn-danger' }
       }
     }).then(function(confirmed) {
       trackProjectLink('remove_answered', { removed: !!confirmed });
