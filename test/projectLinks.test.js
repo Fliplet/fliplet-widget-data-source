@@ -103,23 +103,21 @@ describe('ProjectLinks.menuItems', function() {
     return links.load();
   });
 
-  it('offers Add for a data source the app doesn\'t use, owned by it or not', function() {
-    var html = ProjectLinks.menuItems({ id: 9, appId: 7, apps: [] }, context);
+  it('offers Add for a data source not on the app\'s list, even one the app owns or a screen reads', function() {
+    [{ id: 9, apps: [] }, { id: 9, appId: 7, apps: [{ id: 7 }] }, { id: 4, apps: [{ id: 7 }] }].forEach(function(dataSource) {
+      var html = ProjectLinks.menuItems(dataSource, context);
 
-    expect(html).toContain('Ask AI');
-    expect(html).toContain('Add to this project');
-    expect(html).not.toContain('Remove');
+      expect(html).toContain('Ask AI');
+      expect(html).toContain('Add to this project');
+      expect(html).not.toContain('Remove');
+    });
   });
 
-  it('offers Remove only for one on the app\'s list', function() {
-    expect(ProjectLinks.menuItems({ id: 3, apps: [{ id: 7 }] }, context)).toContain('Remove from this project');
-  });
+  it('offers Remove for one on the app\'s list', function() {
+    var html = ProjectLinks.menuItems({ id: 3, apps: [{ id: 7 }] }, context);
 
-  it('offers neither for one a screen reads but the list doesn\'t hold', function() {
-    var html = ProjectLinks.menuItems({ id: 4, apps: [{ id: 7 }] }, context);
-
+    expect(html).toContain('Remove from this project');
     expect(html).not.toContain('Add to');
-    expect(html).not.toContain('Remove');
   });
 
   it('says "app" in V2 and leaves out Ask AI', function() {

@@ -79,18 +79,6 @@ var ProjectLinks = (function() {
     };
   }
 
-  // Used by the app: on its list, or read by one of its screens (the API's apps list)
-  function isInProject(dataSource, appId, linked) {
-    return linked.indexOf(dataSource.id) !== -1 || (dataSource.apps || []).some(function(app) {
-      return app.id === appId;
-    });
-  }
-
-  // Only what this list added can be taken off: a screen that reads it keeps it in use
-  function canRemove(dataSource, linked) {
-    return linked.indexOf(dataSource.id) !== -1;
-  }
-
   // The row's extra Actions, above "Move to trash"
   function menuItems(dataSource, context) {
     var items = [];
@@ -99,12 +87,12 @@ var ProjectLinks = (function() {
       items.push('<li data-ask-ai-source><a href="#">Ask AI</a></li>');
     }
 
+    // The list decides, whoever owns the data source: an app reads one it doesn't list
+    // only in its draft, through ownership, never once published
     if (context.links) {
-      if (!isInProject(dataSource, context.links.appId, context.links.linked())) {
-        items.push('<li data-add-to-project><a href="#">Add to this ' + context.appLabel + '</a></li>');
-      } else if (canRemove(dataSource, context.links.linked())) {
-        items.push('<li data-remove-from-project><a href="#">Remove from this ' + context.appLabel + '</a></li>');
-      }
+      items.push(context.links.linked().indexOf(dataSource.id) === -1
+        ? '<li data-add-to-project><a href="#">Add to this ' + context.appLabel + '</a></li>'
+        : '<li data-remove-from-project><a href="#">Remove from this ' + context.appLabel + '</a></li>');
     }
 
     return items.join('');
@@ -112,8 +100,6 @@ var ProjectLinks = (function() {
 
   return {
     create: create,
-    isInProject: isInProject,
-    canRemove: canRemove,
     menuItems: menuItems
   };
 })();

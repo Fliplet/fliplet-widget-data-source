@@ -1264,7 +1264,7 @@ function deleteItem(message, dataSourceId) {
   });
 }
 
-// "Ask AI" and the add or remove action in each row's menu, and a tag on the ones the app uses
+// "Ask AI" and the add or remove action in each row's menu
 function decorateDataSourceRows() {
   var context = { askAi: !!widgetData.askAi, links: projectLinks && projectLinks.loaded() ? projectLinks : null, appLabel: appLabel };
 
@@ -1282,9 +1282,6 @@ function decorateDataSourceRows() {
 
     $row.find('[data-delete-source]').prev('.divider').before(ProjectLinks.menuItems(dataSource, context));
 
-    if (context.links && isShowingAll && ProjectLinks.isInProject(dataSource, projectLinks.appId, projectLinks.linked())) {
-      $row.find('.data-source-apps').first().prepend('<span class="in-project-tag">In this ' + appLabel + '</span> ');
-    }
   });
 }
 
