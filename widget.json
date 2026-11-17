@@ -41,6 +41,7 @@
       "js/waitUntilSized.js",
       "js/spreadsheet.js",
       "js/preconfigured-rules.js",
+      "js/projectLinks.js",
       "js/interface.js",
 
       "vendor/jquery-ui.min.css",

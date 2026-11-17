@@ -946,3 +946,42 @@ td.data-source-apps {
   white-space: nowrap;
   word-break: keep-all;
 }
+
+/* A data source the app the manager was opened for uses */
+.in-project-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #E5F7FC;
+  color: #166B82;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Confirms an add or remove, with Undo */
+.project-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1060;
+  display: none;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #1C1B3D;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(13, 17, 23, 0.2);
+}
+
+.project-toast.show {
+  display: block;
+}
+
+.project-toast a {
+  margin-left: 12px;
+  color: #9FE3F5;
+  text-decoration: underline;
+}

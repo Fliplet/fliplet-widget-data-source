@@ -1,4 +1,4 @@
-/* global Pagination, WaitUntilSized */
+/* global Pagination, WaitUntilSized, ProjectLinks */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -37,6 +37,7 @@ var trashedDataSources;
 var allDataSources;
 var table;
 var isShowingAll = false;
+var renderedDataSources = [];
 var columns;
 var dataSourcesToSearch = [];
 var initialLoad = true;
@@ -79,6 +80,16 @@ var getApps = Fliplet.Apps.get().then(function(apps) {
 
 var widgetId = parseInt(Fliplet.Widget.getDefaultId(), 10);
 var widgetData = Fliplet.Widget.getData(widgetId) || {};
+// Studio V3 calls an app a project, and offers "Ask AI" on each data source
+var appLabel = widgetData.appLabel === 'project' ? 'project' : 'app';
+// Opened for one app: each data source can be added to it or taken off
+var projectLinks = widgetData.context === 'app-overlay' && widgetData.appId
+  ? ProjectLinks.create({ appId: widgetData.appId, request: Fliplet.API.request })
+  : null;
+var $projectToast;
+var projectToastTimer;
+
+$('[data-app-source]').text('Show ' + appLabel + '\'s data sources');
 
 var hooksEditor = CodeMirror.fromTextArea($('#hooks')[0], {
   lineNumbers: true,
@@ -115,17 +126,23 @@ function getDataSources() {
   $('#data-sources').show();
   $('#trash-sources').hide();
 
-  return Fliplet.DataSources.get({
-    roles: 'publisher,editor',
-    appId: isShowingAll ? undefined : widgetData.appId,
-    includeInUse: !isShowingAll && !!widgetData.appId,
-    attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
-    type: null,
-    excludeTypes: 'bookmarks,likes,comments,menu,conversation'
-  }, {
-    cache: false
-  })
-    .then(function(userDataSources) {
+  return Promise.all([
+    Fliplet.DataSources.get({
+      roles: 'publisher,editor',
+      appId: isShowingAll ? undefined : widgetData.appId,
+      includeInUse: !isShowingAll && !!widgetData.appId,
+      attributes: 'id,name,bundle,createdAt,updatedAt,appId,apps',
+      type: null,
+      excludeTypes: 'bookmarks,likes,comments,menu,conversation'
+    }, {
+      cache: false
+    }),
+    // Without the app's list the add and remove actions are left out, the rest still works
+    projectLinks ? projectLinks.load().catch(function() {}) : null
+  ])
+    .then(function(results) {
+      var userDataSources = results[0];
+
       allDataSources = userDataSources;
 
       if ((widgetData.context === 'app-overlay' || widgetData.appId) && !isShowingAll) {
@@ -134,7 +151,7 @@ function getDataSources() {
 
         $btnShowAllSource.removeClass('hidden');
         $('[data-app-source]').addClass('hidden');
-        $('[data-back]').text('See all my app\'s data sources');
+        $('[data-back]').text('See all my ' + appLabel + '\'s data sources');
         $helpIcon.addClass('hidden');
 
         // Filters data sources
@@ -194,11 +211,14 @@ function getDataSources() {
 function renderDataSources(dataSources) {
   var html = [];
 
+  renderedDataSources = dataSources;
+
   dataSources.forEach(function(dataSource) {
     html.push(getDataSourceRender(dataSource));
   });
 
   $dataSources.html(html.join(''));
+  decorateDataSourceRows();
   $initialSpinnerLoading.removeClass('animated');
   $contents.removeClass('hidden');
   $('#trash-sources').hide();
@@ -1244,6 +1264,134 @@ function deleteItem(message, dataSourceId) {
   });
 }
 
+// "Ask AI" and the add or remove action in each row's menu, and a tag on the ones the app uses
+function decorateDataSourceRows() {
+  var context = { askAi: !!widgetData.askAi, links: projectLinks && projectLinks.loaded() ? projectLinks : null, appLabel: appLabel };
+
+  if (!context.askAi && !context.links) {
+    return;
+  }
+
+  $dataSources.find('.data-source').each(function() {
+    var $row = $(this);
+    var dataSource = _.find(renderedDataSources, { id: $row.data('id') });
+
+    if (!dataSource) {
+      return;
+    }
+
+    $row.find('[data-delete-source]').prev('.divider').before(ProjectLinks.menuItems(dataSource, context));
+
+    if (context.links && isShowingAll && ProjectLinks.isInProject(dataSource, projectLinks.appId, projectLinks.linked())) {
+      $row.find('.data-source-apps').first().prepend('<span class="in-project-tag">In this ' + appLabel + '</span> ');
+    }
+  });
+}
+
+function trackProjectLink(action, extra) {
+  Fliplet.Studio.emit('track-event', _.assign({
+    category: 'dsm_project_links',
+    action: action,
+    app_label: appLabel
+  }, extra));
+}
+
+function showProjectToast(message, undo) {
+  clearTimeout(projectToastTimer);
+
+  if (!$projectToast) {
+    $projectToast = $('<div class="project-toast" role="status"><span></span> <a href="#" data-project-undo>Undo</a></div>').appendTo('body');
+  }
+
+  $projectToast.find('span').text(message);
+  $projectToast.find('[data-project-undo]').off('click').on('click', function(event) {
+    event.preventDefault();
+    $projectToast.removeClass('show');
+    undo();
+  });
+  $projectToast.addClass('show');
+
+  projectToastTimer = setTimeout(function() {
+    $projectToast.removeClass('show');
+  }, 6000);
+}
+
+// The active list, not a data source being edited or the trash
+function isDataSourceListShown() {
+  return $sourceContents.hasClass('hidden') && !$('[data-show-trash-source]').hasClass('active-source');
+}
+
+// action: 'add' or 'remove'
+function changeProjectLink(action, dataSource, isUndo) {
+  var appId = projectLinks.appId;
+
+  return projectLinks[action](dataSource.id).then(function() {
+    // Trash and the editor reload the list when they close, so only the list on screen is updated
+    if (isDataSourceListShown()) {
+      // The list may have reloaded since the menu was opened
+      var row = _.find(renderedDataSources, { id: dataSource.id }) || dataSource;
+
+      // The API updates each data source's apps in the background, so the row follows the saved list
+      row.apps = _.reject(row.apps || [], { id: appId });
+
+      if (action === 'add') {
+        row.apps.push({ id: appId, name: projectLinks.name() });
+      }
+
+      // The app's own list keeps a data source the app owns
+      if (!isShowingAll && row.appId !== appId) {
+        dataSources = action === 'add' ? _.unionBy(dataSources, [row], 'id') : _.reject(dataSources, { id: row.id });
+        dataSourcesToSearch = action === 'add' ? _.unionBy(dataSourcesToSearch, [row], 'id') : _.reject(dataSourcesToSearch, { id: row.id });
+        renderedDataSources = action === 'add' ? _.unionBy(renderedDataSources, [row], 'id') : _.reject(renderedDataSources, { id: row.id });
+      }
+
+      // A search keeps showing only what matches
+      if ($('.search').val()) {
+        $('.search').trigger('input');
+      } else {
+        renderDataSources(renderedDataSources);
+      }
+    }
+
+    // A screen may still use what was taken off the list: the API works that out in the
+    // background, so read the list again once it has
+    if (action === 'remove') {
+      setTimeout(function() {
+        if (!isDataSourceListShown()) {
+          return;
+        }
+
+        var term = $('.search').val();
+
+        getDataSources().then(function() {
+          if (term) {
+            $('.search').val(term).trigger('input');
+          }
+        });
+      }, 1500);
+    }
+
+    if (isUndo) {
+      trackProjectLink('undone');
+    } else {
+      trackProjectLink(action === 'add' ? 'added' : 'removed');
+    }
+
+    if (!isUndo) {
+      showProjectToast(dataSource.name + (action === 'add' ? ' added to ' : ' removed from ') + projectLinks.name(), function() {
+        changeProjectLink(action === 'add' ? 'remove' : 'add', dataSource, true);
+      });
+    }
+  }).catch(function(error) {
+    trackProjectLink(action + '_failed', { error_code: (error && error.status) || null });
+
+    return Fliplet.Modal.alert({
+      title: (action === 'add' ? 'Couldn\'t add ' : 'Couldn\'t remove ') + _.escape(dataSource.name),
+      message: Fliplet.parseError(error)
+    });
+  });
+}
+
 function sortDataSources(key, order, data) {
   var toBeOrderedDataSources = data;
 
@@ -1584,6 +1732,51 @@ $('#app')
 
     deleteDataSource(currentDataSourceId, name);
   })
+  .on('click', '[data-ask-ai-source]', function(event) {
+    event.preventDefault();
+
+    var dataSource = _.find(renderedDataSources, { id: $(this).closest('.data-source').data('id') });
+
+    if (dataSource) {
+      Fliplet.Studio.emit('data-source-ask-ai', { dataSource: { id: dataSource.id, name: dataSource.name } });
+    }
+  })
+  .on('click', '[data-add-to-project]', function(event) {
+    event.preventDefault();
+
+    var dataSource = _.find(renderedDataSources, { id: $(this).closest('.data-source').data('id') });
+
+    if (dataSource) {
+      changeProjectLink('add', dataSource);
+    }
+  })
+  .on('click', '[data-remove-from-project]', function(event) {
+    event.preventDefault();
+
+    var dataSource = _.find(renderedDataSources, { id: $(this).closest('.data-source').data('id') });
+
+    if (!dataSource) {
+      return;
+    }
+
+    trackProjectLink('remove_asked');
+
+    Fliplet.Modal.confirm({
+      title: 'Remove ' + _.escape(dataSource.name) + ' from this ' + appLabel + '?',
+      message: 'Screens that connect to it will stop getting its data. The data source and its records stay in Data Sources.'
+        + (widgetData.askAi ? ' If the ' + appLabel + '\'s code still connects to it, the AI adds it back after its next change.' : ''),
+      buttons: {
+        cancel: { label: 'Cancel' },
+        confirm: { label: 'Remove', className: 'btn-danger' }
+      }
+    }).then(function(confirmed) {
+      trackProjectLink('remove_answered', { removed: !!confirmed });
+
+      if (confirmed) {
+        changeProjectLink('remove', dataSource);
+      }
+    });
+  })
   .on('click', '[data-delete-source]', function(event) {
     event.preventDefault();
     currentDataSourceId = currentDataSourceId || $(this).closest('.data-source').data('id');
@@ -1825,11 +2018,7 @@ $('#app')
 
       $trashedDataSources.html(html.join(''));
     } else {
-      search.forEach(function(dataSource) {
-        html.push(getDataSourceRender(dataSource));
-      });
-
-      $dataSources.html(html.join(''));
+      renderDataSources(search);
     }
   })
   .on('click', '#get-backdoor', function(event) {
