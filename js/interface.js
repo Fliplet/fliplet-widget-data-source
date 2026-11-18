@@ -1281,7 +1281,6 @@ function decorateDataSourceRows() {
     }
 
     $row.find('[data-delete-source]').prev('.divider').before(ProjectLinks.menuItems(dataSource, context));
-
   });
 }
 
@@ -1760,7 +1759,9 @@ $('#app')
 
     Fliplet.Modal.confirm({
       title: 'Unlink ' + _.escape(dataSource.name) + ' from this ' + appLabel + '?',
-      message: 'Screens that connect to it will stop getting its data. The data source and its records stay in Data Sources.'
+      // V2 screens can also use it through component settings, which unlinking doesn't change
+      message: (appLabel === 'app' ? 'Custom code that connects to it' : 'Screens that connect to it')
+        + ' will stop getting its data. The data source and its records stay in Data Sources.'
         + (widgetData.askAi ? ' If the ' + appLabel + '\'s code still connects to it, the AI adds it back after its next change.' : ''),
       buttons: {
         cancel: { label: 'Cancel' },
