@@ -99,6 +99,20 @@ describe('ProjectLinks.create', function() {
   });
 });
 
+describe('ProjectLinks.load', function() {
+  it('waits for a save in progress, so it never brings back the list from before it', function() {
+    var api = fakeApi([3]);
+    var links = ProjectLinks.create({ appId: 7, request: api.request });
+    var adding = links.add(5);
+    var reloading = links.load();
+
+    return Promise.all([adding, reloading]).then(function(results) {
+      expect(results[1]).toEqual([3, 5]);
+      expect(links.linked()).toEqual([3, 5]);
+    });
+  });
+});
+
 describe('ProjectLinks.menuItems', function() {
   var api;
   var links;

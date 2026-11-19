@@ -52,9 +52,18 @@ var ProjectLinks = (function() {
       return run;
     }
 
+    // A plain reload waits its turn too, so it can't finish after a save with the old list
+    function load() {
+      var run = queue.catch(function() {}).then(read);
+
+      queue = run;
+
+      return run;
+    }
+
     return {
       appId: appId,
-      load: read,
+      load: load,
       loaded: function() {
         return loaded;
       },
