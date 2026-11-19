@@ -5,10 +5,6 @@ var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
-var selectedRangeCount = 1; // Number of ranges in the current selection
-// The grid the user last selected cells in. `s` outlives the grid it was read
-// from, so it only names a row while that same grid is still on screen.
-var selectionGrid = null;
 var signOutEverywhereBusy = false; // Set while a "Sign out everywhere" request runs
 var signOutEverywhereSaving = false; // Set while the grid is being saved
 // The data source on screen, as far as "Sign out everywhere" is concerned:
@@ -28,9 +24,6 @@ function spreadsheet(options) {
   // Set once the user drags a row. Row order is only worth committing when they
   // actually reordered something - see getData().
   var rowsMoved = false;
-
-  // A new grid starts with nothing the user picked
-  selectionGrid = null;
 
   /**
    * Given an array of data source entries it does return an array
@@ -667,14 +660,13 @@ function spreadsheet(options) {
         });
       }
     },
+    // A selection grows while it is being made (Shift and an arrow key, a drag):
+    // the button has to follow it, not only its end
+    afterSelection: function() {
+      updateSignOutEverywhere();
+    },
     afterSelectionEnd: function(r, c, r2, c2) {
-      var selected = hot.getSelected();
-
       s = [r, c, r2, c2];
-      selectionGrid = hot;
-      // getSelected() returns one range in this version and a list of ranges
-      // in later ones; anything other than a single range counts as many
-      selectedRangeCount = Array.isArray(selected) && Array.isArray(selected[0]) ? selected.length : 1;
 
       updateSignOutEverywhere();
     },
@@ -1090,9 +1082,6 @@ function spreadsheet(options) {
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
-      // Forget the selection first, so nothing reads this grid while it goes
-      selectionGrid = null;
-
       reset(true);
 
       // Ensure we do not call methods on a destroyed Handsontable instance
@@ -1406,20 +1395,36 @@ document.addEventListener('keydown', function(event) {
 });
 
 /**
+ * Read what is selected in the grid on screen right now. Not the copy kept for
+ * the rest of the toolbar: that one is only refreshed by a selection hook, and
+ * the button has to refuse a selection the moment it grows past one row.
+ * @returns {Object} { selection: Array|undefined, rangeCount: Number }
+ */
+function getSignOutEverywhereSelection() {
+  if (!hot) {
+    return { selection: undefined, rangeCount: 0 };
+  }
+
+  try {
+    return SignOutEverywhere.readSelection(hot.getSelected());
+  } catch (e) {
+    // A grid that cannot be read has nothing selected
+    return { selection: undefined, rangeCount: 0 };
+  }
+}
+
+/**
  * Get the entry the "Sign out everywhere" button acts on: the selected row,
  * when exactly one row is selected and it has been saved.
  * @returns {Number|undefined} Entry ID
  */
 function getSignOutEverywhereEntryId() {
-  // Only the grid on screen, and only once the user has selected in it
-  if (!hot || selectionGrid !== hot) {
-    return;
-  }
+  var selected = getSignOutEverywhereSelection();
 
   try {
     return SignOutEverywhere.getSelectedEntryId({
-      selection: s,
-      rangeCount: selectedRangeCount,
+      selection: selected.selection,
+      rangeCount: selected.rangeCount,
       getRowId: function(visualRow) {
         // Rows keep their entry ID on the source array. A row added in the grid
         // has none until it is saved and the data source is reloaded.
@@ -1561,7 +1566,9 @@ $('#toolbar')
       var loginColumn = SignOutEverywhere.getLoginColumn(signOutEverywhereDataSource.definition);
       var loginColumnIndex = loginColumn ? hot.getDataAtRow(0).indexOf(loginColumn) : -1;
 
-      userLabel = loginColumnIndex > -1 ? hot.getDataAtCell(s[0], loginColumnIndex) : undefined;
+      var selectedRow = getSignOutEverywhereSelection().selection[0];
+
+      userLabel = loginColumnIndex > -1 ? hot.getDataAtCell(selectedRow, loginColumnIndex) : undefined;
     } catch (e) {
       // The confirmation falls back to "this user"
     }

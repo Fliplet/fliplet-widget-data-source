@@ -124,6 +124,24 @@ describe('SignOutEverywhere.getState', function() {
   });
 });
 
+describe('SignOutEverywhere.readSelection', function() {
+  it('reads the one range a 0.38 grid returns', function() {
+    expect(SignOutEverywhere.readSelection([1, 0, 2, 4])).toEqual({ selection: [1, 0, 2, 4], rangeCount: 1 });
+  });
+
+  it('reads a list of ranges, and counts them', function() {
+    expect(SignOutEverywhere.readSelection([[1, 0, 1, 0]])).toEqual({ selection: [1, 0, 1, 0], rangeCount: 1 });
+    expect(SignOutEverywhere.readSelection([[1, 0, 1, 0], [3, 0, 3, 0]]))
+      .toEqual({ selection: [3, 0, 3, 0], rangeCount: 2 });
+  });
+
+  it('counts no range when the grid has nothing selected', function() {
+    expect(SignOutEverywhere.readSelection()).toEqual({ selection: undefined, rangeCount: 0 });
+    expect(SignOutEverywhere.readSelection([])).toEqual({ selection: undefined, rangeCount: 0 });
+    expect(SignOutEverywhere.readSelection(null)).toEqual({ selection: undefined, rangeCount: 0 });
+  });
+});
+
 describe('SignOutEverywhere.getSelectedEntryId', function() {
   var ids = { 1: 101, 2: 102, 3: undefined };
 

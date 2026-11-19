@@ -70,9 +70,28 @@ function FakeGrid(element, settings) {
     return {};
   };
 
+  // Only the hooks the page actually asked for, as the real grid does
+  grid.fire = function(name, r, c, r2, c2) {
+    if (typeof grid.settings[name] === 'function') {
+      grid.settings[name](r, c, r2, c2);
+    }
+  };
+
   grid.select = function(r, c, r2, c2) {
     grid.selected = [r, c, r2, c2];
-    grid.settings.afterSelectionEnd(r, c, r2, c2);
+    grid.fire('afterSelection', r, c, r2, c2);
+    grid.fire('afterSelectionEnd', r, c, r2, c2);
+  };
+
+  // A selection that grows while it is being made: the grid holds the larger
+  // range, and only the hook that runs while a selection is being made (if any)
+  // reports it. Shift and an arrow key behaved this way in 0.38.
+  grid.extendSelection = function(r, c, r2, c2, fireHook) {
+    grid.selected = [r, c, r2, c2];
+
+    if (fireHook) {
+      grid.fire('afterSelection', r, c, r2, c2);
+    }
   };
 
   grid.destroy = function() {
@@ -289,6 +308,59 @@ describe('Sign out everywhere, wired to the grid', function() {
     expect(page.button().disabled).toBe(true);
   });
 
+  // DEV-2625 FUNC-002: with Shift and an arrow key the selection grew past one
+  // row without the selection-end hook running. The button kept the range that
+  // hook had last reported, stayed enabled, and offered to sign out the single
+  // user it had been on.
+  it('sends nothing when the selection has grown past one row unreported', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+    expect(page.button().disabled).toBe(false);
+
+    // The grid holds two rows now; no hook said so
+    grid.extendSelection(1, 0, 2, 0);
+
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
+  it('disables the button while the selection grows, not only once it ends', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+
+    grid.extendSelection(1, 0, 2, 0, true);
+    expect(page.button().disabled).toBe(true);
+
+    grid.extendSelection(2, 0, 2, 0, true);
+    expect(page.button().disabled).toBe(false);
+  });
+
+  it('sends nothing when the grid holds more than one selected range', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+    grid.selected = [[1, 0, 1, 0], [2, 0, 2, 0]];
+
+    expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
+
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
   it('sends the entry of the row on screen when the grid is sorted or rows were moved', function() {
     page.loadDetails(loginSource);
 
@@ -336,9 +408,9 @@ describe('Sign out everywhere, wired to the grid', function() {
     gridA.select(1, 0, 1, 0);
     gridA.destroy();
 
-    // The state the validator reproduced: the global still points at a
-    // destroyed grid that holds the last selection
-    expect(page.run('hot === selectionGrid')).toBe(true);
+    // The state the validator reproduced: the global still points at the
+    // destroyed grid, which throws on every read
+    expect(page.run('(function() { try { hot.getSelected(); return false; } catch (e) { return true; } })()')).toBe(true);
 
     page.run('currentDataSourceId = 35;');
     page.loadDetails({ id: 35, appId: 12, apps: [], definition: emailLogin });
