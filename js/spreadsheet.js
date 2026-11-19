@@ -1,10 +1,19 @@
-/* global GridSort */
+/* global GridSort, SignOutEverywhere, widgetData */
 var hot;
 var copyPastePlugin;
 var spreadsheetData;
 var colWidths = [];
 var HistoryStack = Fliplet.Registry.get('history-stack');
 var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
+var selectedRangeCount = 1; // Number of ranges in the current selection
+// The grid the user last selected cells in. `s` outlives the grid it was read
+// from, so it only names a row while that same grid is still on screen.
+var selectionGrid = null;
+var signOutEverywhereBusy = false; // Set while a "Sign out everywhere" request runs
+var signOutEverywhereSaving = false; // Set while the grid is being saved
+// The data source on screen, as far as "Sign out everywhere" is concerned:
+// { id, definition, usedByApp }. Set once its details have loaded.
+var signOutEverywhereDataSource = null;
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -19,6 +28,9 @@ function spreadsheet(options) {
   // Set once the user drags a row. Row order is only worth committing when they
   // actually reordered something - see getData().
   var rowsMoved = false;
+
+  // A new grid starts with nothing the user picked
+  selectionGrid = null;
 
   /**
    * Given an array of data source entries it does return an array
@@ -656,7 +668,15 @@ function spreadsheet(options) {
       }
     },
     afterSelectionEnd: function(r, c, r2, c2) {
+      var selected = hot.getSelected();
+
       s = [r, c, r2, c2];
+      selectionGrid = hot;
+      // getSelected() returns one range in this version and a list of ranges
+      // in later ones; anything other than a single range counts as many
+      selectedRangeCount = Array.isArray(selected) && Array.isArray(selected[0]) ? selected.length : 1;
+
+      updateSignOutEverywhere();
     },
     beforeKeyDown: function(event) {
       var editor = hot.getActiveEditor();
@@ -691,6 +711,9 @@ function spreadsheet(options) {
   }
 
   hot = new Handsontable(document.getElementById('hot'), hotSettings);
+
+  // Nothing is selected in a new grid, so the button must not keep the state of the last one
+  updateSignOutEverywhere();
 
   // Initialize colWidths if they wasn't stored locally
   if (!colWidths || !colWidths.length) {
@@ -983,16 +1006,19 @@ function spreadsheet(options) {
   }
 
   function onSave() {
+    setSignOutEverywhereSaving(true);
     $('.save-btn').addClass('hidden');
     $('.data-save-status').removeClass('hidden').html('Saving...');
   }
 
   function onSaveComplete() {
+    setSignOutEverywhereSaving(false);
     // Update save status
     $('.data-save-status').html('All changes saved!');
   }
 
   function onSaveError() {
+    setSignOutEverywhereSaving(false);
     // Update save status on error
     $('.data-save-status').addClass('hidden').html('');
   }
@@ -1003,6 +1029,8 @@ function spreadsheet(options) {
 
   function setChanges(value) {
     dataHasChanges = typeof value !== 'undefined' ? !!value : false;
+
+    updateSignOutEverywhere();
   }
 
   /**
@@ -1062,6 +1090,9 @@ function spreadsheet(options) {
     getColumns: getColumns,
     getColWidths: getColWidths,
     destroy: function() {
+      // Forget the selection first, so nothing reads this grid while it goes
+      selectionGrid = null;
+
       reset(true);
 
       // Ensure we do not call methods on a destroyed Handsontable instance
@@ -1085,6 +1116,8 @@ function spreadsheet(options) {
 
       // Nullify reference so external callers can guard with `if (!hot)`
       hot = null;
+
+      updateSignOutEverywhere();
 
       return;
     },
@@ -1372,6 +1405,101 @@ document.addEventListener('keydown', function(event) {
   }
 });
 
+/**
+ * Get the entry the "Sign out everywhere" button acts on: the selected row,
+ * when exactly one row is selected and it has been saved.
+ * @returns {Number|undefined} Entry ID
+ */
+function getSignOutEverywhereEntryId() {
+  // Only the grid on screen, and only once the user has selected in it
+  if (!hot || selectionGrid !== hot) {
+    return;
+  }
+
+  try {
+    return SignOutEverywhere.getSelectedEntryId({
+      selection: s,
+      rangeCount: selectedRangeCount,
+      getRowId: function(visualRow) {
+        // Rows keep their entry ID on the source array. A row added in the grid
+        // has none until it is saved and the data source is reloaded.
+        var row = hot.getSourceDataAtRow(hot.toPhysicalRow(visualRow));
+
+        return row && row.id;
+      }
+    });
+  } catch (e) {
+    // A grid that cannot be read names no row
+    return;
+  }
+}
+
+/**
+ * Get the state of the "Sign out everywhere" button.
+ * @param {Number} [entryId] - Selected entry
+ * @returns {Object} { visible: Boolean, enabled: Boolean }
+ */
+function getSignOutEverywhereState(entryId) {
+  var dataSource = signOutEverywhereDataSource;
+  // The ID on screen may be held as a number or a string
+  var isCurrent = !!dataSource && !!currentDataSourceId && String(dataSource.id) === String(currentDataSourceId);
+
+  return SignOutEverywhere.getState({
+    appId: isCurrent && dataSource.usedByApp ? widgetData.appId : undefined,
+    definition: isCurrent ? dataSource.definition : undefined,
+    entryId: entryId,
+    hasChanges: !table || table.hasChanges(),
+    busy: signOutEverywhereBusy || signOutEverywhereSaving
+  });
+}
+
+/**
+ * Show the "Sign out everywhere" button only for a login data source of the
+ * app the manager was opened for, and only enable it for one saved row while
+ * nothing is waiting to be saved. Never throws: it runs inside data loads.
+ * @returns {undefined}
+ */
+function updateSignOutEverywhere() {
+  var state;
+
+  try {
+    state = getSignOutEverywhereState(getSignOutEverywhereEntryId());
+  } catch (e) {
+    state = { visible: false, enabled: false };
+  }
+
+  $('#toolbar [data-sign-out-everywhere]').toggleClass('hidden', !state.visible);
+  $('#toolbar [data-action="sign-out-everywhere"]').prop('disabled', !state.enabled);
+}
+
+/**
+ * Tell "Sign out everywhere" which data source is on screen.
+ * @param {Object} [dataSource] - Data source as loaded, or nothing while none is loaded
+ * @returns {undefined}
+ */
+// eslint-disable-next-line no-unused-vars
+function setSignOutEverywhereDataSource(dataSource) {
+  signOutEverywhereDataSource = dataSource
+    ? {
+      id: dataSource.id,
+      definition: dataSource.definition,
+      usedByApp: SignOutEverywhere.isUsedByApp(dataSource, widgetData.appId)
+    }
+    : null;
+
+  updateSignOutEverywhere();
+}
+
+/**
+ * Keep the button disabled while the grid is being saved.
+ * @param {Boolean} saving - Whether a save is running
+ * @returns {undefined}
+ */
+function setSignOutEverywhereSaving(saving) {
+  signOutEverywhereSaving = !!saving;
+  updateSignOutEverywhere();
+}
+
 // Toolbar Feature hotSelection structure: [r, c, r2, c2];
 $('#toolbar')
   .on('click', '[data-action="insert-row-before"]', function() {
@@ -1418,6 +1546,42 @@ $('#toolbar')
   })
   .on('click', '[data-action="paste"]', function() {
     openOverlay();
+  })
+  .on('click', '[data-action="sign-out-everywhere"]', function() {
+    var entryId = getSignOutEverywhereEntryId();
+
+    // Checked again on click: the state may have moved on since the button was last updated
+    if (!getSignOutEverywhereState(entryId).enabled) {
+      return;
+    }
+
+    var userLabel;
+
+    try {
+      var loginColumn = SignOutEverywhere.getLoginColumn(signOutEverywhereDataSource.definition);
+      var loginColumnIndex = loginColumn ? hot.getDataAtRow(0).indexOf(loginColumn) : -1;
+
+      userLabel = loginColumnIndex > -1 ? hot.getDataAtCell(s[0], loginColumnIndex) : undefined;
+    } catch (e) {
+      // The confirmation falls back to "this user"
+    }
+
+    signOutEverywhereBusy = true;
+    updateSignOutEverywhere();
+
+    function done() {
+      signOutEverywhereBusy = false;
+      updateSignOutEverywhere();
+    }
+
+    // run() reports its own errors; this only has to clear the busy state
+    SignOutEverywhere.run({
+      Fliplet: Fliplet,
+      appId: widgetData.appId,
+      dataSourceId: signOutEverywhereDataSource.id,
+      entryId: entryId,
+      userLabel: userLabel
+    }).then(done, done);
   });
 
 $('#entries [data-toggle="tooltip"]').tooltip({

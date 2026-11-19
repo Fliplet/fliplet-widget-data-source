@@ -142,6 +142,10 @@
                     <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="insert-column-right" data-placement="bottom" title="Insert column after"><i class="mce-ico mce-i-tableinsertcolafter"></i></button>
                     <button type="button" class="btn btn-default" data-toggle="tooltip" data-action="remove-column" data-placement="bottom" title="Delete column"><i class="mce-ico mce-i-tabledeletecol"></i></button>
                   </div>
+                  <!-- The tooltip sits on the group: a disabled button shows none of its own -->
+                  <div class="btn-group hidden" role="group" aria-label="App user sessions" data-sign-out-everywhere data-toggle="tooltip" data-placement="bottom" title="Sign the selected user out of all their sessions in this app. Select one saved row, with no unsaved changes, to use it.">
+                    <button type="button" class="btn btn-default" data-action="sign-out-everywhere" disabled><i class="fa fa-sign-out"></i> Sign out everywhere</button>
+                  </div>
 
                 </div>
                 <div class="table-entries">
