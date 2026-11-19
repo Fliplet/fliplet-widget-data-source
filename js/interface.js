@@ -1099,6 +1099,11 @@ function deleteItem(message, dataSourceId) {
         return ds.id !== dataSourceId;
       });
 
+      // Add to / Unlink re-render from this cache, so a trashed row mustn't come back
+      renderedDataSources = renderedDataSources.filter(function(ds) {
+        return ds.id !== dataSourceId;
+      });
+
       if (!dataSources.length) {
         $noResults.removeClass('hidden');
       }
