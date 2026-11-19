@@ -1,12 +1,21 @@
-/* eslint-env jest */
+var test = require('node:test');
+var describe = test.describe;
+var it = test.it;
+var beforeEach = test.beforeEach;
+var assert = require('assert');
+var expect = require('./expect');
+
 var ProjectLinks = require('../js/projectLinks');
 
 // A stand-in for v1/apps/:id and its settings route, which replaces the whole list
 function fakeApi(initial) {
   var stored = initial.slice();
   var calls = [];
-  var request = jest.fn(function(options) {
+  var once = [];
+  var request = function(options) {
     calls.push(options);
+
+    if (once.length) return once.shift()(options);
 
     if (options.method === 'POST') {
       stored = options.data.customDataSourcesInUse.slice();
@@ -15,9 +24,9 @@ function fakeApi(initial) {
     }
 
     return Promise.resolve({ app: { id: 7, name: 'Events', settings: { customDataSourcesInUse: stored.map(String) } } });
-  });
+  };
 
-  return { request: request, calls: calls, stored: function() { return stored; } };
+  return { request: request, calls: calls, once: function(answer) { once.push(answer); }, stored: function() { return stored; } };
 }
 
 describe('ProjectLinks.create', function() {
@@ -75,8 +84,8 @@ describe('ProjectLinks.create', function() {
     var links = ProjectLinks.create({ appId: 7, request: api.request });
     var refusal = { status: 400, responseJSON: { message: 'You don\'t have access to data source 4' } };
 
-    api.request.mockImplementationOnce(function() { return Promise.resolve({ app: { settings: {} } }); });
-    api.request.mockImplementationOnce(function() { return Promise.reject(refusal); });
+    api.once(function() { return Promise.resolve({ app: { settings: {} } }); });
+    api.once(function() { return Promise.reject(refusal); });
 
     return links.add(1).then(function() {
       throw new Error('should have failed');
@@ -107,24 +116,24 @@ describe('ProjectLinks.menuItems', function() {
     [{ id: 9, apps: [] }, { id: 9, appId: 7, apps: [{ id: 7 }] }, { id: 4, apps: [{ id: 7 }] }].forEach(function(dataSource) {
       var html = ProjectLinks.menuItems(dataSource, context);
 
-      expect(html).toContain('Ask AI');
-      expect(html).toContain('Add to this project');
-      expect(html).not.toContain('Unlink');
+      assert.ok(html.includes('Ask AI'));
+      assert.ok(html.includes('Add to this project'));
+      assert.ok(!html.includes('Unlink'));
     });
   });
 
   it('offers Unlink for one on the app\'s list that another app made', function() {
     var html = ProjectLinks.menuItems({ id: 3, appId: 8, apps: [{ id: 7 }] }, context);
 
-    expect(html).toContain('Unlink from this project');
-    expect(html).not.toContain('Add to');
+    assert.ok(html.includes('Unlink from this project'));
+    assert.ok(!html.includes('Add to'));
   });
 
   it('never offers Unlink for one the app made, even on its list', function() {
     var html = ProjectLinks.menuItems({ id: 3, appId: 7, apps: [{ id: 7 }] }, context);
 
-    expect(html).not.toContain('Unlink');
-    expect(html).not.toContain('Add to');
+    assert.ok(!html.includes('Unlink'));
+    assert.ok(!html.includes('Add to'));
   });
 
   it('says "app" in V2 and leaves out Ask AI', function() {
