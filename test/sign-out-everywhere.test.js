@@ -125,11 +125,13 @@ describe('SignOutEverywhere.getState', function() {
 });
 
 describe('SignOutEverywhere.readSelection', function() {
-  it('reads the one range a 0.38 grid returns', function() {
+  // Defensive: 0.38 always returns a list of ranges, never a bare one, because
+  // getSelected() maps over the selected range
+  it('reads a bare range, should one ever arrive', function() {
     expect(SignOutEverywhere.readSelection([1, 0, 2, 4])).toEqual({ selection: [1, 0, 2, 4], rangeCount: 1 });
   });
 
-  it('reads a list of ranges, and counts them', function() {
+  it('reads the list of ranges a 0.38 grid returns, and counts them', function() {
     expect(SignOutEverywhere.readSelection([[1, 0, 1, 0]])).toEqual({ selection: [1, 0, 1, 0], rangeCount: 1 });
     expect(SignOutEverywhere.readSelection([[1, 0, 1, 0], [3, 0, 3, 0]]))
       .toEqual({ selection: [3, 0, 3, 0], rangeCount: 2 });

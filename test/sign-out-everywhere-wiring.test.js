@@ -77,8 +77,10 @@ function FakeGrid(element, settings) {
     }
   };
 
+  // 0.38's getSelected() always returns a LIST of ranges: it maps over the
+  // selected range, so one selected range comes back as [[r, c, r2, c2]]
   grid.select = function(r, c, r2, c2) {
-    grid.selected = [r, c, r2, c2];
+    grid.selected = [[r, c, r2, c2]];
     grid.fire('afterSelection', r, c, r2, c2);
     grid.fire('afterSelectionEnd', r, c, r2, c2);
   };
@@ -87,11 +89,29 @@ function FakeGrid(element, settings) {
   // range, and only the hook that runs while a selection is being made (if any)
   // reports it. Shift and an arrow key behaved this way in 0.38.
   grid.extendSelection = function(r, c, r2, c2, fireHook) {
-    grid.selected = [r, c, r2, c2];
+    grid.selected = [[r, c, r2, c2]];
 
     if (fireHook) {
       grid.fire('afterSelection', r, c, r2, c2);
     }
+  };
+
+  // Ctrl and a click adds a second range. It goes through setRangeStart, so
+  // 0.38 reports it through afterSelection like any other selection change.
+  grid.addRange = function(r, c, r2, c2) {
+    grid.selected = (grid.selected || []).concat([[r, c, r2, c2]]);
+    grid.fire('afterSelection', r, c, r2, c2);
+  };
+
+  // What deselectCell() does: the selection is cleared, so getSelected()
+  // returns undefined, and afterDeselect runs
+  grid.deselect = function() {
+    if (!grid.selected) {
+      return;
+    }
+
+    grid.selected = undefined;
+    grid.fire('afterDeselect');
   };
 
   grid.destroy = function() {
@@ -253,7 +273,23 @@ function loadSpreadsheet() {
 
       return context.hot;
     },
+    // Pressing the mouse on a toolbar button is a click outside #hot, and
+    // 0.38's outsideClickDeselects (on by default, never set here) clears the
+    // grid selection on that mousedown -- before the click handler runs
     click: function() {
+      try {
+        if (context.hot) {
+          context.hot.deselect();
+        }
+      } catch (e) {
+        // A destroyed grid has had its listeners removed, so it deselects nothing
+      }
+
+      toolbar['[data-action="sign-out-everywhere"]']();
+    },
+    // Enter or Space on the focused button: a click with no mousedown, so
+    // nothing deselects and the grid still reports what is selected
+    keyboardClick: function() {
       toolbar['[data-action="sign-out-everywhere"]']();
     },
     button: function() {
@@ -309,10 +345,34 @@ describe('Sign out everywhere, wired to the grid', function() {
   });
 
   // DEV-2625 FUNC-002: with Shift and an arrow key the selection grew past one
-  // row without the selection-end hook running. The button kept the range that
+  // row without the selection-END hook running. The button kept the range that
   // hook had last reported, stayed enabled, and offered to sign out the single
-  // user it had been on.
-  it('sends nothing when the selection has grown past one row unreported', function() {
+  // user it had been on. afterSelection does run on every such step: 0.38's
+  // setRangeEnd always emits it, which is why the button now follows that hook.
+  it('sends nothing after Shift and an arrow key grow the selection past one row', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+    expect(page.button().disabled).toBe(false);
+
+    // Shift and Down: the range grows, and only afterSelection reports it
+    grid.extendSelection(1, 0, 2, 0, true);
+    expect(page.button().disabled).toBe(true);
+
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
+  // The grid is asked before the snapshot, so a selection the hooks never
+  // reported is still refused. Only reachable without a mousedown, i.e. when
+  // the button is activated from the keyboard, because a mouse press on the
+  // toolbar deselects the grid before the click lands.
+  it('sends nothing when the grid itself reports more than one row, hooks or not', function() {
     page.loadDetails(loginSource);
 
     var grid = page.openGrid(rows);
@@ -323,7 +383,7 @@ describe('Sign out everywhere, wired to the grid', function() {
     // The grid holds two rows now; no hook said so
     grid.extendSelection(1, 0, 2, 0);
 
-    page.click();
+    page.keyboardClick();
 
     return flush().then(function() {
       expect(page.calls).toHaveLength(0);
@@ -350,9 +410,12 @@ describe('Sign out everywhere, wired to the grid', function() {
     var grid = page.openGrid(rows);
 
     grid.select(1, 0, 1, 0);
-    grid.selected = [[1, 0, 1, 0], [2, 0, 2, 0]];
+
+    // Ctrl and a click on a second row
+    grid.addRange(2, 0, 2, 0);
 
     expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
+    expect(page.button().disabled).toBe(true);
 
     page.click();
 
@@ -441,6 +504,32 @@ describe('Sign out everywhere, wired to the grid', function() {
     ]);
 
     expect(page.button()).toEqual({ hidden: false, disabled: true });
+
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
+  // A grid can be replaced without the old one being destroyed first, which
+  // leaves the snapshot holding a selection the grid on screen never made
+  it('ignores a selection snapshot belonging to a grid that is no longer on screen', function() {
+    page.loadDetails(loginSource);
+
+    var gridA = page.openGrid(rows);
+
+    gridA.select(1, 0, 1, 0);
+    expect(page.button().disabled).toBe(false);
+
+    // Grid B replaces A in place, with nothing selected in it
+    page.openGrid([
+      { id: 701, data: { Email: 'eve@example.com', Name: 'Eve' } },
+      { id: 702, data: { Email: 'fay@example.com', Name: 'Fay' } }
+    ]);
+
+    expect(page.button().disabled).toBe(true);
+    expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
 
     page.click();
 

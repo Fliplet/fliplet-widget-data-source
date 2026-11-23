@@ -10,6 +10,14 @@ var signOutEverywhereSaving = false; // Set while the grid is being saved
 // The data source on screen, as far as "Sign out everywhere" is concerned:
 // { id, definition, usedByApp }. Set once its details have loaded.
 var signOutEverywhereDataSource = null;
+// The last selection the grid reported, with the grid it came from. The button
+// falls back to this when the grid reports nothing: pressing the mouse on a
+// toolbar button is a click outside #hot, and Handsontable's
+// outsideClickDeselects (on by default, never set here) clears the selection on
+// that mousedown, before the click handler runs. Refreshed by afterSelection,
+// so it follows a range as it grows; deliberately NOT cleared on deselect,
+// because the button would then have nothing left to act on.
+var signOutEverywhereSelection = { grid: null, selection: undefined, rangeCount: 0 };
 
 // eslint-disable-next-line no-unused-vars
 function spreadsheet(options) {
@@ -663,11 +671,13 @@ function spreadsheet(options) {
     // A selection grows while it is being made (Shift and an arrow key, a drag):
     // the button has to follow it, not only its end
     afterSelection: function() {
+      captureSignOutEverywhereSelection();
       updateSignOutEverywhere();
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
 
+      captureSignOutEverywhereSelection();
       updateSignOutEverywhere();
     },
     beforeKeyDown: function(event) {
@@ -1106,6 +1116,9 @@ function spreadsheet(options) {
       // Nullify reference so external callers can guard with `if (!hot)`
       hot = null;
 
+      // Hold no reference to the grid that has just gone
+      signOutEverywhereSelection = { grid: null, selection: undefined, rangeCount: 0 };
+
       updateSignOutEverywhere();
 
       return;
@@ -1394,23 +1407,66 @@ document.addEventListener('keydown', function(event) {
   }
 });
 
+var NO_SELECTION = { selection: undefined, rangeCount: 0 };
+
 /**
- * Read what is selected in the grid on screen right now. Not the copy kept for
- * the rest of the toolbar: that one is only refreshed by a selection hook, and
- * the button has to refuse a selection the moment it grows past one row.
+ * Take a snapshot of what the grid reports as selected, for the button to read
+ * later. Called from the selection hooks, which run while a selection is still
+ * being made, so the snapshot follows a range as it grows past one row.
+ * @returns {undefined}
+ */
+function captureSignOutEverywhereSelection() {
+  var read = NO_SELECTION;
+
+  if (hot) {
+    try {
+      read = SignOutEverywhere.readSelection(hot.getSelected());
+    } catch (e) {
+      // A grid that cannot be read has nothing selected
+      read = NO_SELECTION;
+    }
+  }
+
+  signOutEverywhereSelection = {
+    grid: hot,
+    selection: read.selection,
+    rangeCount: read.rangeCount
+  };
+}
+
+/**
+ * Get the selection the "Sign out everywhere" button acts on.
+ *
+ * The grid on screen is asked first, so a selection that grew without any hook
+ * reporting it is still seen and still refused. Only when the grid reports
+ * nothing does the snapshot stand in: pressing the mouse on a toolbar button is
+ * a click outside #hot, and that mousedown deselects before the click handler
+ * runs, so without the fallback the button could never act on a mouse click.
  * @returns {Object} { selection: Array|undefined, rangeCount: Number }
  */
 function getSignOutEverywhereSelection() {
   if (!hot) {
-    return { selection: undefined, rangeCount: 0 };
+    return NO_SELECTION;
   }
 
+  var live = NO_SELECTION;
+
   try {
-    return SignOutEverywhere.readSelection(hot.getSelected());
+    live = SignOutEverywhere.readSelection(hot.getSelected());
   } catch (e) {
     // A grid that cannot be read has nothing selected
-    return { selection: undefined, rangeCount: 0 };
+    return NO_SELECTION;
   }
+
+  if (live.rangeCount > 0) {
+    return live;
+  }
+
+  if (signOutEverywhereSelection.grid !== hot) {
+    return NO_SELECTION;
+  }
+
+  return signOutEverywhereSelection;
 }
 
 /**
