@@ -155,7 +155,7 @@ function loadSpreadsheet() {
         if (key === 'on') {
           return function(event, child, handler) {
             if (selector === '#toolbar' && handler) {
-              toolbar[child] = handler;
+              toolbar[event + ' ' + child] = handler;
             }
 
             return self;
@@ -273,10 +273,13 @@ function loadSpreadsheet() {
 
       return context.hot;
     },
-    // Pressing the mouse on a toolbar button is a click outside #hot, and
-    // 0.38's outsideClickDeselects (on by default, never set here) clears the
-    // grid selection on that mousedown -- before the click handler runs
+    // A mouse press on a toolbar button, in the order the browser runs it:
+    // the button's own mousedown handler first, then 0.38's outsideClickDeselects
+    // (on by default, never set here) clearing the grid selection -- it is bound
+    // to document.documentElement, so it runs after the button's -- then the click
     click: function() {
+      toolbar['mousedown [data-action="sign-out-everywhere"]']();
+
       try {
         if (context.hot) {
           context.hot.deselect();
@@ -285,12 +288,12 @@ function loadSpreadsheet() {
         // A destroyed grid has had its listeners removed, so it deselects nothing
       }
 
-      toolbar['[data-action="sign-out-everywhere"]']();
+      toolbar['click [data-action="sign-out-everywhere"]']();
     },
     // Enter or Space on the focused button: a click with no mousedown, so
     // nothing deselects and the grid still reports what is selected
     keyboardClick: function() {
-      toolbar['[data-action="sign-out-everywhere"]']();
+      toolbar['click [data-action="sign-out-everywhere"]']();
     },
     button: function() {
       return { hidden: ui[GROUP].hidden, disabled: ui[BUTTON].disabled };
@@ -347,8 +350,8 @@ describe('Sign out everywhere, wired to the grid', function() {
   // DEV-2625 FUNC-002: with Shift and an arrow key the selection grew past one
   // row without the selection-END hook running. The button kept the range that
   // hook had last reported, stayed enabled, and offered to sign out the single
-  // user it had been on. afterSelection does run on every such step: 0.38's
-  // setRangeEnd always emits it, which is why the button now follows that hook.
+  // user it had been on. No hook fires here, so this holds whatever 0.38 reports
+  // while a range grows: the grown range is read from the grid on mousedown.
   it('sends nothing after Shift and an arrow key grow the selection past one row', function() {
     page.loadDetails(loginSource);
 
@@ -357,9 +360,8 @@ describe('Sign out everywhere, wired to the grid', function() {
     grid.select(1, 0, 1, 0);
     expect(page.button().disabled).toBe(false);
 
-    // Shift and Down: the range grows, and only afterSelection reports it
-    grid.extendSelection(1, 0, 2, 0, true);
-    expect(page.button().disabled).toBe(true);
+    // Shift and Down: the range grows, and no hook reports it
+    grid.extendSelection(1, 0, 2, 0);
 
     page.click();
 
@@ -368,10 +370,30 @@ describe('Sign out everywhere, wired to the grid', function() {
     });
   });
 
+  // The other side of the same mechanism: the row a mouse click acts on comes
+  // from the grid, read when the mouse went down, so the button works for a
+  // selection no hook ever reported
+  it('acts on the row the grid reported at mousedown, hooks or not', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    // One row selected, with no hook reporting it
+    grid.extendSelection(1, 0, 1, 0);
+
+    page.click();
+
+    return flush().then(function() {
+      var request = page.calls.filter(function(call) { return call.type === 'request'; });
+
+      expect(request).toHaveLength(1);
+      expect(JSON.stringify(request[0].data)).toBe(JSON.stringify({ dataSourceId: 34, entryId: 501 }));
+    });
+  });
+
   // The grid is asked before the snapshot, so a selection the hooks never
-  // reported is still refused. Only reachable without a mousedown, i.e. when
-  // the button is activated from the keyboard, because a mouse press on the
-  // toolbar deselects the grid before the click lands.
+  // reported is still refused on the keyboard path too, where no mousedown ran
+  // and nothing deselected the grid.
   it('sends nothing when the grid itself reports more than one row, hooks or not', function() {
     page.loadDetails(loginSource);
 
@@ -512,9 +534,9 @@ describe('Sign out everywhere, wired to the grid', function() {
     });
   });
 
-  // A grid can be replaced without the old one being destroyed first, which
-  // leaves the snapshot holding a selection the grid on screen never made
-  it('ignores a selection snapshot belonging to a grid that is no longer on screen', function() {
+  // A grid can be replaced without the old one being destroyed first. Neither
+  // reading is allowed to answer with the old grid's selection.
+  it('ignores a selection belonging to a grid that is no longer on screen', function() {
     page.loadDetails(loginSource);
 
     var gridA = page.openGrid(rows);

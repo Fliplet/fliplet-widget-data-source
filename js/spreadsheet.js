@@ -10,13 +10,14 @@ var signOutEverywhereSaving = false; // Set while the grid is being saved
 // The data source on screen, as far as "Sign out everywhere" is concerned:
 // { id, definition, usedByApp }. Set once its details have loaded.
 var signOutEverywhereDataSource = null;
-// The last selection the grid reported, with the grid it came from. The button
-// falls back to this when the grid reports nothing: pressing the mouse on a
-// toolbar button is a click outside #hot, and Handsontable's
+// What the grid had selected when the mouse went down on the button, with the
+// grid it was read from. The button falls back to this because pressing the
+// mouse on a toolbar button is a click outside #hot, and Handsontable's
 // outsideClickDeselects (on by default, never set here) clears the selection on
-// that mousedown, before the click handler runs. Refreshed by afterSelection,
-// so it follows a range as it grows; deliberately NOT cleared on deselect,
-// because the button would then have nothing left to act on.
+// that mousedown, before the click handler runs. Handsontable binds that
+// deselect to document.documentElement, so a handler on the button itself runs
+// first - which is why the selection is read here and not from the selection
+// hooks: the button never has to trust a hook to have reported a range.
 var signOutEverywhereSelection = { grid: null, selection: undefined, rangeCount: 0 };
 
 // eslint-disable-next-line no-unused-vars
@@ -669,15 +670,15 @@ function spreadsheet(options) {
       }
     },
     // A selection grows while it is being made (Shift and an arrow key, a drag):
-    // the button has to follow it, not only its end
+    // the button has to follow it, not only its end. Only how the button LOOKS
+    // depends on this: what it acts on is read from the grid again when the
+    // mouse goes down on it, so a step these hooks missed is still refused.
     afterSelection: function() {
-      captureSignOutEverywhereSelection();
       updateSignOutEverywhere();
     },
     afterSelectionEnd: function(r, c, r2, c2) {
       s = [r, c, r2, c2];
 
-      captureSignOutEverywhereSelection();
       updateSignOutEverywhere();
     },
     beforeKeyDown: function(event) {
@@ -1411,8 +1412,9 @@ var NO_SELECTION = { selection: undefined, rangeCount: 0 };
 
 /**
  * Take a snapshot of what the grid reports as selected, for the button to read
- * later. Called from the selection hooks, which run while a selection is still
- * being made, so the snapshot follows a range as it grows past one row.
+ * later. Called when the mouse goes down on the button, which is before
+ * Handsontable clears the selection, so the snapshot is the grid's own answer
+ * at that moment rather than whatever a hook last reported.
  * @returns {undefined}
  */
 function captureSignOutEverywhereSelection() {
@@ -1437,11 +1439,12 @@ function captureSignOutEverywhereSelection() {
 /**
  * Get the selection the "Sign out everywhere" button acts on.
  *
- * The grid on screen is asked first, so a selection that grew without any hook
- * reporting it is still seen and still refused. Only when the grid reports
- * nothing does the snapshot stand in: pressing the mouse on a toolbar button is
- * a click outside #hot, and that mousedown deselects before the click handler
- * runs, so without the fallback the button could never act on a mouse click.
+ * The grid on screen is asked first, which is the answer whenever the selection
+ * survived - the button activated from the keyboard, say. Only when the grid
+ * reports nothing does the snapshot stand in: pressing the mouse on a toolbar
+ * button is a click outside #hot, and that mousedown deselects before the click
+ * handler runs, so without the fallback the button could never act on a mouse
+ * click. Both readings come from the grid, never from a hook.
  * @returns {Object} { selection: Array|undefined, rangeCount: Number }
  */
 function getSignOutEverywhereSelection() {
@@ -1608,6 +1611,8 @@ $('#toolbar')
   .on('click', '[data-action="paste"]', function() {
     openOverlay();
   })
+  // Read the selection before Handsontable's own mousedown handler clears it
+  .on('mousedown', '[data-action="sign-out-everywhere"]', captureSignOutEverywhereSelection)
   .on('click', '[data-action="sign-out-everywhere"]', function() {
     var entryId = getSignOutEverywhereEntryId();
 
