@@ -290,6 +290,11 @@ function loadSpreadsheet() {
 
       toolbar['click [data-action="sign-out-everywhere"]']();
     },
+    // The mouse going down on the button with no click after it: the press was
+    // released somewhere else, or the grid was replaced while it was held
+    mousedown: function() {
+      toolbar['mousedown [data-action="sign-out-everywhere"]']();
+    },
     // Enter or Space on the focused button: a click with no mousedown, so
     // nothing deselects and the grid still reports what is selected
     keyboardClick: function() {
@@ -560,6 +565,111 @@ describe('Sign out everywhere, wired to the grid', function() {
     });
   });
 
+  // DEV-2625 C2: what the mousedown read answers that click and nothing after
+  // it. Once the click is done, both the button's state and the keyboard path
+  // follow the grid again.
+  it('follows the grid again once the click it was taken for is done', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+    page.click();
+
+    return flush().then(function() {
+      expect(page.calls.filter(function(call) { return call.type === 'request'; })).toHaveLength(1);
+
+      // The click deselected the grid, so nothing is selected to act on
+      expect(page.button().disabled).toBe(true);
+      expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
+
+      // ...and a second press sends nothing
+      page.click();
+
+      return flush();
+    }).then(function() {
+      expect(page.calls.filter(function(call) { return call.type === 'request'; })).toHaveLength(1);
+    });
+  });
+
+  it('does not let the keyboard act on the row an earlier mouse press was on', function() {
+    page.loadDetails(loginSource);
+    page.options.confirm = false;
+
+    var grid = page.openGrid(rows);
+
+    // Ann's row, pressed with the mouse and cancelled
+    grid.select(1, 0, 1, 0);
+    page.click();
+
+    return flush().then(function() {
+      // Enter on the button with nothing selected
+      page.keyboardClick();
+
+      return flush();
+    }).then(function() {
+      expect(page.calls.filter(function(call) { return call.type === 'request'; })).toHaveLength(0);
+      expect(page.calls.filter(function(call) { return call.type === 'confirm'; })).toHaveLength(1);
+    });
+  });
+
+  // A press that never became a click (the mouse was released off the button)
+  // must not outlive the selection it was taken from
+  it('drops a snapshot once a different row is selected', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    // Ann's row, with the mouse going down on the button but no click after it
+    grid.select(1, 0, 1, 0);
+    page.mousedown();
+
+    // Bob's row, then nothing selected at all
+    grid.select(2, 0, 2, 0);
+    grid.deselect();
+
+    expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
+    expect(page.button().disabled).toBe(true);
+
+    page.keyboardClick();
+
+    return flush().then(function() {
+      expect(page.calls).toHaveLength(0);
+    });
+  });
+
+  it('disables the button when the grid selection is cleared', function() {
+    page.loadDetails(loginSource);
+
+    var grid = page.openGrid(rows);
+
+    grid.select(1, 0, 1, 0);
+    expect(page.button().disabled).toBe(false);
+
+    grid.deselect();
+    expect(page.button().disabled).toBe(true);
+  });
+
+  // The check that a snapshot belongs to the grid on screen: the mouse went
+  // down on the button while grid A was up, no click followed, and grid B
+  // replaced A in place. Row 1 of B is a different user.
+  it('ignores a snapshot taken from a grid that is no longer on screen', function() {
+    page.loadDetails(loginSource);
+
+    var gridA = page.openGrid(rows);
+
+    gridA.select(1, 0, 1, 0);
+    page.mousedown();
+
+    page.openGrid([
+      { id: 701, data: { Email: 'eve@example.com', Name: 'Eve' } },
+      { id: 702, data: { Email: 'fay@example.com', Name: 'Fay' } }
+    ]);
+
+    expect(page.run('getSignOutEverywhereEntryId()')).toBe(undefined);
+    expect(page.button().disabled).toBe(true);
+  });
+
   it('stays disabled with unsaved changes, and a click then does nothing', function() {
     page.loadDetails(loginSource);
 
@@ -590,6 +700,11 @@ describe('Sign out everywhere, wired to the grid', function() {
     page.click();
     expect(page.calls).toHaveLength(0);
 
+    // The press deselected the grid, so select the row again: the button follows
+    // the grid, and the save is now the only thing holding it
+    grid.select(1, 0, 1, 0);
+    expect(page.button().disabled).toBe(true);
+
     page.run('table.onSaveComplete();');
     expect(page.button().disabled).toBe(false);
 
@@ -609,6 +724,11 @@ describe('Sign out everywhere, wired to the grid', function() {
 
     return flush().then(function() {
       expect(page.calls.filter(function(call) { return call.type === 'request'; })).toHaveLength(0);
+
+      // Nothing is selected after the press, so the button is disabled; the
+      // busy state cleared, which selecting a row again shows
+      expect(page.button().disabled).toBe(true);
+      grid.select(1, 0, 1, 0);
       expect(page.button().disabled).toBe(false);
     });
   });
@@ -627,6 +747,10 @@ describe('Sign out everywhere, wired to the grid', function() {
 
       expect(alerts).toHaveLength(1);
       expect(alerts[0].message).toBe('parsed: Not allowed');
+
+      // The busy state cleared: the row has to be selected again, as nothing is
+      expect(page.button().disabled).toBe(true);
+      grid.select(1, 0, 1, 0);
       expect(page.button().disabled).toBe(false);
     });
   });
@@ -645,6 +769,10 @@ describe('Sign out everywhere, wired to the grid', function() {
 
       expect(alerts).toHaveLength(1);
       expect(alerts[0].message).toBe('parsed: confirm broke');
+
+      // The busy state cleared: the row has to be selected again, as nothing is
+      expect(page.button().disabled).toBe(true);
+      grid.select(1, 0, 1, 0);
       expect(page.button().disabled).toBe(false);
     });
   });
