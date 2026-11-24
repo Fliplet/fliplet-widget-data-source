@@ -115,6 +115,30 @@ var SignOutEverywhere = (function() {
   }
 
   /**
+   * Read the grid's current selection, whatever shape its version returns:
+   * one range as [row, col, row2, col2], or a list of such ranges.
+   *
+   * DEV-2625 FUNC-002: the button used to act on the range a selection hook
+   * had reported earlier. Extending the selection with Shift and an arrow key
+   * left that copy behind, so the button stayed enabled for a selection that
+   * had grown past one row and signed out the row it had been on. The grid is
+   * the only thing that knows what is selected now, so it is asked each time.
+   * @param {Array} [selected] - What the grid's getSelected() returned
+   * @returns {Object} { selection: Array|undefined, rangeCount: Number }
+   */
+  function readSelection(selected) {
+    if (!Array.isArray(selected) || !selected.length) {
+      return { selection: undefined, rangeCount: 0 };
+    }
+
+    if (Array.isArray(selected[0])) {
+      return { selection: selected[selected.length - 1], rangeCount: selected.length };
+    }
+
+    return { selection: selected, rangeCount: 1 };
+  }
+
+  /**
    * Find the selected entry, if the selection is exactly one saved row.
    * @param {Object} options - Selection details
    * @param {Array} options.selection - Last selected range as [row, col, row2, col2], visual indexes
@@ -276,6 +300,7 @@ var SignOutEverywhere = (function() {
     isUsedByApp: isUsedByApp,
     getLoginColumn: getLoginColumn,
     getState: getState,
+    readSelection: readSelection,
     getSelectedEntryId: getSelectedEntryId,
     getMessage: getMessage,
     run: run
