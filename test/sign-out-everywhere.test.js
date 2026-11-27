@@ -82,10 +82,128 @@ describe('SignOutEverywhere.isLoginDataSource', function() {
     expect(SignOutEverywhere.isUsedByApp({ appId: 12 }, undefined)).toBe(false);
   });
 
-  it('names the login column', function() {
-    expect(SignOutEverywhere.getLoginColumn(emailLogin)).toBe('Email');
-    expect(SignOutEverywhere.getLoginColumn(columnsLogin)).toBe('Username');
-    expect(SignOutEverywhere.getLoginColumn({})).toBeUndefined();
+});
+
+describe('SignOutEverywhere.getLabelColumns', function() {
+  it('names an email login by its match column', function() {
+    expect(SignOutEverywhere.getLabelColumns(emailLogin)).toEqual(['Email']);
+  });
+
+  it('names a columns login by every login column, in either order (FUNC-006)', function() {
+    expect(SignOutEverywhere.getLabelColumns(columnsLogin)).toEqual(['Username', 'Email']);
+    expect(SignOutEverywhere.getLabelColumns({ login: { columns: ['PIN', 'Username'] } })).toEqual(['PIN', 'Username']);
+  });
+
+  it('leaves out a column a hook hashes', function() {
+    var hooks = [
+      { type: 'operations', payload: { Password: ['hash'] } },
+      { type: 'other', payload: { Username: ['hash'] } }
+    ];
+
+    expect(SignOutEverywhere.getLabelColumns({ login: { columns: ['Password', 'Username'] } }, hooks)).toEqual(['Username']);
+  });
+
+  it('leaves out the email-validation password column', function() {
+    var definition = {
+      validation: { email: { passwordColumn: 'Secret' } },
+      login: { columns: ['Secret', 'Username', 'Username'] }
+    };
+
+    expect(SignOutEverywhere.getLabelColumns(definition)).toEqual(['Username']);
+  });
+
+  it('names nothing for a data source that is not a login store', function() {
+    expect(SignOutEverywhere.getLabelColumns({})).toEqual([]);
+    expect(SignOutEverywhere.getLabelColumns()).toEqual([]);
+  });
+});
+
+describe('SignOutEverywhere.getUserLabel', function() {
+  it('joins the row values that are set', function() {
+    var row = { PIN: 4417, Username: ' alice ', Email: '' };
+
+    expect(SignOutEverywhere.getUserLabel(['PIN', 'Username', 'Email', 'Missing'], function(column) {
+      return row[column];
+    })).toBe('4417 · alice');
+  });
+
+  it('gives an empty label when nothing is set', function() {
+    expect(SignOutEverywhere.getUserLabel(['PIN'], function() { return null; })).toBe('');
+    expect(SignOutEverywhere.getUserLabel([], function() { return 'x'; })).toBe('');
+  });
+});
+
+describe('SignOutEverywhere.findAppsUsing', function() {
+  function stubList(list, error) {
+    var calls = [];
+
+    return {
+      calls: calls,
+      DataSources: {
+        get: function(query, options) {
+          calls.push({ query: query, options: options });
+
+          return error ? Promise.reject(error) : Promise.resolve(list);
+        }
+      }
+    };
+  }
+
+  // What getById answers once the API has cached access: no apps
+  var shared = { id: 34, appId: 99, definition: emailLogin };
+
+  it('reads the apps from the listed entry when getById left them out (FUNC-007)', function() {
+    var Fliplet = stubList([]);
+
+    return SignOutEverywhere.findAppsUsing({
+      Fliplet: Fliplet,
+      appId: 12,
+      dataSource: shared,
+      listed: [{ id: 33, apps: [] }, { id: 34, appId: 99, apps: [{ id: 99 }, { id: 12 }] }]
+    }).then(function(apps) {
+      expect(apps).toEqual([{ id: 99 }, { id: 12 }]);
+      expect(Fliplet.calls).toHaveLength(0);
+    });
+  });
+
+  it('fetches the app\'s list when the manager opened straight on the data source', function() {
+    var Fliplet = stubList([{ id: 34, appId: 99, apps: [{ id: 12 }] }]);
+
+    return SignOutEverywhere.findAppsUsing({ Fliplet: Fliplet, appId: 12, dataSource: shared }).then(function(apps) {
+      expect(apps).toEqual([{ id: 12 }]);
+      expect(Fliplet.calls).toHaveLength(1);
+      expect(Fliplet.calls[0].query.appId).toBe(12);
+      expect(Fliplet.calls[0].query.includeInUse).toBe(true);
+      expect(Fliplet.calls[0].options).toEqual({ cache: false });
+    });
+  });
+
+  it('answers nothing for a data source the app does not use', function() {
+    return Promise.all([
+      SignOutEverywhere.findAppsUsing({ Fliplet: stubList([]), appId: 12, dataSource: shared, listed: [{ id: 34, apps: [{ id: 77 }] }] }),
+      SignOutEverywhere.findAppsUsing({ Fliplet: stubList([{ id: 35, apps: [{ id: 12 }] }]), appId: 12, dataSource: shared })
+    ]).then(function(results) {
+      expect(results).toEqual([undefined, undefined]);
+    });
+  });
+
+  it('does not look anything up when getById already shows the app', function() {
+    var Fliplet = stubList([]);
+
+    return Promise.all([
+      SignOutEverywhere.findAppsUsing({ Fliplet: Fliplet, appId: 12, dataSource: { id: 34, appId: 12 } }),
+      SignOutEverywhere.findAppsUsing({ Fliplet: Fliplet, appId: 12, dataSource: { id: 34, appId: 99, apps: [{ id: 12 }] } }),
+      SignOutEverywhere.findAppsUsing({ Fliplet: Fliplet, dataSource: shared })
+    ]).then(function(results) {
+      expect(results).toEqual([undefined, undefined, undefined]);
+      expect(Fliplet.calls).toHaveLength(0);
+    });
+  });
+
+  it('never rejects when the list cannot be read', function() {
+    return SignOutEverywhere.findAppsUsing({ Fliplet: stubList(null, new Error('offline')), appId: 12, dataSource: shared }).then(function(apps) {
+      expect(apps).toBeUndefined();
+    });
   });
 });
 
@@ -213,7 +331,7 @@ describe('SignOutEverywhere.run', function() {
 
     return run(Fliplet, { userLabel: 'jane@example.com' }).then(function(response) {
       expect(Fliplet.calls.confirm).toHaveLength(1);
-      expect(Fliplet.calls.confirm[0].message.indexOf('<strong>jane@example.com</strong>') > -1).toBe(true);
+      expect(Fliplet.calls.confirm[0].message.indexOf('Sign <strong>jane@example.com</strong> (entry ID <strong>345</strong>) out') === 0).toBe(true);
       expect(Fliplet.calls.request).toEqual([{
         method: 'POST',
         url: 'v1/apps/12/sessions/revoke',
@@ -238,7 +356,7 @@ describe('SignOutEverywhere.run', function() {
     var Fliplet = stubFliplet({ response: { sessionsEnded: 0, complete: true } });
 
     return run(Fliplet).then(function() {
-      expect(Fliplet.calls.confirm[0].message.indexOf('Sign this user out') === 0).toBe(true);
+      expect(Fliplet.calls.confirm[0].message.indexOf('Sign the user in entry ID <strong>345</strong> out') === 0).toBe(true);
     });
   });
 
