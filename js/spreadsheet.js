@@ -8,7 +8,7 @@ var s = [1, 0, 1, 0]; // Stores current selection to use for toolbar
 var signOutEverywhereBusy = false; // Set while a "Sign out everywhere" request runs
 var signOutEverywhereSaving = false; // Set while the grid is being saved
 // The data source on screen, as far as "Sign out everywhere" is concerned:
-// { id, definition, usedByApp }. Set once its details have loaded.
+// { id, definition, hooks, usedByApp }. Set once its details have loaded.
 var signOutEverywhereDataSource = null;
 // What the grid had selected when the mouse went down on the button, with the
 // grid it was read from. The button falls back to this because pressing the
@@ -1570,6 +1570,7 @@ function setSignOutEverywhereDataSource(dataSource) {
     ? {
       id: dataSource.id,
       definition: dataSource.definition,
+      hooks: dataSource.hooks,
       usedByApp: SignOutEverywhere.isUsedByApp(dataSource, widgetData.appId)
     }
     : null;
@@ -1655,12 +1656,15 @@ $('#toolbar')
     var userLabel;
 
     try {
-      var loginColumn = SignOutEverywhere.getLoginColumn(signOutEverywhereDataSource.definition);
-      var loginColumnIndex = loginColumn ? hot.getDataAtRow(0).indexOf(loginColumn) : -1;
-
+      var labelColumns = SignOutEverywhere.getLabelColumns(signOutEverywhereDataSource.definition, signOutEverywhereDataSource.hooks);
+      var header = hot.getDataAtRow(0);
       var selectedRow = selected.selection[0];
 
-      userLabel = loginColumnIndex > -1 ? hot.getDataAtCell(selectedRow, loginColumnIndex) : undefined;
+      userLabel = SignOutEverywhere.getUserLabel(labelColumns, function(column) {
+        var index = header.indexOf(column);
+
+        return index > -1 ? hot.getDataAtCell(selectedRow, index) : undefined;
+      });
     } catch (e) {
       // The confirmation falls back to "this user"
     }

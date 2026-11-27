@@ -58,26 +58,154 @@ var SignOutEverywhere = (function() {
   }
 
   /**
-   * The column that holds the login value, used to name the user in the confirmation.
-   * @param {Object} definition - Data source definition
-   * @returns {String|undefined} Column name
+   * Find the apps that use a data source the app does not own.
+   *
+   * DEV-2625 FUNC-007: the manager's details come from getById, whose answer
+   * leaves out `apps` once the API has cached the user's access to the data
+   * source. A source owned by another app then looked unused, and the button
+   * was missing. The data source list is built with the apps that use each
+   * source every time, so its entry is read instead, or the list for the app
+   * is fetched when the manager opened straight on the data source.
+   * @param {Object} options - Lookup details
+   * @param {Object} options.Fliplet - Fliplet SDK
+   * @param {Number} [options.appId] - App the manager was opened for
+   * @param {Object} options.dataSource - Data source as getById returned it
+   * @param {Array} [options.listed] - Data sources the manager has listed, if it has
+   * @returns {Promise} Resolves with the data source's apps when the list adds
+   *   to what getById said, otherwise undefined. Never rejects.
    */
-  function getLoginColumn(definition) {
-    if (!isLoginDataSource(definition)) {
-      return;
+  function findAppsUsing(options) {
+    var dataSource = options.dataSource;
+    var appId = options.appId;
+
+    if (!dataSource || !appId || isUsedByApp(dataSource, appId)) {
+      return Promise.resolve();
     }
 
-    var validation = definition.validation;
-    var matchColumn = validation && validation.email && validation.email.matchColumn;
+    function findIn(list) {
+      return (Array.isArray(list) ? list : []).filter(function(item) {
+        return !!item && item.id === dataSource.id;
+      })[0];
+    }
+
+    var listed = findIn(options.listed);
+
+    return Promise.resolve().then(function() {
+      if (listed) {
+        return listed;
+      }
+
+      return options.Fliplet.DataSources.get({
+        roles: 'publisher,editor',
+        appId: appId,
+        includeInUse: true,
+        attributes: 'id,appId,apps',
+        type: null
+      }, {
+        cache: false
+      }).then(findIn);
+    }).then(function(entry) {
+      var apps = (Array.isArray(dataSource.apps) ? dataSource.apps : []).concat(entry && Array.isArray(entry.apps) ? entry.apps : []);
+
+      if (!isUsedByApp({ apps: apps }, appId)) {
+        return;
+      }
+
+      var seen = {};
+
+      return apps.filter(function(app) {
+        if (!app || seen[app.id]) {
+          return false;
+        }
+
+        seen[app.id] = true;
+
+        return true;
+      });
+    }).catch(function() {
+      // The button stays hidden, as it was before the lookup
+    });
+  }
+
+  /**
+   * Columns a hook hashes, which hold a secret rather than who the user is.
+   * The same rule as the API's DataSource#getHashedFields.
+   * @param {Array} [hooks] - Data source hooks
+   * @returns {Array} Column names
+   */
+  function getHashedColumns(hooks) {
+    var columns = [];
+
+    (Array.isArray(hooks) ? hooks : []).forEach(function(hook) {
+      if (!hook || hook.type !== 'operations' || !hook.payload || typeof hook.payload !== 'object') {
+        return;
+      }
+
+      Object.keys(hook.payload).forEach(function(column) {
+        var operations = hook.payload[column];
+
+        if (Array.isArray(operations) && operations.indexOf('hash') !== -1 && columns.indexOf(column) === -1) {
+          columns.push(column);
+        }
+      });
+    });
+
+    return columns;
+  }
+
+  /**
+   * The columns that name the user in the confirmation.
+   *
+   * DEV-2625 FUNC-006: this used to be the first of `definition.login.columns`.
+   * That order is a convention only - sign-in sorts the columns - so a source
+   * listed as ['PIN', 'Username'] named every user by their PIN, and two users
+   * who share it looked the same. The API matches a session on every login
+   * column that is not a secret (routes/v1/apps-sessions.js
+   * getIdentityColumns), so the confirmation shows those same columns.
+   * @param {Object} definition - Data source definition
+   * @param {Array} [hooks] - Data source hooks
+   * @returns {Array} Column names, empty when there are none to show
+   */
+  function getLabelColumns(definition, hooks) {
+    if (!isLoginDataSource(definition)) {
+      return [];
+    }
+
+    var emailValidation = definition.validation && definition.validation.email;
+    var matchColumn = emailValidation && emailValidation.matchColumn;
 
     if (typeof matchColumn === 'string' && matchColumn) {
-      return matchColumn;
+      return [matchColumn];
+    }
+
+    var secrets = getHashedColumns(hooks);
+    var passwordColumn = emailValidation && emailValidation.passwordColumn;
+
+    if (passwordColumn) {
+      secrets.push(passwordColumn);
     }
 
     var columns = definition.login && definition.login.columns;
-    var first = Array.isArray(columns) ? columns[0] : undefined;
 
-    return typeof first === 'string' && first ? first : undefined;
+    return (Array.isArray(columns) ? columns : []).filter(function(column, index, list) {
+      return typeof column === 'string' && column
+        && secrets.indexOf(column) === -1
+        && list.indexOf(column) === index;
+    });
+  }
+
+  /**
+   * Name the user from the values of their row in the label columns.
+   * @param {Array} columns - Label columns, from getLabelColumns()
+   * @param {Function} getValue - Returns the row's value of a column
+   * @returns {String} Non-empty values joined, or an empty string
+   */
+  function getUserLabel(columns, getValue) {
+    return (columns || []).map(function(column) {
+      var value = getValue(column);
+
+      return value === undefined || value === null ? '' : String(value).trim();
+    }).filter(Boolean).join(' · ');
   }
 
   function escapeHtml(value) {
@@ -192,7 +320,7 @@ var SignOutEverywhere = (function() {
    * @param {Number} options.appId - App to end the sessions in
    * @param {Number} options.dataSourceId - Login data source
    * @param {Number} options.entryId - Row of the user to sign out
-   * @param {String} [options.userLabel] - Login value of the row, to name the user in the confirmation
+   * @param {String} [options.userLabel] - Login values of the row, to name the user in the confirmation
    * @returns {Promise} Resolves with the API response, or undefined when cancelled or failed. Never rejects.
    */
   function run(options) {
@@ -276,7 +404,9 @@ var SignOutEverywhere = (function() {
 
   function confirmAndRequest(Fliplet, options) {
     var label = options.userLabel === undefined || options.userLabel === null ? '' : String(options.userLabel).trim();
-    var who = label ? '<strong>' + escapeHtml(label) + '</strong>' : 'this user';
+    // The entry ID tells apart two users whose shown values are the same
+    var entry = 'entry ID <strong>' + escapeHtml(options.entryId) + '</strong>';
+    var who = label ? '<strong>' + escapeHtml(label) + '</strong> (' + entry + ')' : 'the user in ' + entry;
 
     return Fliplet.Modal.confirm({
       title: 'Sign out everywhere',
@@ -298,7 +428,9 @@ var SignOutEverywhere = (function() {
   return {
     isLoginDataSource: isLoginDataSource,
     isUsedByApp: isUsedByApp,
-    getLoginColumn: getLoginColumn,
+    findAppsUsing: findAppsUsing,
+    getLabelColumns: getLabelColumns,
+    getUserLabel: getUserLabel,
     getState: getState,
     readSelection: readSelection,
     getSelectedEntryId: getSelectedEntryId,

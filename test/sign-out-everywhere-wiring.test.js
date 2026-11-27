@@ -472,6 +472,51 @@ describe('Sign out everywhere, wired to the grid', function() {
     });
   });
 
+  it('tells apart two users who share the first login column (FUNC-006)', function() {
+    // Login columns listed with the shared value first, as ['PIN', 'Username'] was
+    page.loadDetails({ id: 34, appId: 12, apps: [], definition: { login: { columns: ['Name', 'Email'] } } });
+
+    var grid = page.openGrid([
+      { id: 501, data: { Email: 'ann@example.com', Name: '4417' } },
+      { id: 502, data: { Email: 'bob@example.com', Name: '4417' } }
+    ]);
+
+    grid.select(1, 0, 1, 0);
+    page.click();
+
+    return flush().then(function() {
+      grid.select(2, 0, 2, 0);
+      page.click();
+
+      return flush();
+    }).then(function() {
+      var confirm = page.calls.filter(function(call) { return call.type === 'confirm'; });
+
+      expect(confirm).toHaveLength(2);
+      expect(confirm[0].message.indexOf('Sign <strong>4417 · ann@example.com</strong> (entry ID <strong>501</strong>) out') === 0).toBe(true);
+      expect(confirm[1].message.indexOf('Sign <strong>4417 · bob@example.com</strong> (entry ID <strong>502</strong>) out') === 0).toBe(true);
+    });
+  });
+
+  it('does not show a hashed login column in the confirmation', function() {
+    page.loadDetails({
+      id: 34,
+      appId: 12,
+      apps: [],
+      definition: { login: { columns: ['Name', 'Email'] } },
+      hooks: [{ type: 'operations', payload: { Name: ['hash'] } }]
+    });
+
+    page.openGrid(rows).select(2, 0, 2, 0);
+    page.click();
+
+    return flush().then(function() {
+      var confirm = page.calls.filter(function(call) { return call.type === 'confirm'; });
+
+      expect(confirm[0].message.indexOf('Sign <strong>bob@example.com</strong> (entry ID <strong>502</strong>) out') === 0).toBe(true);
+    });
+  });
+
   it('never reads a destroyed grid, so loading the next data source does not fail', function() {
     page.loadDetails(loginSource);
 

@@ -1,4 +1,4 @@
-/* global EntryDiff, CommitNotice, setSignOutEverywhereDataSource */
+/* global EntryDiff, CommitNotice, SignOutEverywhere, setSignOutEverywhereDataSource */
 var $initialSpinnerLoading = $('.spinner-holder');
 var $contents = $('#contents');
 var $sourceContents = $('#source-contents');
@@ -262,6 +262,28 @@ function renderError(options) {
   });
 }
 
+/**
+ * Show "Sign out everywhere" for a data source the app uses but does not own,
+ * once the apps that use it are known (DEV-2625 FUNC-007).
+ * @param {Object} dataSource - Data source as getById returned it
+ * @returns {Promise} Never rejects
+ */
+function checkSignOutEverywhereAppUse(dataSource) {
+  return SignOutEverywhere.findAppsUsing({
+    Fliplet: Fliplet,
+    appId: widgetData.appId,
+    dataSource: dataSource,
+    listed: allDataSources
+  }).then(function(apps) {
+    // Another data source may have been opened meanwhile
+    if (!apps || String(currentDataSourceId) !== String(dataSource.id)) {
+      return;
+    }
+
+    setSignOutEverywhereDataSource(_.assign({}, dataSource, { apps: apps }));
+  });
+}
+
 function fetchCurrentDataSourceDetails() {
   definitionEditor.setValue('');
   hooksEditor.setValue('');
@@ -277,6 +299,7 @@ function fetchCurrentDataSourceDetails() {
     currentFinalRules = dataSource.accessRules;
     currentDataSourceDefinition = dataSource.definition || {};
     setSignOutEverywhereDataSource(dataSource);
+    checkSignOutEverywhereAppUse(dataSource);
 
     if (dataSource.apps && dataSource.apps.length > 0) {
       dataSourceIsLive = _.some(dataSource.apps, function(app) {
