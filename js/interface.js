@@ -2245,6 +2245,12 @@ function configureAddRuleUI(rule) {
       $('input[name="type"][value="' + type + '"]').prop('checked', true);
     });
 
+    // Apply Read→Count dependency after loading
+    if (rule.type.indexOf('select') !== -1) {
+      $('#chk-count').prop('checked', true);
+      $('#chk-count').prop('disabled', true);
+    }
+
     if (rule.allow) {
       if (typeof rule.allow === 'string') {
         $('[data-allow="' + rule.allow + '"]').click();
@@ -2333,6 +2339,16 @@ function configureAddRuleUI(rule) {
 
 function updateSaveRuleValidation() {
   var types = [];
+  var $selectCheckbox = $('#chk-select');
+  var $countCheckbox = $('#chk-count');
+
+  // Handle Read→Count dependency: select implies count
+  if ($selectCheckbox.is(':checked')) {
+    $countCheckbox.prop('checked', true);
+    $countCheckbox.prop('disabled', true);
+  } else {
+    $countCheckbox.prop('disabled', false);
+  }
 
   $typeCheckbox.filter(':checked').each(function() {
     types.push($(this).val());
@@ -2551,6 +2567,9 @@ $('#show-access-rules').click(function() {
             case 'delete':
               description = 'Delete';
               break;
+            case 'count':
+              description = 'Count';
+              break;
             default:
               break;
           }
@@ -2717,7 +2736,14 @@ $('[data-save-rule]').click(function(event) {
     rule = { type: [] };
 
     $typeCheckbox.filter(':checked').each(function() {
-      rule.type.push($(this).val());
+      var val = $(this).val();
+
+      // Don't save 'count' if 'select' is present (select implies count)
+      if (val === 'count' && rule.type.indexOf('select') !== -1) {
+        return; // skip
+      }
+
+      rule.type.push(val);
     });
 
     var $allow = $('.selected[data-allow]');
